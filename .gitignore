@@ -35,3 +35,9 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Agent ###
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/

@@ -11,11 +11,11 @@
 
 - **Step Goal**: platform-owner가 Spring Boot 4 + Modulith 기반 platform-svc 프로젝트를 생성하여 4개 모듈 골격이 동작한다.
 - **Done When**:
-  - [ ] Spring Boot 4 + Modulith 프로젝트 초기화 완료
-  - [ ] auth / billing / notification / audit 4개 모듈 패키지 구조 생성
-  - [ ] `./gradlew build` 성공
-  - [ ] Modulith 구조 검증 테스트 통과 (`ApplicationModulesTest`)
-  - [ ] Docker 이미지 빌드 성공
+  - [x] Spring Boot 4 + Modulith 프로젝트 초기화 완료
+  - [x] auth / billing / notification / audit 4개 모듈 패키지 구조 생성
+  - [x] `./gradlew build` 성공
+  - [x] Modulith 구조 검증 테스트 통과 (`ApplicationModulesTest`)
+  - [x] Docker 이미지 빌드 성공
 - **Scope**:
   - In Scope:
     - Spring Boot 4 + Modulith 프로젝트 생성

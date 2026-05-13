@@ -1,6 +1,6 @@
 # TASK: @platform-owner
 
-> **담당 서비스**: platform-svc (auth / user / notification / admin)  
+> **담당 서비스**: platform-svc (auth / billing / notification / audit)  
 > **GitHub Repository**: [synapse-platform-svc](https://github.com/team-project-final/synapse-platform-svc)  
 > **주차**: W1 (2026-05-12 ~ 2026-05-16)  
 > **관련 문서**: [SCOPE](../scope/SCOPE_platform.md) | [PRD_W1](../prd/PRD_W1.md) | [WORKFLOW](../workflow/WORKFLOW_platform_W1.md) | [HISTORY](../history/HISTORY_platform.md)
@@ -12,14 +12,14 @@
 - **Step Goal**: platform-owner가 Spring Boot 4 + Modulith 기반 platform-svc 프로젝트를 생성하여 4개 모듈 골격이 동작한다.
 - **Done When**:
   - [ ] Spring Boot 4 + Modulith 프로젝트 초기화 완료
-  - [ ] auth / user / notification / admin 4개 모듈 패키지 구조 생성
+  - [ ] auth / billing / notification / audit 4개 모듈 패키지 구조 생성
   - [ ] `./gradlew build` 성공
   - [ ] Modulith 구조 검증 테스트 통과 (`ApplicationModulesTest`)
   - [ ] Docker 이미지 빌드 성공
 - **Scope**:
   - In Scope:
     - Spring Boot 4 + Modulith 프로젝트 생성
-    - 4개 모듈 패키지 구조 (auth, user, notification, admin)
+    - 4개 모듈 패키지 구조 (auth, billing, notification, audit)
     - build.gradle 의존성 설정
     - ApplicationModulesTest 작성
     - Dockerfile 작성
@@ -31,7 +31,7 @@
 - **Instructions**:
   1. Spring Initializr로 프로젝트 생성 (Spring Boot 4, Java 21, Gradle)
   2. Modulith 의존성 추가 (spring-modulith-starter, spring-modulith-test)
-  3. auth / user / notification / admin 패키지 생성 + package-info.java
+  3. auth / billing / notification / audit 패키지 생성 + package-info.java
   4. 각 모듈에 빈 Controller + Service 클래스 생성
   5. ApplicationModulesTest 작성 및 통과 확인
   6. Dockerfile 작성 (multi-stage build)
@@ -46,7 +46,7 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Status**: ✅ Done (2026-05-13)
 
 ---
 
@@ -90,7 +90,7 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Status**: 🔄 In Progress (2026-05-13~)
 
 ---
 
@@ -178,7 +178,7 @@
   6. checkout.session.completed → 구독 활성화 로직
   7. 구독 상태 조회 API (`GET /subscriptions/me`)
   8. 통합 테스트 (Stripe Test Mode)
-- **Output Format**: auth 모듈 결제 코드 + Flyway 마이그레이션 + 테스트 코드
+- **Output Format**: billing 모듈 결제 코드 + Flyway 마이그레이션 + 테스트 코드
 - **Constraints**:
   - Stripe Test Mode 사용 (dev/staging)
   - Webhook 서명 검증 필수 (replay attack 방지)
@@ -366,7 +366,7 @@
   5. 테넌트 목록 조회 API (페이징)
   6. 테넌트 정지 API (소속 사용자 일괄 정지)
   7. 통합 테스트 작성 (관리자/비관리자 시나리오)
-- **Output Format**: admin 모듈 관리 코드 + 테스트 코드
+- **Output Format**: auth 모듈 관리 코드 + 테스트 코드
 - **Constraints**:
   - 관리자 권한(ADMIN role) 필수
   - 사용자 삭제 시 개인정보 마스킹 (GDPR 준수)

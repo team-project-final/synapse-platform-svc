@@ -68,9 +68,17 @@
   - docs/rules/13-git-rules.md 추가 (브랜치 전략, 커밋, PR 정책)
   - 브랜치 정리: feature/* → chore/PLAT-001, chore/PLAT-002
   - PR #3, #4 → dev merge 완료 / **Step 1 완료**
-- **진행 중**: Step 2 브랜치 생성 (feature/PLAT-003-oauth-google-github)
+  - Step 2 브랜치 생성 (`feature/PLAT-004-oauth`)
+  - OAuth 샘플링 완료 — A안 채택 (userId redirect, JWT는 Step 3에서 추가)
+  - `application.properties` → `application.yml` 전환 + `spring.application.name=synapse-platform-svc`
+  - Dockerfile / docker-compose.yml 포트 8080 → 8081 수정
+  - `docs/ai/current/TASK.md` Step 2 내용으로 작성
+  - `docs/ai/templates/` 폴더 분리 (템플릿 vs 실제 작업 문서 구조 개선)
+  - `docs/sampling/OAuth/` OAuth 샘플링 문서 추가
+  - `docs/platform-owner__platform-svc-workflow-guide.html` 워크플로우 가이드 확인
+- **진행 중**: Step 2 분석 단계 (10단계 워크플로 ①②③ 완료)
 - **이슈**: 없음
-- **다음**: Google/GitHub OAuth 구현 시작
+- **다음**: Step 2 설계 단계 (CONTEXT.md 작성 → HANDOFF.md → Worker 구현)
 
 #### 2026-05-14 (목)
 - **완료**:

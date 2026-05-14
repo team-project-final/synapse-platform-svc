@@ -1,84 +1,77 @@
-# TASK — Step 2-fix: 룰북 준수 수정
+# TASK — Step 3: JWT + MFA 기초
 
-> 출처: Director 직접 작성 (룰북 점검 결과 기반)
+> 출처: TASK_platform.md Step 3
 
 ## 상태
 
-- Phase: 구현 완료
-- 담당 Agent: Worker (Codex)
+- Phase: 분석
+- 담당 Agent: Director
 - 시작일: 2026-05-14
-- 목표 완료일: 2026-05-14
+- 목표 완료일: 2026-05-16
 
 ---
 
 ## Step Goal
 
-Step 2 OAuth 구현 코드가 프로젝트 룰북([MUST] 7건, [SHOULD] 3건)을 모두 준수한다.
+인증된 사용자에게 JWT Access/Refresh Token을 발급하고, MFA(TOTP) 등록 기초가 동작한다.
 
 ## Done When
 
-- [x] URI prefix: `/auth/callback` → `/api/v1/auth/callback`
-- [x] OAuth2SuccessHandler, OAuth2FailureHandler redirect 경로 동일하게 수정
-- [x] SecurityConfig permitAll 경로 수정
-- [x] 관련 테스트 URI 전체 수정 (기존 25건 유지)
-- [x] GlobalExceptionHandler (RFC 7807) 생성
-- [x] BusinessException 추상 계층 + OAuthProcessingException 예시 생성
-- [x] User 엔티티 `@SQLRestriction("deleted_at IS NULL")` 추가
-- [x] CorsConfig 생성 + application.yml cors 설정
-- [x] `@Transactional(propagation = Propagation.REQUIRED)` 명시
-- [x] Checkstyle + SpotBugs 플러그인 추가 (기존 위반은 suppression 격리)
-- [x] application-dev.yml, application-prod.yml 생성
-- [x] logback-spring.xml JSON 구조화 로깅 설정
-- [x] `./gradlew build` 성공
+- [ ] OAuth 로그인 성공 시 JWT Access Token (15분) 발급
+- [ ] Refresh Token (7일) 발급 + Redis 저장
+- [ ] Access Token 만료 시 Refresh Token으로 갱신 (`POST /api/v1/auth/refresh`)
+- [ ] MFA(TOTP) 시크릿 생성 + QR 코드 URL 반환 (`POST /api/v1/auth/mfa/setup`)
+- [ ] TOTP 코드 검증 API 동작 (`POST /api/v1/auth/mfa/verify`)
+- [ ] Security Filter에 JWT 검증 추가
+- [ ] 단위/통합 테스트 통과
 
 ## Scope
 
 - In Scope:
-  - 위 Done When 항목 전체
-  - 기존 테스트 URI 수정 (신규 테스트 추가는 선택)
-  - Checkstyle/SpotBugs config 파일 생성 (suppression 포함)
+  - JWT Access/Refresh Token 발급 로직
+  - Refresh Token Redis 저장/조회/삭제
+  - Token 갱신 API (`POST /api/v1/auth/refresh`)
+  - TOTP 시크릿 생성 (`POST /api/v1/auth/mfa/setup`)
+  - TOTP 검증 API (`POST /api/v1/auth/mfa/verify`)
+  - Security Filter JWT 검증
+  - 단위/통합 테스트
 - Out of Scope:
-  - Step 3 JWT/MFA 관련 코드 신규 작성
-  - 기존 Checkstyle 위반의 전수 수정 (suppression으로 격리)
-  - DB 마이그레이션 추가
+  - MFA 강제 적용 정책
+  - Token 블랙리스트 (W2)
+  - SMS/이메일 MFA
 
 ## Input
 
-- `docs/ai/current/HANDOFF.md` — 상세 구현 스펙
-- `docs/ai/current/CONTEXT.md` — 제약 및 위반 목록
-- `docs/rules/` — 룰북 참조
+JWT 라이브러리 (jjwt), TOTP 라이브러리 (GoogleAuth), Redis 접속 정보
 
 ## Instructions
 
-1. URI prefix 변경: `AuthCallbackController`, `SecurityConfig`, `OAuth2SuccessHandler`, `OAuth2FailureHandler`
-2. 관련 테스트 URI 수정
-3. `shared/exception/` 패키지: `BusinessException`, `GlobalExceptionHandler` 생성
-4. `auth/exception/` 패키지: `OAuthProcessingException` 생성
-5. `User.java` — `@SQLRestriction` 추가
-6. `CorsConfig.java` 생성 + `application.yml` cors 설정
-7. `CustomOAuth2UserService` — propagation 명시
-8. `build.gradle.kts` — Checkstyle + SpotBugs 플러그인 + suppression 설정
-9. `application-dev.yml`, `application-prod.yml` 생성
-10. `logback-spring.xml` 생성 + `logstash-logback-encoder` 의존성 추가
-11. `./gradlew build` 확인
+1. JWT 유틸리티 클래스 구현 (생성, 파싱, 검증)
+2. Access Token 발급 로직 (claims: userId, roles, exp=15min)
+3. Refresh Token 발급 + Redis 저장 (key: userId, TTL: 7d)
+4. Token 갱신 엔드포인트 구현 (`POST /api/v1/auth/refresh`)
+5. TOTP 시크릿 생성 + QR 코드 URL 생성 API
+6. TOTP 코드 검증 API 구현
+7. Security Filter에 JWT 검증 추가
+8. 단위 테스트 + 통합 테스트 작성
 
 ## Output Format
 
-수정/생성 파일 목록 + 테스트 결과 + Checkstyle/SpotBugs 결과
+auth 모듈 JWT/MFA 코드 + Redis 설정 + 테스트 코드
 
 ## Constraints
 
-- CORS: `*` 절대 금지, 화이트리스트만
+- Access Token: 15분, Refresh Token: 7일
+- Refresh Token은 Redis에만 저장 (DB 저장 X)
+- TOTP는 RFC 6238 준수
+- JWT 서명: RS256
 - URI: `/api/v1/` prefix 필수
-- RFC 7807 에러 코드 prefix: `PLAT-xxx`
-- Checkstyle: 신규 파일 위반 0건 목표, 기존 파일은 suppression으로 격리
-- 기존 테스트 25건 깨지면 안 됨
 
 ## Duration
 
-0.5일
+2일
 
 ## Assignee / Reviewer
 
-- Assignee: Worker (Codex)
-- Reviewer: Director (Claude)
+- Assignee: @platform-owner
+- Reviewer: @team-lead

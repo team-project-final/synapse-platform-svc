@@ -87,10 +87,12 @@
   - Worker 구현 완료 — Entity 5개, Repository 5개, OAuth 서비스/핸들러/SecurityConfig
   - Flyway V1~V3, V16~V18 마이그레이션 파일 작성
   - 테스트 20건+ 통과 / `./gradlew build` 성공
-  - **Step 2 완료**
-- **진행 중**: 없음
+  - 룰북 준수 수정 ([MUST] 7건 + [SHOULD] 3건) — 29건 테스트 통과
+  - PR #8 dev merge 완료 / **Step 2 완료**
+  - `feature/PLAT-005-jwt-mfa` 브랜치 생성 / **Step 3 시작**
+- **진행 중**: Step 3 분석 단계
 - **이슈**: 없음
-- **다음**: Step 3 (JWT Access/Refresh Token + MFA TOTP)
+- **다음**: JWT/TOTP 라이브러리 선택 → 설계 → Worker 구현
 
 #### 2026-05-15 (금)
 - **완료**:

@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/synapsedb
+    username: synapse
+    password: synapse123
+    driver-class-name: org.postgresql.Driver
+
+cors:
+  allowed-origins: http://localhost:3000,http://localhost:5173

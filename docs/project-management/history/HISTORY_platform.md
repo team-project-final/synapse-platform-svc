@@ -12,10 +12,10 @@
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | Step 1 | platform-svc 골격 생성 | Done | 2026-05-12 | 2026-05-13 | PR #3, #4 merge 완료 |
-| Step 2 | OAuth 회원가입/로그인 | In Progress | 2026-05-13 | — | |
+| Step 2 | OAuth 회원가입/로그인 | Done | 2026-05-13 | 2026-05-14 | oauth_identities 분리 테이블, 3-케이스 처리 |
 | Step 3 | JWT 발급/검증 + MFA 기초 | Not Started | — | — | |
 
-**W1 진행률**: 1/3 Steps 완료 (Step 2 In Progress)
+**W1 진행률**: 2/3 Steps 완료 (Step 3 예정)
 
 ### W2 (2026-05-19 ~ 05-23)
 
@@ -68,15 +68,29 @@
   - docs/rules/13-git-rules.md 추가 (브랜치 전략, 커밋, PR 정책)
   - 브랜치 정리: feature/* → chore/PLAT-001, chore/PLAT-002
   - PR #3, #4 → dev merge 완료 / **Step 1 완료**
-- **진행 중**: Step 2 브랜치 생성 (feature/PLAT-003-oauth-google-github)
+  - Step 2 브랜치 생성 (`feature/PLAT-004-oauth`)
+  - OAuth 샘플링 완료 — A안 채택 (userId redirect, JWT는 Step 3에서 추가)
+  - `application.properties` → `application.yml` 전환 + `spring.application.name=synapse-platform-svc`
+  - Dockerfile / docker-compose.yml 포트 8080 → 8081 수정
+  - `docs/ai/current/TASK.md` Step 2 내용으로 작성
+  - `docs/ai/templates/` 폴더 분리 (템플릿 vs 실제 작업 문서 구조 개선)
+  - `docs/spike/OAuth/` OAuth 샘플링 문서 추가
+  - `docs/platform-owner__platform-svc-workflow-guide.html` 워크플로우 가이드 확인
+- **진행 중**: Step 2 분석 단계 (10단계 워크플로 ①②③ 완료)
 - **이슈**: 없음
-- **다음**: Google/GitHub OAuth 구현 시작
+- **다음**: Step 2 설계 단계 (CONTEXT.md 작성 → HANDOFF.md → Worker 구현)
 
 #### 2026-05-14 (목)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - Step 2 추가 샘플링 완료 (Jackson 쿠키 직렬화, Tenant 트랜잭션, Flyway+PostgreSQL 검증)
+  - CONTEXT.md / HANDOFF.md 작성 (D-001~D-005 설계 결정 반영)
+  - Worker 구현 완료 — Entity 5개, Repository 5개, OAuth 서비스/핸들러/SecurityConfig
+  - Flyway V1~V3, V16~V18 마이그레이션 파일 작성
+  - 테스트 20건+ 통과 / `./gradlew build` 성공
+  - **Step 2 완료**
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: Step 3 (JWT Access/Refresh Token + MFA TOTP)
 
 #### 2026-05-15 (금)
 - **완료**:

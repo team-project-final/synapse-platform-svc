@@ -13,9 +13,9 @@
 |------|------|------|--------|--------|------|
 | Step 1 | platform-svc 골격 생성 | Done | 2026-05-12 | 2026-05-13 | PR #3, #4 merge 완료 |
 | Step 2 | OAuth 회원가입/로그인 | Done | 2026-05-13 | 2026-05-14 | oauth_identities 분리 테이블, 3-케이스 처리 |
-| Step 3 | JWT 발급/검증 + MFA 기초 | Not Started | — | — | |
+| Step 3 | JWT 발급/검증 + MFA 기초 | Done | 2026-05-14 | 2026-05-14 | RS256 JWT, Redis Refresh Token, TOTP MFA 완료 |
 
-**W1 진행률**: 2/3 Steps 완료 (Step 3 예정)
+**W1 진행률**: 3/3 Steps 완료 (W1 auth 범위 완료)
 
 ### W2 (2026-05-19 ~ 05-23)
 
@@ -90,9 +90,17 @@
   - 룰북 준수 수정 ([MUST] 7건 + [SHOULD] 3건) — 29건 테스트 통과
   - PR #8 dev merge 완료 / **Step 2 완료**
   - `feature/PLAT-005-jwt-mfa` 브랜치 생성 / **Step 3 시작**
-- **진행 중**: Step 3 분석 단계
+  - Step 3 작업 문서 확인 및 `docs/ai/current/PLAN.md` 작성
+  - JWT/TOTP/Redis 의존성 추가 및 dev/prod 프로파일 설정
+  - RS256 JWT Access/Refresh Token 발급, issuer/type 검증, Security Filter 구현
+  - Refresh Token Redis 저장/조회/삭제 및 `/api/v1/auth/refresh` 구현
+  - TOTP MFA setup/verify API 구현, TOTP secret AES 암호화 저장, Flyway V19 작성
+  - 리뷰 보정 반영: Access/Refresh token type 분리 검증, MFA setup 재호출 시 secret 교체
+  - 검증 완료: `checkstyleMain checkstyleTest spotbugsMain spotbugsTest`, `test`, `test --tests "*ModuleStructureTest"`, `build`
+  - 전체 테스트 결과: 69건 통과, 실패 0건 / **Step 3 완료**
+- **진행 중**: 없음 (Step 3 마무리/커밋 준비)
 - **이슈**: 없음
-- **다음**: JWT/TOTP 라이브러리 선택 → 설계 → Worker 구현
+- **다음**: Step 3 커밋/PR 준비 → Director/팀장 리뷰 요청
 
 #### 2026-05-15 (금)
 - **완료**:
@@ -190,6 +198,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-05-14 | Step 3 Done 반영 (JWT 발급/검증, Redis Refresh Token, TOTP MFA, 검증 결과 기록) |
 | 2026-05-13 | 전체 일정 재정비 (05-12~06-05, 월~금), Step 1 Done 반영 |
 | 2026-05-11 | W2/W3/W4 대시보드 및 로그 템플릿 추가 |
 | 2026-05-11 | 초기 템플릿 생성 |

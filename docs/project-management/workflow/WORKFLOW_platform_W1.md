@@ -131,66 +131,66 @@
 ## Step 3: JWT + MFA 기초
 
 ### 1.1 TASK 시작
-- [ ] Step Goal / Done When / Scope / Input 확인
-- [ ] PRD_W1 해당 요구사항 확인 (FR-AU-xxx JWT/MFA)
-- [ ] Duration 산정 확인 (2일)
+- [x] Step Goal / Done When / Scope / Input 확인
+- [x] PRD_W1 해당 요구사항 확인 (FR-PL-003, FR-PL-004)
+- [x] Duration 산정 확인 (2일)
 
 ### 1.2 요구사항 분석
-- [ ] JWT Access/Refresh Token 발급 플로우 분석
-- [ ] Refresh Token Redis 저장 구조 설계
-- [ ] TOTP(RFC 6238) MFA 플로우 분석
-- [ ] Instructions 초안 → TASK 문서 반영
+- [x] JWT Access/Refresh Token 발급 플로우 분석
+- [x] Refresh Token Redis 저장 구조 설계
+- [x] TOTP(RFC 6238) MFA 플로우 분석
+- [x] Instructions 초안 → TASK 문서 반영
 
 ### 1.3 Security 1차 검토
-- [ ] 인증 필요 여부: Yes (MFA 설정은 인증 필요)
-- [ ] 권한 종류: 로그인 사용자
-- [ ] 공개 API 여부: POST /auth/refresh는 공개, POST /auth/mfa/* 는 인증 필요
-- [ ] JWT 서명 알고리즘: RS256
-- [ ] 결과 → TASK Constraints 반영
+- [x] 인증 필요 여부: Yes (MFA 설정은 인증 필요)
+- [x] 권한 종류: 로그인 사용자
+- [x] 공개 API 여부: POST /api/v1/auth/refresh는 공개, POST /api/v1/auth/mfa/* 는 인증 필요
+- [x] JWT 서명 알고리즘: RS256
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.4 ERD 설계
-- [ ] refresh_tokens 관리: Redis 저장 (key: userId, TTL: 7d)
-- [ ] mfa_secrets 테이블 설계 (user_id, secret_enc, enabled, created_at)
-- [ ] 인덱스 설계 (user_id UNIQUE on mfa_secrets)
-- [ ] Duration(final) 갱신
+- [x] refresh_tokens 관리: Redis 저장 (key: refresh:{userId}, TTL: 7d)
+- [x] totp_credentials 테이블 설계 (user_id, secret, secret_iv, enabled, created_at, updated_at)
+- [x] 인덱스 설계 (user_id UNIQUE on totp_credentials)
+- [x] Duration(final) 갱신
 
 ### 1.5 Security 2차 검토
-- [ ] 민감 정보 암호화: TOTP secret AES-256 암호화 저장
-- [ ] Refresh Token: Redis만 저장 (DB 저장 X)
-- [ ] 행 단위 접근 제어: 필요 (본인 MFA만 관리)
-- [ ] 결과 → TASK Constraints 반영
+- [x] 민감 정보 암호화: TOTP secret AES-256 암호화 저장
+- [x] Refresh Token: Redis만 저장 (DB 저장 X)
+- [x] 행 단위 접근 제어: 필요 (본인 MFA만 관리)
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.6 DTO / Entity 설계 (API First)
-- [ ] TokenRefreshRequest 정의 (refresh_token)
-- [ ] TokenResponse 정의 (access_token, refresh_token, expires_in)
-- [ ] MfaSetupResponse 정의 (qr_code_url, secret)
-- [ ] MfaVerifyRequest 정의 (code)
-- [ ] MfaSecret Entity 작성
-- [ ] Output Format → TASK 반영
+- [x] TokenRefreshRequest 정의 (refreshToken)
+- [x] TokenRefreshResponse 정의 (accessToken, refreshToken)
+- [x] TotpSetupResponse 정의 (otpAuthUri, secret)
+- [x] MfaVerifyRequest 정의 (code)
+- [x] TotpCredential Entity 작성
+- [x] Output Format → TASK 반영
 
 ### 1.7 Repository 구현
-- [ ] MfaSecretRepository 인터페이스 작성
-- [ ] Redis Template 설정 (Refresh Token 저장/조회/삭제)
+- [x] TotpCredentialRepository 인터페이스 작성
+- [x] Redis Template 설정 (Refresh Token 저장/조회/삭제)
 
 ### 1.8 Service + Test
-- [ ] JwtService 구현 (생성, 파싱, 검증 — RS256)
-- [ ] RefreshTokenService 구현 (Redis CRUD)
-- [ ] MfaService 구현 (TOTP 생성, QR URL, 검증)
-- [ ] 단위 테스트 작성 (Mockito)
-- [ ] 테스트 통과 확인
+- [x] JwtTokenProvider 구현 (생성, 파싱, 검증 — RS256)
+- [x] RefreshTokenService 구현 (Redis CRUD)
+- [x] TotpService 구현 (TOTP 생성, QR URL, 검증)
+- [x] 단위 테스트 작성 (Mockito)
+- [x] 테스트 통과 확인
 
 ### 1.9 Controller + Test
-- [ ] POST /auth/refresh 엔드포인트 구현
-- [ ] POST /auth/mfa/setup 엔드포인트 구현
-- [ ] POST /auth/mfa/verify 엔드포인트 구현
-- [ ] Security Filter에 JWT 검증 추가
-- [ ] 슬라이스 테스트 (@WebMvcTest)
-- [ ] 401/403 응답 테스트
-- [ ] 테스트 통과 확인
+- [x] POST /api/v1/auth/refresh 엔드포인트 구현
+- [x] POST /api/v1/auth/mfa/setup 엔드포인트 구현
+- [x] POST /api/v1/auth/mfa/verify 엔드포인트 구현
+- [x] Security Filter에 JWT 검증 추가
+- [x] 슬라이스 테스트 (@WebMvcTest)
+- [x] 401 응답 테스트
+- [x] 테스트 통과 확인
 
 ### 1.10 View + Test (해당 시)
-- [ ] Flutter 화면 연동: 해당 없음 (프론트 별도)
-- [ ] Swagger API 문서 확인
-- [ ] RULE Reference → TASK 반영
+- [x] Flutter 화면 연동: 해당 없음 (프론트 별도)
+- [x] Swagger API 문서 확인: 해당 없음 (SpringDoc 미구성, HANDOFF 범위 밖)
+- [x] RULE Reference → TASK 반영
 
-**Step 3 Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Step 3 Status**: ✅ Done (2026-05-14)

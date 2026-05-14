@@ -13,7 +13,7 @@ Director (Claude)
 
 ## 요청 내용
 
-(Step 3 분석/설계 완료 후 작성 예정)
+(요청 내용 작성)
 
 ## 필요한 출력 형식
 
@@ -26,4 +26,4 @@ Director (Claude)
 
 ## 기한
 
-2026-05-16
+YYYY-MM-DD

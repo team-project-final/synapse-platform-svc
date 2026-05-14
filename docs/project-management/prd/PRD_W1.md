@@ -103,7 +103,7 @@
 - [ ] Docker Compose로 4-서비스 + Schema Registry 로컬 실행
 - [ ] 각 서비스 골격 동작 (Hello World + Health endpoint)
 - [ ] Spring Modulith 모듈 검증 (`ApplicationModules.verify()`) 통과
-- [ ] auth 모듈: 회원가입/로그인/JWT 발급 동작
+- [x] auth 모듈: 회원가입/로그인/JWT 발급 동작
 - [ ] note·card·community 모듈: 기본 CRUD API 동작
 - [ ] Flutter: 로그인/대시보드 화면 렌더링
 

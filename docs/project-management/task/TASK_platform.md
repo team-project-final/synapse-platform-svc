@@ -98,30 +98,30 @@
 
 - **Step Goal**: 인증된 사용자에게 JWT Access/Refresh Token을 발급하고, MFA(TOTP) 등록 기초가 동작한다.
 - **Done When**:
-  - [ ] OAuth 로그인 성공 시 JWT Access Token (15분) 발급
-  - [ ] Refresh Token (7일) 발급 + Redis 저장
-  - [ ] Access Token 만료 시 Refresh Token으로 갱신
-  - [ ] MFA(TOTP) 시크릿 생성 + QR 코드 URL 반환
-  - [ ] TOTP 코드 검증 API 동작
-  - [ ] 단위/통합 테스트 통과
+  - [x] OAuth 로그인 성공 시 JWT Access Token (15분) 발급
+  - [x] Refresh Token (7일) 발급 + Redis 저장
+  - [x] Access Token 만료 시 Refresh Token으로 갱신
+  - [x] MFA(TOTP) 시크릿 생성 + QR 코드 URL 반환
+  - [x] TOTP 코드 검증 API 동작
+  - [x] 단위/통합 테스트 통과
 - **Scope**:
   - In Scope:
     - JWT Access/Refresh Token 발급 로직
     - Refresh Token Redis 저장/조회/삭제
-    - Token 갱신 API (`POST /auth/refresh`)
-    - TOTP 시크릿 생성 (`POST /auth/mfa/setup`)
-    - TOTP 검증 API (`POST /auth/mfa/verify`)
+    - Token 갱신 API (`POST /api/v1/auth/refresh`)
+    - TOTP 시크릿 생성 (`POST /api/v1/auth/mfa/setup`)
+    - TOTP 검증 API (`POST /api/v1/auth/mfa/verify`)
     - 단위/통합 테스트
   - Out of Scope:
     - MFA 강제 적용 정책
     - Token 블랙리스트 (W2)
     - SMS/이메일 MFA
-- **Input**: JWT 라이브러리 (jjwt), TOTP 라이브러리 (GoogleAuth), Redis 접속 정보
+- **Input**: JWT 라이브러리 (jjwt 0.12.6), TOTP 라이브러리 (dev.samstevens.totp 1.7.1), Redis 접속 정보
 - **Instructions**:
   1. JWT 유틸리티 클래스 구현 (생성, 파싱, 검증)
   2. Access Token 발급 로직 (claims: userId, roles, exp=15min)
   3. Refresh Token 발급 + Redis 저장 (key: userId, TTL: 7d)
-  4. Token 갱신 엔드포인트 구현 (`POST /auth/refresh`)
+  4. Token 갱신 엔드포인트 구현 (`POST /api/v1/auth/refresh`)
   5. TOTP 시크릿 생성 + QR 코드 URL 생성 API
   6. TOTP 코드 검증 API 구현
   7. Security Filter에 JWT 검증 추가
@@ -137,7 +137,7 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: 🔄 In Progress (2026-05-14)
+**Status**: ✅ Done (2026-05-14)
 
 ---
 

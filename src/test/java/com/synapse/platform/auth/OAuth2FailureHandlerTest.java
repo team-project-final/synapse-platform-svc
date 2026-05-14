@@ -25,6 +25,6 @@ class OAuth2FailureHandlerTest {
         handler.onAuthenticationFailure(request, response, exception);
 
         // Then
-        assertThat(response.getRedirectedUrl()).isEqualTo("/auth/callback?error=" + encoded);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/api/v1/auth/callback?error=" + encoded);
     }
 }

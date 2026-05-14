@@ -1,7 +1,6 @@
 package com.synapse.platform.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
 
 import com.synapse.platform.auth.oauth.OAuth2SuccessHandler;
 import java.util.List;
@@ -34,6 +33,6 @@ class OAuth2SuccessHandlerTest {
         handler.onAuthenticationSuccess(request, response, authentication);
 
         // Then
-        assertThat(response.getRedirectedUrl()).isEqualTo("/auth/callback?userId=" + userId);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/api/v1/auth/callback?userId=" + userId);
     }
 }

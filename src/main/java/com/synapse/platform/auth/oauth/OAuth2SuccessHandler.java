@@ -18,6 +18,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication) throws IOException {
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String userId = String.valueOf(oAuth2User.getAttributes().get("userId"));
-        response.sendRedirect("/auth/callback?userId=" + userId);
+        response.sendRedirect("/api/v1/auth/callback?userId=" + userId);
     }
 }

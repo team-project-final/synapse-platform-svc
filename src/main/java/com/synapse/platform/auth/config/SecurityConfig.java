@@ -44,7 +44,7 @@ public class SecurityConfig {
                         .successHandler(oAuth2SuccessHandler)
                         .failureHandler(oAuth2FailureHandler))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/**", "/oauth2/**", "/login/**", "/auth/callback").permitAll()
+                        .requestMatchers("/actuator/**", "/oauth2/**", "/login/**", "/api/v1/auth/callback").permitAll()
                         .anyRequest().authenticated())
                 .build();
     }

@@ -50,7 +50,7 @@ class OAuth2LoginIntegrationTest {
                 "sub");
 
         // When & Then
-        mockMvc.perform(get("/auth/callback")
+        mockMvc.perform(get("/api/v1/auth/callback")
                         .param("userId", userId)
                         .with(oauth2Login().oauth2User(user)))
                 .andExpect(status().isOk())
@@ -60,7 +60,7 @@ class OAuth2LoginIntegrationTest {
     @Test
     void callback_missingUserId_shouldReturnBadRequest() throws Exception {
         // When & Then
-        mockMvc.perform(get("/auth/callback"))
+        mockMvc.perform(get("/api/v1/auth/callback"))
                 .andExpect(status().isBadRequest());
     }
 

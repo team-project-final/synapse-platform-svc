@@ -1,5 +1,6 @@
 package com.synapse.platform.auth;
 
+import com.synapse.platform.auth.exception.OAuthProcessingException;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthCallbackController {
 
     @GetMapping("/callback")
@@ -16,10 +17,10 @@ public class AuthCallbackController {
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String error) {
         if (error != null) {
-            return ResponseEntity.badRequest().body(Map.of("error", error));
+            throw new OAuthProcessingException(error);
         }
         if (userId == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "userId is required"));
+            throw new OAuthProcessingException("userId is required");
         }
         return ResponseEntity.ok(Map.of("userId", userId));
     }

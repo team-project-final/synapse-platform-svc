@@ -18,6 +18,6 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
             HttpServletResponse response,
             AuthenticationException exception) throws IOException {
         String error = URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8);
-        response.sendRedirect("/auth/callback?error=" + error);
+        response.sendRedirect("/api/v1/auth/callback?error=" + error);
     }
 }

@@ -54,11 +54,11 @@
 
 - **Step Goal**: 사용자가 Google/GitHub OAuth를 통해 회원가입하고 로그인할 수 있다.
 - **Done When**:
-  - [ ] Google OAuth 로그인 → 신규 사용자 자동 회원가입
-  - [ ] GitHub OAuth 로그인 → 신규 사용자 자동 회원가입
-  - [ ] 기존 사용자 OAuth 로그인 시 기존 계정과 매핑
-  - [ ] users 테이블에 provider/provider_id 저장
-  - [ ] 통합 테스트 통과
+  - [x] Google OAuth 로그인 → 신규 사용자 자동 회원가입 (users + oauth_identities + tenants + tenant_members + user_settings 동시 생성)
+  - [x] GitHub OAuth 로그인 → 신규 사용자 자동 회원가입 (email null → placeholder 처리)
+  - [x] 기존 사용자 OAuth 로그인 시 기존 계정과 매핑 (Case A: 동일 provider / Case B: email 기준 계정 연결)
+  - [x] oauth_identities 분리 테이블에 provider/provider_user_id 저장 (샘플링 D-004 — users에 직접 저장 않음)
+  - [x] ./gradlew build 성공 + 전체 테스트 통과 (20건 이상)
 - **Scope**:
   - In Scope:
     - Spring Security OAuth2 Client 설정
@@ -90,7 +90,7 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: 🔄 In Progress (2026-05-13~)
+**Status**: ✅ Done (2026-05-14)
 
 ---
 

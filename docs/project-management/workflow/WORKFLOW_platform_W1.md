@@ -85,46 +85,46 @@
 - [x] 결과 → TASK Constraints 반영
 
 ### 1.4 ERD 설계
-- [ ] users 테이블 설계 (id UUID, email, name, avatar_url, provider, provider_id, role, status, created_at, updated_at, deleted_at)
-- [ ] 인덱스 설계 (email UNIQUE, provider+provider_id UNIQUE)
-- [ ] ~~oauth_accounts 테이블~~ — 샘플링 결과 users 테이블에 통합 (provider, provider_id 컬럼)
-- [ ] Duration(final) 갱신
+- [x] users 테이블 설계 (id UUID, email, name, avatar_url, provider, provider_id, role, status, created_at, updated_at, deleted_at)
+- [x] 인덱스 설계 (email UNIQUE, provider+provider_id UNIQUE)
+- [x] ~~oauth_accounts 테이블~~ — 샘플링 결과 oauth_identities 분리 테이블로 변경 (D-004)
+- [x] Duration(final) 갱신
 
 ### 1.5 Security 2차 검토
-- [ ] 민감 정보 암호화: OAuth Provider access_token 서버에 저장 안 함 (최소 수집 원칙)
-- [ ] Soft Delete 정책: 논리삭제 (deleted_at) — Step 8 개인정보 마스킹 연계
-- [ ] 행 단위 접근 제어: 불필요 (OAuth 콜백은 시스템 처리)
-- [ ] 결과 → TASK Constraints 반영
+- [x] 민감 정보 암호화: OAuth Provider access_token 서버에 저장 안 함 (최소 수집 원칙)
+- [x] Soft Delete 정책: 논리삭제 (deleted_at) — Step 8 개인정보 마스킹 연계
+- [x] 행 단위 접근 제어: 불필요 (OAuth 콜백은 시스템 처리)
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.6 DTO / Entity 설계 (API First)
-- [ ] User Entity 작성 (UUID PK, 정적 팩토리 메서드, @Setter 금지)
-- [ ] OAuthAttributes record 작성 (provider별 attribute 추출)
-- [ ] Output Format → TASK 반영
+- [x] User Entity 작성 (UUID PK, 정적 팩토리 메서드, @Setter 금지)
+- [x] OAuthAttributes record 작성 (provider별 attribute 추출)
+- [x] Output Format → TASK 반영
 
 ### 1.7 Repository 구현
-- [ ] UserRepository 인터페이스 작성 (package-private)
-- [ ] findByEmail, findByProviderAndProviderId 쿼리 메서드
+- [x] UserRepository 인터페이스 작성 (package-private)
+- [x] findByEmail, findByProviderAndProviderId 쿼리 메서드
 
 ### 1.8 Service + Test
-- [ ] CustomOAuth2UserService 구현 (사용자 조회/생성, delegate 패턴)
-- [ ] 신규 사용자 자동 회원가입 로직 구현
-- [ ] 기존 사용자 매핑 로직 구현 (email 우선)
-- [ ] 단위 테스트 작성 (Mockito)
-- [ ] 테스트 통과 확인
+- [x] CustomOAuth2UserService 구현 (사용자 조회/생성, delegate 패턴)
+- [x] 신규 사용자 자동 회원가입 로직 구현
+- [x] 기존 사용자 매핑 로직 구현 (email 우선)
+- [x] 단위 테스트 작성 (Mockito)
+- [x] 테스트 통과 확인
 
 ### 1.9 Controller + Test
-- [ ] HttpCookieOAuth2AuthorizationRequestRepository 구현 (Jackson 직렬화)
-- [ ] SecurityConfig 구현 (STATELESS + OAuth2 + 쿠키 저장소)
-- [ ] OAuth2AuthenticationSuccessHandler 구현 (userId redirect)
-- [ ] OAuth2AuthenticationFailureHandler 구현
-- [ ] 통합 테스트 작성 (@SpringBootTest + oauth2Login())
-- [ ] 테스트 통과 확인
+- [x] HttpCookieOAuth2AuthorizationRequestRepository 구현 (Jackson 직렬화)
+- [x] SecurityConfig 구현 (STATELESS + OAuth2 + 쿠키 저장소)
+- [x] OAuth2AuthenticationSuccessHandler 구현 (userId redirect)
+- [x] OAuth2AuthenticationFailureHandler 구현
+- [x] 통합 테스트 작성 (@SpringBootTest + oauth2Login())
+- [x] 테스트 통과 확인
 
 ### 1.10 View + Test (해당 시)
-- [ ] Flutter 화면 연동: Step 2에서는 해당 없음 (프론트 별도)
-- [ ] RULE Reference → TASK 반영
+- [x] Flutter 화면 연동: Step 2에서는 해당 없음 (프론트 별도)
+- [x] RULE Reference → TASK 반영
 
-**Step 2 Status**: 🔄 In Progress (2026-05-13~)
+**Step 2 Status**: ✅ Done (2026-05-14)
 
 ---
 

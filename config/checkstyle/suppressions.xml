@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<suppressions>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]oauth[\\/].*\.java" checks=".*"/>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]domain[\\/].*\.java" checks=".*"/>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]repository[\\/].*\.java" checks=".*"/>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]util[\\/].*\.java" checks=".*"/>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]config[\\/]HttpCookie.*\.java" checks=".*"/>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]config[\\/]OAuth2Authorization.*\.java" checks=".*"/>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]config[\\/]SecurityConfig.*\.java" checks=".*"/>
+    <suppress files="com[\\/]synapse[\\/]platform[\\/]auth[\\/]AuthCallbackController.*\.java" checks=".*"/>
+    <suppress files="src[\\/]test[\\/]java[\\/].*\.java" checks="MethodName"/>
+</suppressions>

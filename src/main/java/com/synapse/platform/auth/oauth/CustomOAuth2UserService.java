@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -70,7 +71,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED)
     public OAuth2User loadUser(OAuth2UserRequest request) {
         OAuth2User oAuth2User = delegate.loadUser(request);
         String registrationId = request.getClientRegistration().getRegistrationId();

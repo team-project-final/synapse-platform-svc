@@ -8,9 +8,11 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "users")
+@SQLRestriction("deleted_at IS NULL")
 public class User {
 
     @Id

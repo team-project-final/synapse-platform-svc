@@ -15,7 +15,7 @@
 
 ### 1.2 요구사항 분석
 - [x] Spring Boot 4 + Modulith 프로젝트 구조 분석
-- [x] auth/billing/notification/audit 4개 모듈 역할 정의
+- [x] auth/user/notification/admin 4개 모듈 역할 정의
 - [x] Gradle 의존성 목록 도출
 - [x] Instructions 초안 → TASK 문서 반영
 
@@ -85,43 +85,48 @@
 - [x] 결과 → TASK Constraints 반영
 
 ### 1.4 ERD 설계
-- [x] users 테이블 설계 (id UUID, email, name, avatar_url, provider, provider_id, role, status, created_at, updated_at, deleted_at)
+- [x] users 테이블 설계 (id, tenant_id, email, display_name, avatar_url, locale, status: active|suspended|deleted, created_at, updated_at)
+- [x] 참고: provider, provider_id 컬럼은 users 테이블에 없음 — oauth_identities 테이블로 분리
+- [x] oauth_identities 테이블 설계 (id, user_id, provider, provider_id, access_token_enc)
 - [x] 인덱스 설계 (email UNIQUE, provider+provider_id UNIQUE)
-- [x] ~~oauth_accounts 테이블~~ — 샘플링 결과 oauth_identities 분리 테이블로 변경 (D-004)
+- [x] 관계 정의 (users 1:N oauth_identities)
 - [x] Duration(final) 갱신
 
 ### 1.5 Security 2차 검토
-- [x] 민감 정보 암호화: OAuth Provider access_token 서버에 저장 안 함 (최소 수집 원칙)
-- [x] Soft Delete 정책: 논리삭제 (deleted_at) — Step 8 개인정보 마스킹 연계
+- [x] 민감 정보 암호화: OAuth access_token 암호화 저장 (D-007)
+- [x] Soft Delete 정책: 논리삭제 (deleted_at)
 - [x] 행 단위 접근 제어: 불필요 (OAuth 콜백은 시스템 처리)
 - [x] 결과 → TASK Constraints 반영
 
 ### 1.6 DTO / Entity 설계 (API First)
-- [x] User Entity 작성 (UUID PK, 정적 팩토리 메서드, @Setter 금지)
-- [x] OAuthAttributes record 작성 (provider별 attribute 추출)
+- [x] OAuthCallbackRequest 정의 (code, state)
+- [x] OAuthTokenResponse 정의 (accessToken, refreshToken, expiresIn)
+- [x] User Entity 작성 (display_name, avatar_url, locale, status)
+- [x] OAuthIdentity Entity 작성
+- [x] MapStruct 매퍼 작성
 - [x] Output Format → TASK 반영
 
 ### 1.7 Repository 구현
-- [x] UserRepository 인터페이스 작성 (package-private)
-- [x] findByEmail, findByProviderAndProviderId 쿼리 메서드
+- [x] UserRepository 인터페이스 작성
+- [x] OAuthIdentityRepository 인터페이스 작성
+- [x] findByEmail, findByProviderAndProviderId 커스텀 쿼리
 
 ### 1.8 Service + Test
-- [x] CustomOAuth2UserService 구현 (사용자 조회/생성, delegate 패턴)
+- [x] OAuth2UserService 구현 (사용자 조회/생성 로직)
 - [x] 신규 사용자 자동 회원가입 로직 구현
-- [x] 기존 사용자 매핑 로직 구현 (email 우선)
+- [x] 기존 사용자 매핑 로직 구현
 - [x] 단위 테스트 작성 (Mockito)
 - [x] 테스트 통과 확인
 
 ### 1.9 Controller + Test
-- [x] HttpCookieOAuth2AuthorizationRequestRepository 구현 (Jackson 직렬화)
-- [x] SecurityConfig 구현 (STATELESS + OAuth2 + 쿠키 저장소)
-- [x] OAuth2AuthenticationSuccessHandler 구현 (userId redirect)
-- [x] OAuth2AuthenticationFailureHandler 구현
-- [x] 통합 테스트 작성 (@SpringBootTest + oauth2Login())
+- [x] OAuth2 콜백 핸들러 구현
+- [x] OAuth2 성공 핸들러 구현 (JWT 발급 연계)
+- [x] 통합 테스트 작성 (MockOAuth2User)
 - [x] 테스트 통과 확인
 
 ### 1.10 View + Test (해당 시)
 - [x] Flutter 화면 연동: Step 2에서는 해당 없음 (프론트 별도)
+- [x] Swagger API 문서 확인
 - [x] RULE Reference → TASK 반영
 
 **Step 2 Status**: ✅ Done (2026-05-14)
@@ -137,7 +142,7 @@
 
 ### 1.2 요구사항 분석
 - [x] JWT Access/Refresh Token 발급 플로우 분석
-- [x] Refresh Token Redis 저장 구조 설계
+- [x] Refresh Token DB + Redis 저장 구조 설계
 - [x] TOTP(RFC 6238) MFA 플로우 분석
 - [x] Instructions 초안 → TASK 문서 반영
 
@@ -149,33 +154,33 @@
 - [x] 결과 → TASK Constraints 반영
 
 ### 1.4 ERD 설계
-- [x] refresh_tokens 관리: Redis 저장 (key: refresh:{userId}, TTL: 7d)
-- [x] totp_credentials 테이블 설계 (user_id, secret, secret_iv, enabled, created_at, updated_at)
-- [x] 인덱스 설계 (user_id UNIQUE on totp_credentials)
+- [x] refresh_tokens 테이블 설계 (id, user_id, token_hash, device_fingerprint, ip_address, expires_at, created_at) — ERD에 DB 테이블로 정의됨 (Redis 전용이 아님)
+- [x] mfa_credentials 테이블 설계 (id, user_id, type: totp, secret_enc, is_active, verified_at, created_at)
+- [x] 인덱스 설계 (user_id UNIQUE on mfa_credentials, user_id UNIQUE on refresh_tokens)
 - [x] Duration(final) 갱신
 
 ### 1.5 Security 2차 검토
 - [x] 민감 정보 암호화: TOTP secret AES-256 암호화 저장
-- [x] Refresh Token: Redis만 저장 (DB 저장 X)
+- [x] Refresh Token: DB 테이블(refresh_tokens) 저장 — token_hash, device_fingerprint, ip_address, expires_at 포함 (D-006)
 - [x] 행 단위 접근 제어: 필요 (본인 MFA만 관리)
 - [x] 결과 → TASK Constraints 반영
 
 ### 1.6 DTO / Entity 설계 (API First)
 - [x] TokenRefreshRequest 정의 (refreshToken)
-- [x] TokenRefreshResponse 정의 (accessToken, refreshToken)
-- [x] TotpSetupResponse 정의 (otpAuthUri, secret)
+- [x] TokenResponse 정의 (accessToken, refreshToken, expiresIn)
+- [x] MfaSetupResponse 정의 (qrCodeUrl, secret)
 - [x] MfaVerifyRequest 정의 (code)
-- [x] TotpCredential Entity 작성
+- [x] MfaCredential Entity 작성 (type, is_active, verified_at) (D-008)
 - [x] Output Format → TASK 반영
 
 ### 1.7 Repository 구현
-- [x] TotpCredentialRepository 인터페이스 작성
-- [x] Redis Template 설정 (Refresh Token 저장/조회/삭제)
+- [x] MfaCredentialRepository 인터페이스 작성
+- [x] RefreshTokenRepository 인터페이스 작성 (DB 저장 + Redis 캐싱 병행)
 
 ### 1.8 Service + Test
-- [x] JwtTokenProvider 구현 (생성, 파싱, 검증 — RS256)
-- [x] RefreshTokenService 구현 (Redis CRUD)
-- [x] TotpService 구현 (TOTP 생성, QR URL, 검증)
+- [x] JwtService 구현 (생성, 파싱, 검증 — RS256)
+- [x] RefreshTokenService 구현 (DB + Redis 병행, 사용자당 1개 active token)
+- [x] MfaService 구현 (TOTP 생성, QR URL, 검증 — mfa_credentials 기반)
 - [x] 단위 테스트 작성 (Mockito)
 - [x] 테스트 통과 확인
 
@@ -185,7 +190,7 @@
 - [x] POST /api/v1/auth/mfa/verify 엔드포인트 구현
 - [x] Security Filter에 JWT 검증 추가
 - [x] 슬라이스 테스트 (@WebMvcTest)
-- [x] 401 응답 테스트
+- [x] 401/403 응답 테스트
 - [x] 테스트 통과 확인
 
 ### 1.10 View + Test (해당 시)
@@ -193,4 +198,4 @@
 - [x] Swagger API 문서 확인: 해당 없음 (SpringDoc 미구성, HANDOFF 범위 밖)
 - [x] RULE Reference → TASK 반영
 
-**Step 3 Status**: ✅ Done (2026-05-14)
+**Step 3 Status**: ✅ Done (2026-05-15) — W1 보정(D-006~D-010) 포함

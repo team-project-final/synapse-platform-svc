@@ -40,8 +40,8 @@ dependencies {
 	testImplementation("org.springframework.security:spring-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-	testImplementation("org.testcontainers:junit-jupiter:1.19.8")
-	testImplementation("org.testcontainers:testcontainers:1.19.8")
+	testImplementation("org.testcontainers:junit-jupiter:1.21.4")
+	testImplementation("org.testcontainers:testcontainers:1.21.4")
 	testRuntimeOnly("com.h2database:h2")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // Spring Modulith

@@ -39,7 +39,9 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         UUID userId = UUID.fromString(String.valueOf(oAuth2User.getAttributes().get("userId")));
         String accessToken = jwtTokenProvider.createAccessToken(userId, AuthRoles.DEFAULT_USER_ROLES);
         String refreshToken = jwtTokenProvider.createRefreshToken(userId);
-        refreshTokenService.save(userId, refreshToken);
+        String deviceFingerprint = request.getHeader("X-Device-Fingerprint");
+        String ipAddress = request.getRemoteAddr();
+        refreshTokenService.save(userId, refreshToken, deviceFingerprint, ipAddress);
         String redirectUrl = UriComponentsBuilder.fromUriString(clientRedirectUri)
                 .queryParam("access_token", accessToken)
                 .queryParam("refresh_token", refreshToken)

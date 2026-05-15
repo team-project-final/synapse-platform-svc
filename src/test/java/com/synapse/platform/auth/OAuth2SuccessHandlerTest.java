@@ -39,6 +39,8 @@ class OAuth2SuccessHandlerTest {
                 refreshTokenService,
                 "http://localhost:3000/auth/callback");
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-Device-Fingerprint", "device-1");
+        request.setRemoteAddr("127.0.0.1");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         // When
@@ -49,6 +51,6 @@ class OAuth2SuccessHandlerTest {
                 .startsWith("http://localhost:3000/auth/callback")
                 .contains("access_token=access-token")
                 .contains("refresh_token=refresh-token");
-        verify(refreshTokenService).save(userId, "refresh-token");
+        verify(refreshTokenService).save(userId, "refresh-token", "device-1", "127.0.0.1");
     }
 }

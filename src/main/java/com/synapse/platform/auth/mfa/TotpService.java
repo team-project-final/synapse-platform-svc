@@ -22,15 +22,15 @@ public class TotpService {
     private static final int ALLOWED_TIME_PERIOD_DISCREPANCY = 1;
     private static final String ISSUER = "Synapse";
 
-    private final TotpCredentialRepository totpCredentialRepository;
+    private final MfaCredentialRepository mfaCredentialRepository;
     private final UserRepository userRepository;
     private final FieldEncryptor fieldEncryptor;
 
     public TotpService(
-            TotpCredentialRepository totpCredentialRepository,
+            MfaCredentialRepository mfaCredentialRepository,
             UserRepository userRepository,
             FieldEncryptor fieldEncryptor) {
-        this.totpCredentialRepository = totpCredentialRepository;
+        this.mfaCredentialRepository = mfaCredentialRepository;
         this.userRepository = userRepository;
         this.fieldEncryptor = fieldEncryptor;
     }
@@ -40,12 +40,11 @@ public class TotpService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UnauthorizedTokenException("Authentication required"));
         String secret = new DefaultSecretGenerator(SECRET_CHARACTERS).generate();
-        String encrypted = fieldEncryptor.encrypt(secret);
-        String[] parts = encrypted.split(":", 2);
-        TotpCredential credential = totpCredentialRepository.findByUserId(userId)
-                .orElseGet(() -> TotpCredential.create(userId, parts[1], parts[0]));
-        credential.replaceSecret(parts[1], parts[0]);
-        totpCredentialRepository.save(credential);
+        String secretEnc = fieldEncryptor.encrypt(secret);
+        MfaCredential credential = mfaCredentialRepository.findByUserId(userId)
+                .orElseGet(() -> MfaCredential.create(userId, secretEnc));
+        credential.replaceSecret(secretEnc);
+        mfaCredentialRepository.save(credential);
         QrData qrData = new QrData.Builder()
                 .label(user.getEmail())
                 .secret(secret)
@@ -58,13 +57,13 @@ public class TotpService {
 
     @Transactional(propagation = Propagation.REQUIRED)
     public boolean verify(UUID userId, String code) {
-        return totpCredentialRepository.findByUserId(userId)
+        return mfaCredentialRepository.findByUserId(userId)
                 .map(credential -> verifyCredential(credential, code))
                 .orElse(false);
     }
 
-    private boolean verifyCredential(TotpCredential credential, String code) {
-        String secret = fieldEncryptor.decrypt(credential.getSecretIv() + ":" + credential.getSecret());
+    private boolean verifyCredential(MfaCredential credential, String code) {
+        String secret = fieldEncryptor.decrypt(credential.getSecretEnc());
         DefaultCodeVerifier verifier = new DefaultCodeVerifier(
                 new DefaultCodeGenerator(),
                 new SystemTimeProvider());
@@ -72,7 +71,7 @@ public class TotpService {
         verifier.setAllowedTimePeriodDiscrepancy(ALLOWED_TIME_PERIOD_DISCREPANCY);
         boolean valid = verifier.isValidCode(secret, code);
         if (valid) {
-            credential.enable();
+            credential.activate();
         }
         return valid;
     }

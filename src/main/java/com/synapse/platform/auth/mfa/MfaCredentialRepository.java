@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface TotpCredentialRepository extends JpaRepository<TotpCredential, UUID> {
+interface MfaCredentialRepository extends JpaRepository<MfaCredential, UUID> {
 
-    Optional<TotpCredential> findByUserId(UUID userId);
+    Optional<MfaCredential> findByUserId(UUID userId);
 }

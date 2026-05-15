@@ -18,7 +18,10 @@ import com.synapse.platform.auth.repository.TenantRepository;
 import com.synapse.platform.auth.repository.UserRepository;
 import com.synapse.platform.auth.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
+import com.synapse.platform.shared.crypto.FieldEncryptor;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +44,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class CustomOAuth2UserServiceTest {
 
+    private static final String AES_KEY = Base64.getEncoder()
+            .encodeToString("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
+
     @Mock
     private UserRepository userRepository;
 
@@ -61,6 +67,8 @@ class CustomOAuth2UserServiceTest {
 
     @Mock
     private OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate;
+
+    private final FieldEncryptor fieldEncryptor = new FieldEncryptor(AES_KEY);
 
     @Test
     void loadUser_existingIdentity_shouldReturnExistingUserId() {
@@ -98,8 +106,10 @@ class CustomOAuth2UserServiceTest {
         OAuth2User result = service.loadUser(userRequest("google"));
 
         // Then
+        ArgumentCaptor<OAuthIdentity> identityCaptor = ArgumentCaptor.forClass(OAuthIdentity.class);
         assertThat(result.getAttributes()).containsEntry("userId", userId.toString());
-        verify(oauthIdentityRepository).save(any(OAuthIdentity.class));
+        verify(oauthIdentityRepository).save(identityCaptor.capture());
+        assertThat(fieldEncryptor.decrypt(identityCaptor.getValue().getAccessTokenEnc())).isEqualTo("token");
         verify(tenantRepository, never()).save(any());
         verify(tenantMemberRepository, never()).save(any());
         verify(userSettingsRepository, never()).save(any());
@@ -131,10 +141,12 @@ class CustomOAuth2UserServiceTest {
         OAuth2User result = service.loadUser(userRequest("google"));
 
         // Then
+        ArgumentCaptor<OAuthIdentity> identityCaptor = ArgumentCaptor.forClass(OAuthIdentity.class);
         assertThat(result.getAttributes()).containsEntry("userId", userId.toString());
         verify(tenantRepository).save(any(Tenant.class));
         verify(userRepository).save(any(User.class));
-        verify(oauthIdentityRepository).save(any(OAuthIdentity.class));
+        verify(oauthIdentityRepository).save(identityCaptor.capture());
+        assertThat(fieldEncryptor.decrypt(identityCaptor.getValue().getAccessTokenEnc())).isEqualTo("token");
         verify(tenantMemberRepository).save(any(TenantMember.class));
         verify(userSettingsRepository).save(any(UserSettings.class));
     }
@@ -207,6 +219,7 @@ class CustomOAuth2UserServiceTest {
                 tenantMemberRepository,
                 userSettingsRepository,
                 slugGenerator,
+                fieldEncryptor,
                 delegate);
     }
 

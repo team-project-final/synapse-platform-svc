@@ -24,11 +24,11 @@ class TotpServiceTest {
     private static final String AES_KEY = Base64.getEncoder()
             .encodeToString("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
 
-    private final TotpCredentialRepository totpCredentialRepository = mock(TotpCredentialRepository.class);
+    private final MfaCredentialRepository mfaCredentialRepository = mock(MfaCredentialRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final FieldEncryptor fieldEncryptor = new FieldEncryptor(AES_KEY);
     private final TotpService totpService = new TotpService(
-            totpCredentialRepository,
+            mfaCredentialRepository,
             userRepository,
             fieldEncryptor);
 
@@ -37,45 +37,43 @@ class TotpServiceTest {
         // Given
         UUID userId = UUID.randomUUID();
         given(userRepository.findById(userId)).willReturn(Optional.of(user()));
-        given(totpCredentialRepository.findByUserId(userId)).willReturn(Optional.empty());
+        given(mfaCredentialRepository.findByUserId(userId)).willReturn(Optional.empty());
 
         // When
         TotpService.TotpSetupResponse response = totpService.setup(userId);
 
         // Then
-        ArgumentCaptor<TotpCredential> captor = ArgumentCaptor.forClass(TotpCredential.class);
-        verify(totpCredentialRepository).save(captor.capture());
-        TotpCredential saved = captor.getValue();
+        ArgumentCaptor<MfaCredential> captor = ArgumentCaptor.forClass(MfaCredential.class);
+        verify(mfaCredentialRepository).save(captor.capture());
+        MfaCredential saved = captor.getValue();
         assertThat(response.secret()).isNotBlank();
         assertThat(response.otpAuthUri())
                 .startsWith("otpauth://totp/")
                 .contains("issuer=Synapse");
-        assertThat(saved.getSecret()).isNotEqualTo(response.secret());
-        assertThat(saved.getSecretIv()).isNotBlank();
-        assertThat(fieldEncryptor.decrypt(saved.getSecretIv() + ":" + saved.getSecret()))
-                .isEqualTo(response.secret());
+        assertThat(saved.getSecretEnc()).isNotEqualTo(response.secret());
+        assertThat(fieldEncryptor.decrypt(saved.getSecretEnc())).isEqualTo(response.secret());
     }
 
     @Test
     void setup_existingCredential_shouldReplaceSecretAndDisableCredential() {
         // Given
         UUID userId = UUID.randomUUID();
-        TotpCredential credential = encryptedCredential(userId, "JBSWY3DPEHPK3PXP");
-        credential.enable();
+        MfaCredential credential = encryptedCredential(userId, "JBSWY3DPEHPK3PXP");
+        credential.activate();
         given(userRepository.findById(userId)).willReturn(Optional.of(user()));
-        given(totpCredentialRepository.findByUserId(userId)).willReturn(Optional.of(credential));
+        given(mfaCredentialRepository.findByUserId(userId)).willReturn(Optional.of(credential));
 
         // When
         TotpService.TotpSetupResponse response = totpService.setup(userId);
 
         // Then
-        ArgumentCaptor<TotpCredential> captor = ArgumentCaptor.forClass(TotpCredential.class);
-        verify(totpCredentialRepository).save(captor.capture());
-        TotpCredential saved = captor.getValue();
+        ArgumentCaptor<MfaCredential> captor = ArgumentCaptor.forClass(MfaCredential.class);
+        verify(mfaCredentialRepository).save(captor.capture());
+        MfaCredential saved = captor.getValue();
         assertThat(saved).isSameAs(credential);
-        assertThat(saved.isEnabled()).isFalse();
-        assertThat(fieldEncryptor.decrypt(saved.getSecretIv() + ":" + saved.getSecret()))
-                .isEqualTo(response.secret());
+        assertThat(saved.isActive()).isFalse();
+        assertThat(saved.getVerifiedAt()).isNull();
+        assertThat(fieldEncryptor.decrypt(saved.getSecretEnc())).isEqualTo(response.secret());
     }
 
     @Test
@@ -94,8 +92,8 @@ class TotpServiceTest {
         // Given
         UUID userId = UUID.randomUUID();
         String secret = "JBSWY3DPEHPK3PXP";
-        TotpCredential credential = encryptedCredential(userId, secret);
-        given(totpCredentialRepository.findByUserId(userId)).willReturn(Optional.of(credential));
+        MfaCredential credential = encryptedCredential(userId, secret);
+        given(mfaCredentialRepository.findByUserId(userId)).willReturn(Optional.of(credential));
         String validCode = currentCode(secret);
 
         // When
@@ -103,7 +101,8 @@ class TotpServiceTest {
 
         // Then
         assertThat(result).isTrue();
-        assertThat(credential.isEnabled()).isTrue();
+        assertThat(credential.isActive()).isTrue();
+        assertThat(credential.getVerifiedAt()).isNotNull();
     }
 
     @Test
@@ -111,8 +110,8 @@ class TotpServiceTest {
         // Given
         UUID userId = UUID.randomUUID();
         String secret = "JBSWY3DPEHPK3PXP";
-        TotpCredential credential = encryptedCredential(userId, secret);
-        given(totpCredentialRepository.findByUserId(userId)).willReturn(Optional.of(credential));
+        MfaCredential credential = encryptedCredential(userId, secret);
+        given(mfaCredentialRepository.findByUserId(userId)).willReturn(Optional.of(credential));
         String validCode = currentCode(secret);
         String invalidCode = validCode.equals("000000") ? "111111" : "000000";
 
@@ -121,17 +120,16 @@ class TotpServiceTest {
 
         // Then
         assertThat(result).isFalse();
-        assertThat(credential.isEnabled()).isFalse();
+        assertThat(credential.isActive()).isFalse();
+        assertThat(credential.getVerifiedAt()).isNull();
     }
 
     private User user() {
         return User.ofOAuth("user@example.com", "user", "User", "https://example.com/avatar.png");
     }
 
-    private TotpCredential encryptedCredential(UUID userId, String secret) {
-        String encrypted = fieldEncryptor.encrypt(secret);
-        String[] parts = encrypted.split(":", 2);
-        return TotpCredential.create(userId, parts[1], parts[0]);
+    private MfaCredential encryptedCredential(UUID userId, String secret) {
+        return MfaCredential.create(userId, fieldEncryptor.encrypt(secret));
     }
 
     private String currentCode(String secret) throws Exception {

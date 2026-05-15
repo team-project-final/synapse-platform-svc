@@ -11,6 +11,7 @@ import com.synapse.platform.auth.repository.TenantRepository;
 import com.synapse.platform.auth.repository.UserRepository;
 import com.synapse.platform.auth.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
+import com.synapse.platform.shared.crypto.FieldEncryptor;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +34,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     private final TenantMemberRepository tenantMemberRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final SlugGenerator slugGenerator;
+    private final FieldEncryptor fieldEncryptor;
     private final OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate;
 
     @Autowired
@@ -42,7 +44,8 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             TenantRepository tenantRepository,
             TenantMemberRepository tenantMemberRepository,
             UserSettingsRepository userSettingsRepository,
-            SlugGenerator slugGenerator) {
+            SlugGenerator slugGenerator,
+            FieldEncryptor fieldEncryptor) {
         this(
                 userRepository,
                 oauthIdentityRepository,
@@ -50,6 +53,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 tenantMemberRepository,
                 userSettingsRepository,
                 slugGenerator,
+                fieldEncryptor,
                 new DefaultOAuth2UserService());
     }
 
@@ -60,6 +64,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             TenantMemberRepository tenantMemberRepository,
             UserSettingsRepository userSettingsRepository,
             SlugGenerator slugGenerator,
+            FieldEncryptor fieldEncryptor,
             OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate) {
         this.userRepository = userRepository;
         this.oauthIdentityRepository = oauthIdentityRepository;
@@ -67,6 +72,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         this.tenantMemberRepository = tenantMemberRepository;
         this.userSettingsRepository = userSettingsRepository;
         this.slugGenerator = slugGenerator;
+        this.fieldEncryptor = fieldEncryptor;
         this.delegate = delegate;
     }
 
@@ -76,8 +82,9 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         OAuth2User oAuth2User = delegate.loadUser(request);
         String registrationId = request.getClientRegistration().getRegistrationId();
         OAuthAttributes attributes = OAuthAttributes.of(registrationId, oAuth2User.getAttributes());
+        String accessTokenEnc = encryptedAccessToken(request);
 
-        User user = resolveUser(attributes);
+        User user = resolveUser(attributes, accessTokenEnc);
 
         Map<String, Object> enrichedAttributes = new HashMap<>(oAuth2User.getAttributes());
         enrichedAttributes.put("userId", user.getId().toString());
@@ -87,12 +94,15 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 attributes.nameAttributeKey());
     }
 
-    private User resolveUser(OAuthAttributes attributes) {
+    private User resolveUser(OAuthAttributes attributes, String accessTokenEnc) {
         Optional<OAuthIdentity> identity = oauthIdentityRepository.findByProviderAndProviderUserId(
                 attributes.provider(),
                 attributes.providerId());
         if (identity.isPresent()) {
-            return userRepository.findById(identity.get().getUserId()).orElseThrow();
+            OAuthIdentity existing = identity.get();
+            existing.updateAccessTokenEnc(accessTokenEnc);
+            oauthIdentityRepository.save(existing);
+            return userRepository.findById(existing.getUserId()).orElseThrow();
         }
 
         if (attributes.email() != null) {
@@ -102,15 +112,16 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                         existingUser.get(),
                         attributes.provider(),
                         attributes.providerId(),
-                        attributes.email()));
+                        attributes.email(),
+                        accessTokenEnc));
                 return existingUser.get();
             }
         }
 
-        return signUp(attributes);
+        return signUp(attributes, accessTokenEnc);
     }
 
-    private User signUp(OAuthAttributes attributes) {
+    private User signUp(OAuthAttributes attributes, String accessTokenEnc) {
         String email = attributes.email() != null
                 ? attributes.email()
                 : attributes.name() + "@github.placeholder";
@@ -125,10 +136,18 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 savedUser,
                 attributes.provider(),
                 attributes.providerId(),
-                attributes.email()));
+                attributes.email(),
+                accessTokenEnc));
         tenantMemberRepository.save(TenantMember.ofOwner(tenant.getId(), savedUser.getId()));
         userSettingsRepository.save(UserSettings.defaultFor(savedUser.getId()));
 
         return savedUser;
+    }
+
+    private String encryptedAccessToken(OAuth2UserRequest request) {
+        if (request.getAccessToken() == null || request.getAccessToken().getTokenValue() == null) {
+            return null;
+        }
+        return fieldEncryptor.encrypt(request.getAccessToken().getTokenValue());
     }
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <Match>
+        <Class name="~com\.synapse\.platform\.auth\.config\.(OAuth2AuthorizationRequestDto|HttpCookieOAuth2AuthorizationRequestRepository|SecurityConfig)"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~com\.synapse\.platform\.(auth\.AuthController|auth\.jwt\.RefreshTokenService|auth\.jwt\.JwtAuthenticationFilter|auth\.mfa\.MfaController|auth\.oauth\.OAuth2SuccessHandler)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>

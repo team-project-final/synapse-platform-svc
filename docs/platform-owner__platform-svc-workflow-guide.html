@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WORKFLOW Guide - platform-svc 골격 생성</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #202428;
+      --muted: #5b6673;
+      --line: #d8dee4;
+      --accent: #0a66c2;
+      --accent-soft: #eaf3ff;
+      --warn-bg: #fff8e6;
+      --warn-line: #eac54f;
+      --danger-bg: #fff1f1;
+      --danger-line: #ffb3b8;
+      --code-bg: #0d1117;
+      --code: #e6edf3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.58;
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 34px 42px 24px;
+    }
+
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+
+    h1, h2, h3 { margin: 0; line-height: 1.25; }
+    h1 { font-size: 30px; letter-spacing: 0; }
+    h2 { font-size: 22px; margin-bottom: 14px; }
+    h3 { font-size: 17px; margin-bottom: 8px; }
+    p { margin: 8px 0 0; }
+    ul, ol { margin: 8px 0 0; padding-left: 22px; }
+    li { margin: 5px 0; }
+
+    code, .mono {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 15px;
+      overflow: auto;
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: var(--code);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td {
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f3f5f7; font-weight: 700; }
+
+    .meta { margin-top: 11px; color: var(--muted); font-size: 14px; }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .metric, .section, .callout, .step {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .metric { padding: 15px; min-height: 96px; }
+    .metric strong { display: block; font-size: 24px; margin-bottom: 6px; }
+    .metric span { color: var(--muted); font-size: 13px; }
+    .section { padding: 20px; margin-bottom: 18px; }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .callout {
+      padding: 14px 16px;
+      margin: 14px 0 0;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--warn-line);
+      background: var(--warn-bg);
+    }
+
+    .callout.danger {
+      border-left-color: var(--danger-line);
+      background: var(--danger-bg);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .step { padding: 16px; }
+    .step .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef2f6;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .diagram {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      white-space: pre;
+      overflow: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #f3f5f7;
+      border: 1px solid var(--line);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 860px) {
+      header { padding: 26px 22px 20px; }
+      main { padding: 22px 16px 36px; }
+      .hero-grid, .section-grid, .steps { grid-template-columns: 1fr; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WORKFLOW Guide - platform-svc 골격 생성</h1>
+    <p class="meta">처음 프로젝트를 접한 개발자가 W1 Step 1을 시작할 때 따라가는 실행 가이드</p>
+    <div class="hero-grid">
+      <div class="metric"><strong>1일</strong><span>골격 생성 기준 Duration</span></div>
+      <div class="metric"><strong>4개</strong><span>auth / user / notification / admin 모듈</span></div>
+      <div class="metric"><strong>8081</strong><span>wiki 환경 문서 기준 서비스 포트</span></div>
+      <div class="metric"><strong>0/32</strong><span>WORKFLOW 체크리스트 총 항목</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="section">
+      <h2>이 문서의 목적</h2>
+      <p>
+        이 문서는 <span class="mono">platform-svc</span>를 처음 맡은 개발자가 Spring Boot 4 + Spring Modulith 기반
+        프로젝트 골격을 만들고, <span class="mono">auth</span>, <span class="mono">user</span>,
+        <span class="mono">notification</span>, <span class="mono">admin</span> 모듈 경계를 검증하는 순서를 설명한다.
+      </p>
+      <div class="callout">
+        <strong>Done When</strong>
+        <p>
+          Spring Boot 4 프로젝트가 생성되고, 4개 모듈 패키지와 빈 Controller/Service,
+          <span class="mono">package-info.java</span>, <span class="mono">ApplicationModulesTest</span>,
+          multi-stage <span class="mono">Dockerfile</span>이 준비되며
+          <span class="mono">./gradlew build</span>와 Docker 이미지 빌드가 통과하면 완료로 본다.
+        </p>
+      </div>
+      <div class="callout warn">
+        <strong>착수 전 확인</strong>
+        <p>
+          TASK/WORKFLOW는 <span class="mono">auth/user/notification/admin</span> 4개 모듈을 기준으로 한다.
+          다만 wiki 03/18에는 platform-svc가 <span class="mono">auth/audit/billing/notification</span>으로도 등장한다.
+          실제 생성 전 팀 공통 모듈명을 확정하고, 이 문서는 현재 WORKFLOW 기준으로 진행한다.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>기준 문서</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>문서</th>
+            <th>확인할 내용</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mono">TASK_platform.md</span></td>
+            <td>platform-svc 골격 생성, Spring Boot 4 + Modulith, auth/user/notification/admin 패키지, Dockerfile, 1일</td>
+          </tr>
+          <tr>
+            <td><span class="mono">WORKFLOW_platform_W1.md</span></td>
+            <td>Step 1의 1.1~1.10 체크리스트, Gradle 의존성 목록, 빈 Controller/Service, ApplicationModulesTest</td>
+          </tr>
+          <tr>
+            <td><span class="mono">03_프로젝트_아키텍처_정의서.md</span></td>
+            <td>4개 굵은 서비스 통합 구조와 platform-svc의 인증·알림·관리 계층 역할</td>
+          </tr>
+          <tr>
+            <td><span class="mono">18_기술_스택_정의서.md</span></td>
+            <td>Spring Boot 4, Java 21, Spring Modulith, <span class="mono">ApplicationModules.verify()</span> 기준</td>
+          </tr>
+          <tr>
+            <td><span class="mono">10_환경_설정_템플릿.md</span>, <span class="mono">14_배포_가이드.md</span></td>
+            <td>서비스명 <span class="mono">synapse-platform-svc</span>, 포트 <span class="mono">8081</span>, Actuator health endpoint</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>먼저 이해할 것</h2>
+      <div class="section-grid">
+        <div>
+          <h3>서비스 역할</h3>
+          <p>
+            <span class="mono">platform-svc</span>는 인증, 사용자, 알림, 운영 관리의 기반 서비스다.
+            W1 Step 1에서는 OAuth, JWT, DB, 외부 서비스 연동을 만들지 않고, 후속 구현을 받을 수 있는 모듈 구조와 빌드 기반만 만든다.
+          </p>
+        </div>
+        <div>
+          <h3>골격 단계의 보안 판단</h3>
+          <p>
+            인증 서비스이지만 이번 단계에서는 인증을 구현하지 않는다. 공개 API는 비즈니스 API가 아니라
+            <span class="mono">/actuator/health</span> 확인만 허용한다. 민감 정보, Soft Delete, 행 단위 접근 제어는 후속 기능 단계에서 다룬다.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>목표 패키지 구조</h2>
+      <div class="diagram">synapse-platform-svc/
+├── build.gradle.kts
+├── settings.gradle.kts
+├── Dockerfile
+├── src/
+│   ├── main/
+│   │   ├── java/com/synapse/platform/
+│   │   │   ├── PlatformSvcApplication.java
+│   │   │   ├── auth/
+│   │   │   │   ├── package-info.java
+│   │   │   │   ├── AuthController.java
+│   │   │   │   ├── AuthService.java
+│   │   │   │   └── internal/
+│   │   │   ├── user/
+│   │   │   │   ├── package-info.java
+│   │   │   │   ├── UserController.java
+│   │   │   │   ├── UserService.java
+│   │   │   │   └── internal/
+│   │   │   ├── notification/
+│   │   │   │   ├── package-info.java
+│   │   │   │   ├── NotificationController.java
+│   │   │   │   ├── NotificationService.java
+│   │   │   │   └── internal/
+│   │   │   └── admin/
+│   │   │       ├── package-info.java
+│   │   │       ├── AdminController.java
+│   │   │       ├── AdminService.java
+│   │   │       └── internal/
+│   │   └── resources/
+│   │       └── application.yml
+│   └── test/java/com/synapse/platform/
+│       └── ApplicationModulesTest.java</div>
+    </section>
+
+    <section class="section">
+      <h2>모듈 역할</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>모듈</th>
+            <th>W1 이후 담당 기능</th>
+            <th>골격 단계 산출물</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mono">auth</span></td>
+            <td>OAuth 로그인, JWT 발급, Refresh Token, MFA 기초, 인증 이벤트</td>
+            <td><span class="mono">AuthController</span>, <span class="mono">AuthService</span>, <span class="mono">package-info.java</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">user</span></td>
+            <td>사용자 프로필, 계정 상태, 테넌트/가입 흐름과 사용자 컨텍스트</td>
+            <td><span class="mono">UserController</span>, <span class="mono">UserService</span>, <span class="mono">package-info.java</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">notification</span></td>
+            <td>FCM/APNs/SES/인앱 알림, 알림 환경설정, notification.send 이벤트 처리</td>
+            <td><span class="mono">NotificationController</span>, <span class="mono">NotificationService</span>, <span class="mono">package-info.java</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">admin</span></td>
+            <td>관리자용 상태 조회, 운영 관리 API, 감사/모니터링 기능의 진입점</td>
+            <td><span class="mono">AdminController</span>, <span class="mono">AdminService</span>, <span class="mono">package-info.java</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>WORKFLOW 진행 순서</h2>
+      <div class="steps">
+        <div class="step">
+          <h3><span class="num">1</span>TASK 시작</h3>
+          <ul>
+            <li>Step Goal, Done When, Scope, Input을 확인한다.</li>
+            <li>PRD_W1에서 프로젝트 골격 요구사항을 확인한다.</li>
+            <li>Duration은 1일로 확인한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">2</span>요구사항 분석</h3>
+          <ul>
+            <li>Spring Boot 4 + Java 21 + Gradle Kotlin DSL 기준으로 생성한다.</li>
+            <li>auth/user/notification/admin의 책임을 분리해 TASK에 반영한다.</li>
+            <li>Gradle 의존성 목록을 먼저 확정한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">3</span>Security 1차 검토</h3>
+          <ul>
+            <li>골격 단계이므로 인증은 구현하지 않는다.</li>
+            <li>비즈니스 공개 API는 만들지 않는다.</li>
+            <li>Actuator health만 확인 대상으로 둔다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">4</span>ERD 설계</h3>
+          <ul>
+            <li>DB 마이그레이션은 Out of Scope다.</li>
+            <li>모듈별 패키지 구조도를 문서화한다.</li>
+            <li>Duration final을 TASK에 갱신한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">5</span>Security 2차 검토</h3>
+          <ul>
+            <li>민감 정보 암호화는 비해당으로 기록한다.</li>
+            <li>Soft Delete와 행 단위 접근 제어는 후속 기능 단계로 넘긴다.</li>
+            <li>모듈 경계는 설계 보안 항목으로 별도 관리한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">6</span>DTO / Entity 설계</h3>
+          <ul>
+            <li>DTO와 Entity는 만들지 않는다.</li>
+            <li>빈 Controller/Service 클래스만 생성한다.</li>
+            <li>각 모듈에 <span class="mono">package-info.java</span>를 작성한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">7</span>Repository 구현</h3>
+          <ul>
+            <li>Repository는 비해당으로 둔다.</li>
+            <li><span class="mono">ApplicationModulesTest</span>를 작성한다.</li>
+            <li>순환 의존과 경계 위반을 빌드에서 잡도록 한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">8</span>Service + Test</h3>
+          <ul>
+            <li>4개 모듈에 빈 Service를 만든다.</li>
+            <li><span class="mono">ApplicationModulesTest</span>를 실행한다.</li>
+            <li><span class="mono">./gradlew build</span> 성공을 확인한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">9</span>Controller + Test</h3>
+          <ul>
+            <li>4개 모듈에 빈 Controller를 만든다.</li>
+            <li>multi-stage <span class="mono">Dockerfile</span>을 작성한다.</li>
+            <li>Docker 이미지 빌드 성공을 확인한다.</li>
+          </ul>
+        </div>
+        <div class="step">
+          <h3><span class="num">10</span>View + Test</h3>
+          <ul>
+            <li>Flutter 연동은 비해당으로 표시한다.</li>
+            <li>docker compose에서 <span class="mono">synapse-platform-svc</span> 실행을 확인한다.</li>
+            <li>RULE Reference를 TASK에 반영한다.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>구현 예시</h2>
+      <h3>Gradle 의존성</h3>
+      <pre><code>plugins {
+    java
+    id("org.springframework.boot") version "4.0.0"
+    id("io.spring.dependency-management") version "1.1.7"
+}
+
+group = "com.synapse"
+version = "0.0.1-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.modulith:spring-modulith-starter-core")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+}</code></pre>
+
+      <div class="callout">
+        <strong>골격 단계 의존성 기준</strong>
+        <p>
+          OAuth, Security, Data JPA, Redis, Kafka, Mail, FCM/APNs, Stripe 등은 후속 Step에서 필요할 때 추가한다.
+          Step 1에서는 Web, Actuator, Modulith, Test만으로 빌드 시간을 짧게 유지한다.
+        </p>
+      </div>
+
+      <h3>package-info.java</h3>
+      <pre><code>// src/main/java/com/synapse/platform/auth/package-info.java
+@ApplicationModule(
+    displayName = "Auth",
+    allowedDependencies = {"user"}
+)
+package com.synapse.platform.auth;
+
+import org.springframework.modulith.ApplicationModule;</code></pre>
+
+      <pre><code>// src/main/java/com/synapse/platform/user/package-info.java
+@ApplicationModule(
+    displayName = "User",
+    allowedDependencies = {}
+)
+package com.synapse.platform.user;
+
+import org.springframework.modulith.ApplicationModule;</code></pre>
+
+      <pre><code>// src/main/java/com/synapse/platform/notification/package-info.java
+@ApplicationModule(
+    displayName = "Notification",
+    allowedDependencies = {"user"}
+)
+package com.synapse.platform.notification;
+
+import org.springframework.modulith.ApplicationModule;</code></pre>
+
+      <pre><code>// src/main/java/com/synapse/platform/admin/package-info.java
+@ApplicationModule(
+    displayName = "Admin",
+    allowedDependencies = {"auth", "user", "notification"}
+)
+package com.synapse.platform.admin;
+
+import org.springframework.modulith.ApplicationModule;</code></pre>
+
+      <div class="callout warn">
+        <strong>의존성은 초안이다</strong>
+        <p>
+          <span class="mono">user</span>를 기반 모듈로 두고 auth/notification/admin이 명시 API만 참조하는 구조로 시작한다.
+          이벤트 기반으로 충분하면 <span class="mono">allowedDependencies</span>를 더 줄인다.
+        </p>
+      </div>
+
+      <h3>ApplicationModulesTest</h3>
+      <pre><code>package com.synapse.platform;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.modulith.core.ApplicationModules;
+
+class ApplicationModulesTest {
+
+    @Test
+    void verifiesModularStructure() {
+        ApplicationModules modules = ApplicationModules.of(PlatformSvcApplication.class);
+        modules.verify();
+    }
+}</code></pre>
+
+      <h3>application.yml</h3>
+      <pre><code>server:
+  port: 8081
+
+spring:
+  application:
+    name: synapse-platform-svc
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true</code></pre>
+
+      <h3>빈 Service / Controller</h3>
+      <pre><code>@Service
+public class AuthService {
+}
+
+@RestController
+@RequestMapping("/api/v1/auth")
+public class AuthController {
+}</code></pre>
+
+      <pre><code>@Service
+public class UserService {
+}
+
+@RestController
+@RequestMapping("/api/v1/users")
+public class UserController {
+}</code></pre>
+
+      <pre><code>@Service
+public class NotificationService {
+}
+
+@RestController
+@RequestMapping("/api/v1/notifications")
+public class NotificationController {
+}</code></pre>
+
+      <pre><code>@Service
+public class AdminService {
+}
+
+@RestController
+@RequestMapping("/api/v1/admin")
+public class AdminController {
+}</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Docker 구성 예시</h2>
+      <h3>Dockerfile</h3>
+      <pre><code>FROM eclipse-temurin:21-jdk AS builder
+WORKDIR /workspace
+COPY gradlew settings.gradle.kts build.gradle.kts ./
+COPY gradle ./gradle
+COPY src ./src
+RUN ./gradlew clean bootJar --no-daemon
+
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=builder /workspace/build/libs/*.jar app.jar
+EXPOSE 8081
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]</code></pre>
+
+      <h3>docker compose 서비스 조각</h3>
+      <pre><code>synapse-platform-svc:
+  build:
+    context: ./platform-svc
+  container_name: synapse-platform-svc
+  ports:
+    - "8081:8081"
+  environment:
+    SPRING_PROFILES_ACTIVE: local
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+    interval: 10s
+    timeout: 3s
+    retries: 5</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>검증 명령</h2>
+      <pre><code># 1. 테스트 포함 빌드
+./gradlew clean build
+
+# 2. Modulith 구조 검증 테스트만 실행
+./gradlew test --tests "*ApplicationModulesTest"
+
+# 3. 로컬 실행
+./gradlew bootRun
+
+# 4. Health endpoint 확인
+curl http://localhost:8081/actuator/health
+
+# 5. Docker 이미지 빌드
+docker build -t synapse-platform-svc:local .
+
+# 6. Docker 컨테이너 실행 후 health 확인
+docker run --rm -p 8081:8081 synapse-platform-svc:local
+curl http://localhost:8081/actuator/health</code></pre>
+      <div class="callout danger">
+        <strong>수동 위반 검증</strong>
+        <p>
+          검증용으로만 다른 모듈의 <span class="mono">internal</span> 타입을 import하거나 순환 의존을 만든 뒤
+          <span class="mono">ApplicationModules.verify()</span>가 실패하는지 확인한다. 확인 후 위반 코드는 반드시 제거한다.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>PR에 포함할 산출물</h2>
+      <ul>
+        <li><span class="mono">platform-svc/</span> 프로젝트 디렉토리</li>
+        <li><span class="mono">build.gradle.kts</span>, <span class="mono">settings.gradle.kts</span></li>
+        <li><span class="mono">auth</span>, <span class="mono">user</span>, <span class="mono">notification</span>, <span class="mono">admin</span> 패키지와 <span class="mono">package-info.java</span></li>
+        <li>각 모듈의 빈 Controller / Service 클래스</li>
+        <li><span class="mono">ApplicationModulesTest</span> 및 테스트 통과 로그</li>
+        <li><span class="mono">Dockerfile</span> 및 Docker 이미지 빌드 로그</li>
+        <li><span class="mono">/actuator/health</span> 응답 확인 로그</li>
+        <li>Gradle 의존성 목록과 RULE Reference 반영 내역</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>최종 체크리스트</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>상태</th>
+            <th>항목</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="badge">TASK</span></td><td>Step Goal / Done When / Scope / Input 확인</td></tr>
+          <tr><td><span class="badge">TASK</span></td><td>PRD_W1 프로젝트 골격 요구사항 확인</td></tr>
+          <tr><td><span class="badge">TASK</span></td><td>Duration 1일 확인</td></tr>
+          <tr><td><span class="badge">분석</span></td><td>Spring Boot 4 + Modulith 프로젝트 구조 분석</td></tr>
+          <tr><td><span class="badge">분석</span></td><td>auth / user / notification / admin 4개 모듈 역할 정의</td></tr>
+          <tr><td><span class="badge">분석</span></td><td>Gradle 의존성 목록 도출</td></tr>
+          <tr><td><span class="badge">Security</span></td><td>인증 없음, 권한 없음, Health endpoint만 확인</td></tr>
+          <tr><td><span class="badge">설계</span></td><td>ERD 비해당, 모듈별 패키지 구조도 작성</td></tr>
+          <tr><td><span class="badge">구현</span></td><td>각 모듈 <span class="mono">package-info.java</span> 작성</td></tr>
+          <tr><td><span class="badge">구현</span></td><td>빈 Controller / Service 클래스 생성</td></tr>
+          <tr><td><span class="badge">검증</span></td><td><span class="mono">ApplicationModulesTest</span> 통과</td></tr>
+          <tr><td><span class="badge">검증</span></td><td><span class="mono">./gradlew build</span> 성공</td></tr>
+          <tr><td><span class="badge">배포</span></td><td>Dockerfile 작성 및 Docker 이미지 빌드 성공</td></tr>
+          <tr><td><span class="badge">배포</span></td><td>docker compose에서 <span class="mono">synapse-platform-svc</span> 실행 확인</td></tr>
+          <tr><td><span class="badge">마감</span></td><td>RULE Reference를 TASK에 반영</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

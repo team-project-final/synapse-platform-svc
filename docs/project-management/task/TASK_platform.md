@@ -1,6 +1,6 @@
 # TASK: @platform-owner
 
-> **담당 서비스**: platform-svc (auth / billing / notification / audit)  
+> **담당 서비스**: platform-svc (auth / user / notification / admin)  
 > **GitHub Repository**: [synapse-platform-svc](https://github.com/team-project-final/synapse-platform-svc)  
 > **주차**: W1 (2026-05-12 ~ 2026-05-16)  
 > **관련 문서**: [SCOPE](../scope/SCOPE_platform.md) | [PRD_W1](../prd/PRD_W1.md) | [WORKFLOW](../workflow/WORKFLOW_platform_W1.md) | [HISTORY](../history/HISTORY_platform.md)
@@ -12,14 +12,14 @@
 - **Step Goal**: platform-owner가 Spring Boot 4 + Modulith 기반 platform-svc 프로젝트를 생성하여 4개 모듈 골격이 동작한다.
 - **Done When**:
   - [x] Spring Boot 4 + Modulith 프로젝트 초기화 완료
-  - [x] auth / billing / notification / audit 4개 모듈 패키지 구조 생성
+  - [x] auth / user / notification / admin 4개 모듈 패키지 구조 생성
   - [x] `./gradlew build` 성공
   - [x] Modulith 구조 검증 테스트 통과 (`ApplicationModulesTest`)
   - [x] Docker 이미지 빌드 성공
 - **Scope**:
   - In Scope:
     - Spring Boot 4 + Modulith 프로젝트 생성
-    - 4개 모듈 패키지 구조 (auth, billing, notification, audit)
+    - 4개 모듈 패키지 구조 (auth, user, notification, admin)
     - build.gradle 의존성 설정
     - ApplicationModulesTest 작성
     - Dockerfile 작성
@@ -31,7 +31,7 @@
 - **Instructions**:
   1. Spring Initializr로 프로젝트 생성 (Spring Boot 4, Java 21, Gradle)
   2. Modulith 의존성 추가 (spring-modulith-starter, spring-modulith-test)
-  3. auth / billing / notification / audit 패키지 생성 + package-info.java
+  3. auth / user / notification / admin 패키지 생성 + package-info.java
   4. 각 모듈에 빈 Controller + Service 클래스 생성
   5. ApplicationModulesTest 작성 및 통과 확인
   6. Dockerfile 작성 (multi-stage build)
@@ -54,11 +54,11 @@
 
 - **Step Goal**: 사용자가 Google/GitHub OAuth를 통해 회원가입하고 로그인할 수 있다.
 - **Done When**:
-  - [x] Google OAuth 로그인 → 신규 사용자 자동 회원가입 (users + oauth_identities + tenants + tenant_members + user_settings 동시 생성)
-  - [x] GitHub OAuth 로그인 → 신규 사용자 자동 회원가입 (email null → placeholder 처리)
-  - [x] 기존 사용자 OAuth 로그인 시 기존 계정과 매핑 (Case A: 동일 provider / Case B: email 기준 계정 연결)
-  - [x] oauth_identities 분리 테이블에 provider/provider_user_id 저장 (샘플링 D-004 — users에 직접 저장 않음)
-  - [x] ./gradlew build 성공 + 전체 테스트 통과 (20건 이상)
+  - [x] Google OAuth 로그인 → 신규 사용자 자동 회원가입
+  - [x] GitHub OAuth 로그인 → 신규 사용자 자동 회원가입
+  - [x] 기존 사용자 OAuth 로그인 시 기존 계정과 매핑
+  - [x] oauth_identities 테이블에 provider/provider_id 저장 (users 테이블이 아닌 별도 테이블 — ERD 기준)
+  - [x] 통합 테스트 통과
 - **Scope**:
   - In Scope:
     - Spring Security OAuth2 Client 설정
@@ -75,11 +75,13 @@
 - **Instructions**:
   1. application.yml에 OAuth2 Client 설정 (Google, GitHub)
   2. users 테이블 DDL 작성 + Flyway V1 마이그레이션
-  3. OAuth2UserService 구현 (사용자 조회/생성 로직)
-  4. OAuth2 성공 핸들러 구현 (JWT 발급 연계)
-  5. 신규 사용자 자동 회원가입 로직 구현
-  6. 기존 사용자 매핑 로직 구현 (email 기준)
-  7. 통합 테스트 작성 (MockOAuth2User)
+     - provider/provider_id는 users 테이블에 넣지 않음 (ERD 기준: oauth_identities 별도 테이블로 분리)
+  3. oauth_identities 테이블 DDL 작성 (id, user_id, provider, provider_id, access_token_enc) + Flyway 마이그레이션
+  4. OAuth2UserService 구현 (사용자 조회/생성 로직)
+  5. OAuth2 성공 핸들러 구현 (JWT 발급 연계)
+  6. 신규 사용자 자동 회원가입 로직 구현
+  7. 기존 사용자 매핑 로직 구현 (email 기준)
+  8. 통합 테스트 작성 (MockOAuth2User)
 - **Output Format**: auth 모듈 코드 + Flyway 마이그레이션 + 테스트 코드
 - **Constraints**:
   - OAuth2 Authorization Code Grant만 사용
@@ -98,30 +100,30 @@
 
 - **Step Goal**: 인증된 사용자에게 JWT Access/Refresh Token을 발급하고, MFA(TOTP) 등록 기초가 동작한다.
 - **Done When**:
-  - [ ] OAuth 로그인 성공 시 JWT Access Token (15분) 발급
-  - [ ] Refresh Token (7일) 발급 + Redis 저장
-  - [ ] Access Token 만료 시 Refresh Token으로 갱신
-  - [ ] MFA(TOTP) 시크릿 생성 + QR 코드 URL 반환
-  - [ ] TOTP 코드 검증 API 동작
-  - [ ] 단위/통합 테스트 통과
+  - [x] OAuth 로그인 성공 시 JWT Access Token (15분) 발급
+  - [x] Refresh Token (7일) 발급 + DB + Redis 저장
+  - [x] Access Token 만료 시 Refresh Token으로 갱신
+  - [x] MFA(TOTP) 시크릿 생성 + QR 코드 URL 반환
+  - [x] TOTP 코드 검증 API 동작
+  - [x] 단위/통합 테스트 통과
 - **Scope**:
   - In Scope:
     - JWT Access/Refresh Token 발급 로직
-    - Refresh Token Redis 저장/조회/삭제
-    - Token 갱신 API (`POST /auth/refresh`)
-    - TOTP 시크릿 생성 (`POST /auth/mfa/setup`)
-    - TOTP 검증 API (`POST /auth/mfa/verify`)
+    - Refresh Token DB 저장 + Redis 캐시 병행
+    - Token 갱신 API (`POST /api/v1/auth/refresh`)
+    - TOTP 시크릿 생성 (`POST /api/v1/auth/mfa/setup`)
+    - TOTP 검증 API (`POST /api/v1/auth/mfa/verify`)
     - 단위/통합 테스트
   - Out of Scope:
     - MFA 강제 적용 정책
     - Token 블랙리스트 (W2)
     - SMS/이메일 MFA
-- **Input**: JWT 라이브러리 (jjwt), TOTP 라이브러리 (GoogleAuth), Redis 접속 정보
+- **Input**: JWT 라이브러리 (jjwt 0.12.6), TOTP 라이브러리 (dev.samstevens.totp 1.7.1), Redis 접속 정보
 - **Instructions**:
   1. JWT 유틸리티 클래스 구현 (생성, 파싱, 검증)
   2. Access Token 발급 로직 (claims: userId, roles, exp=15min)
-  3. Refresh Token 발급 + Redis 저장 (key: userId, TTL: 7d)
-  4. Token 갱신 엔드포인트 구현 (`POST /auth/refresh`)
+  3. Refresh Token 발급 + DB 저장(token_hash) + Redis 캐시 (key: userId, TTL: 7d)
+  4. Token 갱신 엔드포인트 구현 (`POST /api/v1/auth/refresh`)
   5. TOTP 시크릿 생성 + QR 코드 URL 생성 API
   6. TOTP 코드 검증 API 구현
   7. Security Filter에 JWT 검증 추가
@@ -129,7 +131,8 @@
 - **Output Format**: auth 모듈 JWT/MFA 코드 + Redis 설정 + 테스트 코드
 - **Constraints**:
   - Access Token: 15분, Refresh Token: 7일
-  - Refresh Token은 Redis에만 저장 (DB 저장 X)
+  - Refresh Token: DB(token_hash SHA-256) + Redis 캐시 병행 (D-006), raw token 저장 금지
+  - 사용자당 1개 active Refresh Token (D-009)
   - TOTP는 RFC 6238 준수
   - JWT 서명: RS256
 - **Duration**: 2일
@@ -137,7 +140,7 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Status**: ✅ Done (2026-05-15) — W1 보정(D-006~D-010) 포함
 
 ---
 
@@ -172,13 +175,13 @@
 - **Instructions**:
   1. subscriptions 테이블 DDL 작성 + Flyway 마이그레이션
   2. payment_history 테이블 DDL 작성 + Flyway 마이그레이션
-  3. Stripe Checkout 세션 생성 API 구현 (`POST /payments/checkout`)
-  4. Webhook 엔드포인트 구현 (`POST /webhooks/stripe`)
+  3. Stripe Checkout 세션 생성 API 구현 (`POST /billing/checkout` — 구 `/payments/checkout`)
+  4. Webhook 엔드포인트 구현 (`POST /billing/webhooks` — 구 `/webhooks/stripe`)
   5. Webhook 서명 검증 로직 구현
   6. checkout.session.completed → 구독 활성화 로직
-  7. 구독 상태 조회 API (`GET /subscriptions/me`)
+  7. 구독 상태 조회 API (`GET /billing/subscription` — 구 `/subscriptions/me`)
   8. 통합 테스트 (Stripe Test Mode)
-- **Output Format**: billing 모듈 결제 코드 + Flyway 마이그레이션 + 테스트 코드
+- **Output Format**: auth 모듈 결제 코드 + Flyway 마이그레이션 + 테스트 코드
 - **Constraints**:
   - Stripe Test Mode 사용 (dev/staging)
   - Webhook 서명 검증 필수 (replay attack 방지)
@@ -197,36 +200,40 @@
 - **Step Name**: FCM 디바이스 등록
 - **Step Goal**: 사용자가 FCM 푸시 알림을 받기 위해 디바이스를 등록할 수 있다.
 - **Done When**:
-  - [ ] `POST /devices` → FCM 토큰 등록
-  - [ ] `DELETE /devices/{id}` → 디바이스 해제
-  - [ ] `GET /devices/me` → 내 디바이스 목록 조회
+  - [ ] `POST /notifications/devices` → FCM 토큰 등록 (구 `/devices`)
+  - [ ] `DELETE /notifications/devices/{id}` → 디바이스 해제 (구 `/devices/{id}`)
+  - [ ] ~~`GET /devices/me`~~ → Wiki에 정의되지 않은 엔드포인트 (디바이스 관리는 POST/DELETE만 지원)
   - [ ] devices 테이블 Flyway 마이그레이션 완료
   - [ ] 통합 테스트 통과
 - **Scope**:
   - In Scope:
-    - devices 테이블 설계 + Flyway 마이그레이션
-    - FCM 토큰 등록 API
-    - 디바이스 해제 API
-    - 내 디바이스 목록 조회 API
+    - device_tokens 테이블 설계 + Flyway 마이그레이션 (구 `devices` → ERD 기준 `device_tokens`)
+    - FCM 토큰 등록 API (`POST /notifications/devices`)
+    - 디바이스 해제 API (`DELETE /notifications/devices/{id}`)
     - 중복 토큰 방지 로직
+    - (내 디바이스 목록 조회 API 제외 — Wiki 미정의)
   - Out of Scope:
     - 실제 푸시 발송 (W3 Step 7)
     - 토큰 갱신 자동화
     - APNs (iOS) 직접 연동
 - **Input**: FCM 프로젝트 설정, JWT 인증 토큰
 - **Instructions**:
-  1. devices 테이블 DDL 작성 (id, user_id, fcm_token, device_type, created_at)
+  1. device_tokens 테이블 DDL 작성 (id, user_id, token, platform, is_active, created_at)
+     - 구 `devices` → ERD 기준 `device_tokens`
+     - 구 `fcm_token` → `token`, 구 `device_type` → `platform`
+     - `platform` 값: `ios`, `android`, `web` (소문자, 구 ANDROID/IOS/WEB → 소문자)
+     - `is_active`: 토큰 활성 여부
   2. Flyway 마이그레이션 파일 생성
-  3. Device 엔티티 + Repository 작성
-  4. DeviceService 구현 (register, unregister, findByUser)
-  5. DeviceController REST API 구현
-  6. 중복 FCM 토큰 방지 (UNIQUE 제약)
+  3. DeviceToken 엔티티 + Repository 작성
+  4. DeviceTokenService 구현 (register, unregister)
+  5. DeviceTokenController REST API 구현 (`POST /notifications/devices`, `DELETE /notifications/devices/{id}`)
+  6. 중복 토큰 방지 (UNIQUE 제약)
   7. 통합 테스트 작성
-- **Output Format**: notification 모듈 디바이스 코드 + Flyway 마이그레이션 + 테스트 코드
+- **Output Format**: notification 모듈 device_tokens 코드 + Flyway 마이그레이션 + 테스트 코드
 - **Constraints**:
   - 한 사용자 최대 5개 디바이스 등록
-  - FCM 토큰 UNIQUE 제약
-  - device_type: ANDROID, IOS, WEB
+  - token UNIQUE 제약
+  - platform: `ios`, `android`, `web` (소문자, ERD 기준)
 - **Duration**: 0.5일
 - **RULE Reference**: wiki 03_아키텍처_정의서 §알림, wiki 18_기술_스택_정의서 §FCM
 - **Assignee**: @platform-owner
@@ -263,7 +270,12 @@
     - 외부 SIEM 연동
 - **Input**: Kafka 토픽 목록, 이벤트 스키마, 관리자 권한 정보
 - **Instructions**:
-  1. audit_logs 테이블 DDL 작성 (id, event_type, actor_id, payload, timestamp)
+  1. audit_logs 테이블 DDL 작성 (id, action, user_id, old_value, new_value, ip_address, user_agent, created_at)
+     - 구 `event_type` → `action` (ERD 기준)
+     - 구 `actor_id` → `user_id` (ERD 기준)
+     - 구 `payload` → `old_value`/`new_value` 분리 (ERD 기준)
+     - 구 `timestamp` → `created_at` (ERD 기준)
+     - 추가: `ip_address`, `user_agent`
   2. Flyway 마이그레이션 파일 생성
   3. Kafka Consumer 구현 (KafkaListener, 다중 토픽)
   4. 이벤트 → AuditLog 변환 로직 구현
@@ -310,7 +322,7 @@
     - 실시간 웹소켓 알림
 - **Input**: Kafka 이벤트, FCM 서비스 계정, AWS SES 설정, 디바이스 토큰 목록
 - **Instructions**:
-  1. notification_history 테이블 DDL + Flyway 마이그레이션
+  1. notifications 테이블 DDL + Flyway 마이그레이션 (구 `notification_history` → ERD 기준 `notifications`)
   2. Kafka Consumer 구현 (gamification/community/learning 토픽 구독)
   3. FCM 푸시 발송 서비스 구현 (Firebase Admin SDK)
   4. SES 이메일 발송 서비스 구현 (AWS SES SDK)
@@ -338,11 +350,11 @@
 - **Step Name**: 관리자 테넌트/사용자 관리
 - **Step Goal**: 관리자가 테넌트와 사용자를 관리(목록/검색/정지/삭제)할 수 있다.
 - **Done When**:
-  - [ ] `GET /admin/users` → 사용자 목록 조회 (페이징 + 검색)
-  - [ ] `PUT /admin/users/{id}/suspend` → 사용자 정지
-  - [ ] `DELETE /admin/users/{id}` → 사용자 삭제 (soft delete)
+  - [ ] `GET /admin/users` → 사용자 목록 조회 (페이징 + 검색, Wiki 추가 예정 `/admin/users/*`)
+  - [ ] `PUT /admin/users/{id}/status` → 사용자 상태 변경 (suspend/activate)
+  - [ ] `DELETE /admin/users/{id}` → 사용자 삭제 (soft delete, Wiki 추가 예정)
   - [ ] `GET /admin/tenants` → 테넌트 목록 조회
-  - [ ] `PUT /admin/tenants/{id}/suspend` → 테넌트 정지
+  - [ ] `PUT /admin/tenants/{id}/status` → 테넌트 상태 변경 (body: `{ "status": "suspended" }`) (구 `/suspend` → Wiki 기준 `/status`)
   - [ ] 관리자 권한 검증 동작
   - [ ] 통합 테스트 통과
 - **Scope**:
@@ -364,9 +376,9 @@
   3. 사용자 정지 API (status → SUSPENDED, JWT 블랙리스트)
   4. 사용자 삭제 API (soft delete, 개인정보 마스킹)
   5. 테넌트 목록 조회 API (페이징)
-  6. 테넌트 정지 API (소속 사용자 일괄 정지)
+  6. 테넌트 상태 변경 API: `PUT /admin/tenants/{id}/status` (body: `{ "status": "suspended" }`) — 구 `/suspend`
   7. 통합 테스트 작성 (관리자/비관리자 시나리오)
-- **Output Format**: auth 모듈 관리 코드 + 테스트 코드
+- **Output Format**: admin 모듈 관리 코드 + 테스트 코드
 - **Constraints**:
   - 관리자 권한(ADMIN role) 필수
   - 사용자 삭제 시 개인정보 마스킹 (GDPR 준수)

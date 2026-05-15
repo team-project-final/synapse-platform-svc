@@ -1,9 +1,9 @@
-package com.synapse.platform.billing;
+package com.synapse.platform.admin;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/billing")
-public class BillingController {
+@RequestMapping("/api/v1/admin")
+class AdminController {
 }

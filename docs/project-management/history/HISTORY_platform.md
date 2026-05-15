@@ -13,27 +13,26 @@
 |------|------|------|--------|--------|------|
 | Step 1 | platform-svc 골격 생성 | Done | 2026-05-12 | 2026-05-13 | PR #3, #4 merge 완료 |
 | Step 2 | OAuth 회원가입/로그인 | Done | 2026-05-13 | 2026-05-14 | oauth_identities 분리 테이블, 3-케이스 처리 |
-| Step 3 | JWT 발급/검증 + MFA 기초 | Not Started | — | — | |
+| Step 3 | JWT 발급/검증 + MFA 기초 | Done | 2026-05-14 | 2026-05-15 | RS256 JWT, DB+Redis Refresh Token, TOTP MFA, W1 보정(D-006~D-010) 완료 |
 
-**W1 진행률**: 2/3 Steps 완료 (Step 3 예정)
+**W1 진행률**: 3/3 Steps 완료 (W1 auth 범위 완료)
 
 ### W2 (2026-05-19 ~ 05-23)
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | Step 4 | Stripe 결제 연동 | Not Started | — | — | |
-| Step 5 | FCM 푸시 알림 | Not Started | — | — | |
-| Step 6 | 구독 관리 API | Not Started | — | — | |
+| Step 5 | FCM 디바이스 등록 | Not Started | — | — | |
 
-**W2 진행률**: 0/3 Steps 완료
+**W2 진행률**: 0/2 Steps 완료
 
 ### W3 (2026-05-26 ~ 05-29)
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 7 | audit 로그 시스템 | Not Started | — | — | |
-| Step 8 | notification 서비스 | Not Started | — | — | |
-| Step 9 | 관리자 API | Not Started | — | — | |
+| Step 6 | Kafka Audit Log | Not Started | — | — | |
+| Step 7 | FCM 푸시/SES 이메일 알림 | Not Started | — | — | |
+| Step 8 | 관리자 테넌트/사용자 관리 | Not Started | — | — | |
 
 **W3 진행률**: 0/3 Steps 완료
 
@@ -41,11 +40,10 @@
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 10 | E2E 테스트 | Not Started | — | — | |
-| Step 11 | 안정화 및 버그 수정 | Not Started | — | — | |
-| Step 12 | 문서화 | Not Started | — | — | |
+| Step 9 | 인증/결제 전체 E2E 테스트 | Not Started | — | — | |
+| Step 10 | P0 버그 수정 및 알림 안정화 | Not Started | — | — | |
 
-**W4 진행률**: 0/3 Steps 완료
+**W4 진행률**: 0/2 Steps 완료
 
 ---
 
@@ -75,7 +73,6 @@
   - `docs/ai/current/TASK.md` Step 2 내용으로 작성
   - `docs/ai/templates/` 폴더 분리 (템플릿 vs 실제 작업 문서 구조 개선)
   - `docs/spike/OAuth/` OAuth 샘플링 문서 추가
-  - `docs/platform-owner__platform-svc-workflow-guide.html` 워크플로우 가이드 확인
 - **진행 중**: Step 2 분석 단계 (10단계 워크플로 ①②③ 완료)
 - **이슈**: 없음
 - **다음**: Step 2 설계 단계 (CONTEXT.md 작성 → HANDOFF.md → Worker 구현)
@@ -87,16 +84,41 @@
   - Worker 구현 완료 — Entity 5개, Repository 5개, OAuth 서비스/핸들러/SecurityConfig
   - Flyway V1~V3, V16~V18 마이그레이션 파일 작성
   - 테스트 20건+ 통과 / `./gradlew build` 성공
-  - **Step 2 완료**
-- **진행 중**: 없음
+  - 룰북 준수 수정 ([MUST] 7건 + [SHOULD] 3건) — 29건 테스트 통과
+  - PR #8 dev merge 완료 / **Step 2 완료**
+  - `feature/PLAT-005-jwt-mfa` 브랜치 생성 / **Step 3 시작**
+  - Step 3 작업 문서 확인 및 `docs/ai/current/PLAN.md` 작성
+  - JWT/TOTP/Redis 의존성 추가 및 dev/prod 프로파일 설정
+  - RS256 JWT Access/Refresh Token 발급, issuer/type 검증, Security Filter 구현
+  - Refresh Token Redis 저장/조회/삭제 및 `/api/v1/auth/refresh` 구현
+  - TOTP MFA setup/verify API 구현, TOTP secret AES 암호화 저장, Flyway V19 작성
+  - 리뷰 보정 반영: Access/Refresh token type 분리 검증, MFA setup 재호출 시 secret 교체
+  - 검증 완료: `checkstyleMain checkstyleTest spotbugsMain spotbugsTest`, `test`, `test --tests "*ModuleStructureTest"`, `build`
+  - 전체 테스트 결과: 69건 통과, 실패 0건
+- **진행 중**: Step 3 커밋/PR 준비
 - **이슈**: 없음
-- **다음**: Step 3 (JWT Access/Refresh Token + MFA TOTP)
+- **다음**: Step 3 커밋 → W1 보정 작업 시작
 
 #### 2026-05-15 (금)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **주간 요약**:
+  - 팀리더 최신 문서(new_md) 검토 및 D-005~D-008 설계 결정 확정
+    - 모듈 구조: billing/audit → user/admin (D-005)
+    - Refresh Token: Redis 전용 → DB(token_hash) + Redis 캐시 병행 (D-006)
+    - OAuth access_token_enc 암호화 저장 추가 (D-007)
+    - MFA 테이블: totp_credentials → mfa_credentials (D-008)
+  - Worker HANDOFF.md 작성 (변경 4건 명세)
+  - Worker 구현 완료 — Flyway V20~V22, 모듈 재편, MfaCredential, RefreshTokenService DB+Redis
+  - Worker 구현 리뷰 후 버그 3건 발견 → D-009~D-010 확정
+    - HIGH: RefreshTokenService.save() deleteAllByUserId 누락
+    - MEDIUM: OAuthIdentity 재로그인 시 access_token_enc 미갱신
+    - TEST: RefreshTokenServiceTest Mockito → Testcontainers 전환
+  - Worker FIX 완료 — Flyway V23, TransactionSynchronization, DB unique index
+  - 전체 검증: compileJava, RefreshTokenServiceTest, ModuleStructureTest, checkstyle, spotbugs, build 전체 통과 / **Step 3 (W1 보정) 완료**
+  - 공식 문서 최신화: TASK_platform.md, WORKFLOW_platform_W1.md (new_md 기준)
+  - docs/ai/current/ archive 이동 (20260515-w1-correction) + 초기화
+- **진행 중**: 없음
+- **이슈**: 없음
+- **주간 요약**: W1 Step 1~3 완료 + W1 보정(D-005~D-010) 완료. 모듈 구조·Refresh Token·MFA·OAuth 저장 방식 팀리더 최신 기준으로 정렬. 전체 빌드/테스트 통과.
 
 ### W2 (2026-05-19 ~ 05-23)
 
@@ -188,6 +210,8 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-05-15 | W1 보정 완료 기록 — D-005~D-010, Step 3 완료일 갱신, 대시보드 Step 번호 TASK 기준으로 정렬 |
+| 2026-05-14 | Step 3 Done 반영 (JWT 발급/검증, Redis Refresh Token, TOTP MFA, 검증 결과 기록) |
 | 2026-05-13 | 전체 일정 재정비 (05-12~06-05, 월~금), Step 1 Done 반영 |
 | 2026-05-11 | W2/W3/W4 대시보드 및 로그 템플릿 추가 |
 | 2026-05-11 | 초기 템플릿 생성 |

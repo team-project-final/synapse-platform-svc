@@ -48,8 +48,8 @@
 
 ## 성공 기준
 
-- [ ] OAuth 로그인 (Google/GitHub) 완전 동작
-- [ ] JWT 발급/갱신/검증 정상
+- [x] OAuth 로그인 (Google/GitHub) 완전 동작
+- [x] JWT 발급/갱신/검증 정상
 - [ ] Stripe 결제 플로우 (Checkout → Webhook → 플랜 활성화)
 - [ ] 푸시 알림 발송 동작 (FCM)
 - [ ] Audit 로그 Kafka 소비 → DB 적재

@@ -35,3 +35,9 @@ management:
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+app:
+  oauth2:
+    redirect-uri: ${APP_OAUTH2_REDIRECT_URI:http://localhost:3000/auth/callback}
+  crypto:
+    aes-secret-key: ${AES_SECRET_KEY}

@@ -7,10 +7,10 @@
 ## 이 프로젝트의 아키텍처 제약 (변경 불가)
 
 - 언어/프레임워크: Java 21 + Spring Boot 4.0.0 + Spring Modulith 1.3.0
-- 모듈: auth / billing / notification / audit / shared
+- 모듈: auth / user / notification / admin / shared
 - 모듈 간 순환 의존 금지 — ApplicationModules.verify() CI 검증
 - JWT 서명: RS256 고정 (HS256 사용 금지)
-- Refresh Token: Redis 전용, DB 저장 금지
+- Refresh Token: DB(`token_hash` SHA-256) + Redis 캐시 병행. raw token 저장 금지
 - DB 마이그레이션: Flyway 사용
 - 테스트 커버리지: 신규 코드 80% 이상
 - Stripe Webhook: 서명 검증 필수

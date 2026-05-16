@@ -1,7 +1,7 @@
 # WORKFLOW: @platform-owner — Week 4
 
-> **Task 문서**: [TASK_platform.md](../task/TASK_platform.md)  
-> **기간**: 2026-06-02 ~ 2026-06-06  
+> **Task 문서**: [TASK_platform.md](../task/TASK_platform.md)
+> **기간**: 2026-06-01 ~ 2026-06-05, 4 영업일
 > **PRD**: [PRD_W4.md](../prd/PRD_W4.md)
 
 ---

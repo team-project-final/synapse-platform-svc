@@ -1,7 +1,7 @@
 # WORKFLOW: @platform-owner — Week 2
 
-> **Task 문서**: [TASK_platform.md](../task/TASK_platform.md)  
-> **기간**: 2026-05-19 ~ 2026-05-23  
+> **Task 문서**: [TASK_platform.md](../task/TASK_platform.md)
+> **기간**: 2026-05-18 ~ 2026-05-22, 5 영업일
 > **PRD**: [PRD_W2.md](../prd/PRD_W2.md)
 
 ---
@@ -28,10 +28,10 @@
 - [ ] 결과 → TASK Constraints 반영
 
 ### 4.4 ERD 설계
-- [ ] subscriptions 테이블 설계 (id, userId, planType, stripeSubscriptionId, status, currentPeriodStart, currentPeriodEnd, createdAt, updatedAt)
-- [ ] payment_history 테이블 설계 (id, userId, subscriptionId, stripePaymentIntentId, amount, currency, status, paidAt, createdAt)
-- [ ] 인덱스 설계 (subscriptions.userId, payment_history.userId, payment_history.subscriptionId)
-- [ ] 관계 정의 (payment_history.subscriptionId → subscriptions.id FK)
+- [ ] subscriptions 테이블 설계 (id, tenant_id FK, plan_code, stripe_subscription_id, status, current_period_start, current_period_end, created_at, updated_at)
+- [ ] payment_history 테이블 설계 (id, tenant_id, subscription_id, stripe_payment_intent_id, amount, currency, status, paid_at, created_at)
+- [ ] 인덱스 설계 (subscriptions.tenant_id, payment_history.tenant_id, payment_history.subscription_id)
+- [ ] 관계 정의 (payment_history.subscription_id → subscriptions.id FK)
 - [ ] Duration(final) 갱신
 
 ### 4.5 Security 2차 검토
@@ -42,12 +42,12 @@
 - [ ] 결과 → TASK Constraints 반영
 
 ### 4.6 DTO / Entity 설계 (API First)
-- [ ] CheckoutSessionRequest 정의 (planType, successUrl, cancelUrl)
-- [ ] SubscriptionResponse 정의 (id, planType, status, currentPeriodEnd)
+- [ ] CheckoutSessionRequest 정의 (plan_code, successUrl, cancelUrl)
+- [ ] SubscriptionResponse 정의 (id, plan_code, status, current_period_end)
 - [ ] PaymentHistoryResponse 정의 (id, amount, currency, status, paidAt)
 - [ ] Subscription Entity 작성
 - [ ] PaymentHistory Entity 작성
-- [ ] PlanType Enum 작성 (FREE, PRO, TEAM)
+- [ ] PlanCode Enum 작성 (FREE, PRO, TEAM)
 - [ ] MapStruct 매퍼 작성
 - [ ] Output Format → TASK 반영
 
@@ -68,10 +68,9 @@
 - [ ] 테스트 통과 확인
 
 ### 4.9 Controller + Test
-- [ ] POST /api/v1/billing/checkout 엔드포인트 구현
-- [ ] POST /api/v1/billing/webhook 엔드포인트 구현 (Stripe Signature 검증)
-- [ ] GET /api/v1/billing/subscription 엔드포인트 구현
-- [ ] GET /api/v1/billing/payments 엔드포인트 구현
+- [ ] POST /billing/checkout 엔드포인트 구현
+- [ ] POST /billing/webhooks 엔드포인트 구현 (Stripe Signature 검증)
+- [ ] GET /billing/subscription 엔드포인트 구현
 - [ ] 슬라이스 테스트 (@WebMvcTest)
 - [ ] Webhook 서명 검증 테스트
 - [ ] 401/403 응답 테스트
@@ -107,9 +106,11 @@
 - [ ] 결과 → TASK Constraints 반영
 
 ### 5.4 ERD 설계
-- [ ] device_tokens 테이블 설계 (id, userId, token, platform, deviceName, createdAt, updatedAt)
-- [ ] notification_preferences 테이블 설계 (id, userId, type, enabled, createdAt, updatedAt)
-- [ ] 인덱스 설계 (device_tokens.userId, device_tokens.token UNIQUE, notification_preferences.userId)
+- [ ] device_tokens 테이블 설계 (id, user_id, token, platform: ios|android|web, is_active, created_at, updated_at)
+- [ ] 참고: deviceName 컬럼은 ERD에 없음 — 제거
+- [ ] notification_preferences 테이블 설계 (id, user_id, push_enabled, email_enabled, in_app_enabled, quiet_hours_start, quiet_hours_end, created_at, updated_at)
+- [ ] 참고: notification_preferences는 컬럼 기반 구조 (type+enabled 행 기반이 아님)
+- [ ] 인덱스 설계 (device_tokens.user_id, device_tokens.token UNIQUE, notification_preferences.user_id)
 - [ ] Duration(final) 갱신
 
 ### 5.5 Security 2차 검토
@@ -119,13 +120,13 @@
 - [ ] 결과 → TASK Constraints 반영
 
 ### 5.6 DTO / Entity 설계 (API First)
-- [ ] DeviceTokenRequest 정의 (token, platform, deviceName)
-- [ ] DeviceTokenResponse 정의 (id, platform, deviceName, createdAt)
-- [ ] NotificationPreferenceRequest 정의 (type, enabled)
-- [ ] NotificationPreferenceResponse 정의 (type, enabled)
-- [ ] DeviceToken Entity 작성
+- [ ] DeviceTokenRequest 정의 (token, platform: ios|android|web)
+- [ ] DeviceTokenResponse 정의 (id, platform, is_active, createdAt)
+- [ ] NotificationPreferenceRequest 정의 (push_enabled, email_enabled, in_app_enabled, quiet_hours_start, quiet_hours_end)
+- [ ] NotificationPreferenceResponse 정의 (push_enabled, email_enabled, in_app_enabled, quiet_hours_start, quiet_hours_end)
+- [ ] DeviceToken Entity 작성 (is_active 컬럼 포함)
 - [ ] NotificationPreference Entity 작성
-- [ ] Platform Enum 작성 (ANDROID, IOS, WEB)
+- [ ] Platform Enum 작성 (ios, android, web — 소문자)
 - [ ] MapStruct 매퍼 작성
 - [ ] Output Format → TASK 반영
 
@@ -144,10 +145,10 @@
 - [ ] 테스트 통과 확인
 
 ### 5.9 Controller + Test
-- [ ] POST /api/v1/notifications/devices 엔드포인트 구현 (토큰 등록)
-- [ ] DELETE /api/v1/notifications/devices/{id} 엔드포인트 구현
-- [ ] GET /api/v1/notifications/preferences 엔드포인트 구현
-- [ ] PUT /api/v1/notifications/preferences 엔드포인트 구현
+- [ ] POST /notifications/devices 엔드포인트 구현 (토큰 등록)
+- [ ] DELETE /notifications/devices/{id} 엔드포인트 구현
+- [ ] GET /notifications/preferences 엔드포인트 구현
+- [ ] PUT /notifications/preferences 엔드포인트 구현
 - [ ] 슬라이스 테스트 (@WebMvcTest)
 - [ ] 401/403 응답 테스트
 - [ ] 통합 테스트

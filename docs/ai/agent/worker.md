@@ -24,7 +24,7 @@
 ## 코드 작성 규칙
 
 - 패키지 루트: `com.synapse.platform`
-- 모듈별 패키지: `com.synapse.platform.{auth|billing|notification|audit|shared}`
+- 모듈별 패키지: `com.synapse.platform.{auth|user|notification|admin|shared}`
 - 빌드 도구: Gradle (Kotlin DSL)
 - Java 21 기능 적극 활용 (Record, Sealed Class, Pattern Matching)
 - 주석은 WHY가 명확한 경우만 작성 (WHAT 설명 주석 금지)
@@ -41,7 +41,7 @@
 ## 금지 패턴
 
 - 모듈 간 직접 import (shared 제외)
-- DB에 Refresh Token 저장
+- Refresh Token raw 원문 저장 (DB에는 token_hash SHA-256만, Redis는 캐시)
 - HS256 JWT 서명
 - 주석으로 코드 설명
 - @SuppressWarnings 무분별 사용

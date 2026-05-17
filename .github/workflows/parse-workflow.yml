@@ -2,7 +2,6 @@ name: Parse Workflow → Dashboard
 
 on:
   push:
-    branches: [main]
     paths:
       - 'docs/project-management/workflow/**'
       - 'docs/project-management/task/**'
@@ -35,7 +34,7 @@ jobs:
             docs/project-management \
             "_dashboard/data/${REPO_NAME}.json"
 
-      - name: Push to dashboard
+      - name: Push to dashboard (with retry)
         working-directory: _dashboard
         run: |
           git config user.name "github-actions[bot]"
@@ -45,5 +44,10 @@ jobs:
             echo "No changes"
             exit 0
           fi
-          git commit -m "data: update ${{ github.event.repository.name }} from ${{ github.sha }}"
-          git push
+          BRANCH="${{ github.ref_name }}"
+          git commit -m "data: update ${{ github.event.repository.name }} (${BRANCH}) from ${{ github.sha }}"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            echo "Retry $i..."
+            sleep 5
+          done

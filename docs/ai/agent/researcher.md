@@ -24,8 +24,9 @@
 - Spring Modulith: 1.3.0
 - Java: 21
 - Kafka: MSK (AWS 관리형)
-- Redis: 7.x
+- Redis: 7.x (Refresh Token 캐시 용도)
 - PostgreSQL: 16
+- 모듈: auth / user / notification / admin / shared
 
 ## 출력 형식
 

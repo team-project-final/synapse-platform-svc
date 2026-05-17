@@ -13,6 +13,7 @@ import com.synapse.platform.auth.repository.TenantRepository;
 import com.synapse.platform.auth.repository.UserRepository;
 import com.synapse.platform.auth.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
+import com.synapse.platform.shared.crypto.FieldEncryptor;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -113,6 +114,7 @@ class OAuthSignupRollbackIntegrationTest {
                 TenantMemberRepository tenantMemberRepository,
                 UserSettingsRepository userSettingsRepository,
                 SlugGenerator slugGenerator,
+                FieldEncryptor fieldEncryptor,
                 OAuth2UserService<OAuth2UserRequest, OAuth2User> rollbackDelegate) {
             return new CustomOAuth2UserService(
                     userRepository,
@@ -121,6 +123,7 @@ class OAuthSignupRollbackIntegrationTest {
                     tenantMemberRepository,
                     userSettingsRepository,
                     slugGenerator,
+                    fieldEncryptor,
                     rollbackDelegate);
         }
 

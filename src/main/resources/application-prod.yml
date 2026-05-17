@@ -21,3 +21,9 @@ spring:
 
 cors:
   allowed-origins: ${PROD_FRONTEND_ORIGIN:https://app.synapse.example.com}
+
+jwt:
+  private-key: ${JWT_PRIVATE_KEY}
+  public-key: ${JWT_PUBLIC_KEY}
+  kid: ${JWT_KID:synapse-key-2026-05}
+  issuer: ${JWT_ISSUER:synapse-auth}

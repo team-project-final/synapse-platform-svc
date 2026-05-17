@@ -30,6 +30,9 @@ public class OAuthIdentity {
     @Column
     private String email;
 
+    @Column(name = "access_token_enc")
+    private String accessTokenEnc;
+
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private String metadata = "{}";
@@ -41,11 +44,21 @@ public class OAuthIdentity {
     }
 
     public static OAuthIdentity of(User user, String provider, String providerUserId, String email) {
+        return of(user, provider, providerUserId, email, null);
+    }
+
+    public static OAuthIdentity of(
+            User user,
+            String provider,
+            String providerUserId,
+            String email,
+            String accessTokenEnc) {
         OAuthIdentity identity = new OAuthIdentity();
         identity.userId = user.getId();
         identity.provider = provider;
         identity.providerUserId = providerUserId;
         identity.email = email;
+        identity.accessTokenEnc = accessTokenEnc;
         return identity;
     }
 
@@ -75,5 +88,15 @@ public class OAuthIdentity {
 
     public String getEmail() {
         return email;
+    }
+
+    public String getAccessTokenEnc() {
+        return accessTokenEnc;
+    }
+
+    public void updateAccessTokenEnc(String accessTokenEnc) {
+        if (accessTokenEnc != null) {
+            this.accessTokenEnc = accessTokenEnc;
+        }
     }
 }

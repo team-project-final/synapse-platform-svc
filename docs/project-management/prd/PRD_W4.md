@@ -22,9 +22,9 @@
 
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
-| FR-PL-401 | 사용자에게 FCM 푸시 알림이 발송된다 | gamification.level_up / community.shared / card.review.due Kafka 소비 → 푸시 발송 | P0 |
+| FR-PL-401 | 사용자에게 FCM 푸시 알림이 발송된다 | gamification.level.up / community.deck.shared / community.note.shared / card.review.due 이벤트 → notification.send 토픽 경유 → FCM 푸시 발송 | P0 |
 | FR-PL-402 | 사용자에게 이메일 알림이 발송된다 | AWS SES → 주간 학습 리포트 이메일 | P1 |
-| FR-PL-403 | 사용자가 조용한 시간을 설정할 수 있다 | PUT /api/v1/notifications/quiet-hours → 해당 시간 알림 미발송 | P1 |
+| FR-PL-403 | 사용자가 조용한 시간을 설정할 수 있다 | PUT /notifications/preferences (body: quietHoursStart, quietHoursEnd 필드) → 해당 시간 알림 미발송 | P1 |
 | FR-PL-404 | 시스템이 주요 이벤트를 audit_logs에 자동 기록한다 | Kafka 이벤트 소비 → audit_logs 적재 + 90일 보존 정책 | P0 |
 | FR-PL-405 | 관리자가 테넌트/사용자를 관리할 수 있다 | 사용자 목록/검색/정지/삭제 관리 API | P0 |
 
@@ -32,8 +32,8 @@
 
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
-| FR-EG-401 | 사용자가 부적절한 콘텐츠를 신고할 수 있다 | POST /api/v1/reports → 신고 접수 + 관리자 알림 | P1 |
-| FR-EG-402 | 관리자가 신고를 처리할 수 있다 | GET/PUT /api/v1/admin/reports → 신고 목록 + 승인/거부/숨김 | P1 |
+| FR-EG-401 | 사용자가 부적절한 콘텐츠를 신고할 수 있다 | POST /community/reports → 신고 접수 + 관리자 알림 | P1 |
+| FR-EG-402 | 관리자가 신고를 처리할 수 있다 | GET /admin/reports, PUT /admin/reports/{id}/resolve → 신고 목록 + 승인/거부/숨김 | P1 |
 
 ### 2.4 @knowledge-owner-1 — 통합 검증 잔무
 
@@ -59,7 +59,7 @@
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
 | FR-LA-401 | AI 카드 자동 생성 E2E가 통과한다 | 노트 생성 → 이벤트 → AI 카드 생성 → 덱 저장 | P0 |
-| FR-LA-402 | 사용자가 노트 기반으로 AI에게 질문할 수 있다 (RAG Q&A) | POST /api/v1/ai/ask → 관련 청크 검색 → LLM 답변 생성 | P2 (시간 허용 시) |
+| FR-LA-402 | 사용자가 노트 기반으로 AI에게 질문할 수 있다 (RAG Q&A) | POST /ai/qa → 관련 청크 검색 → LLM 답변 생성 | P2 (시간 허용 시) |
 | FR-LA-403 | 시맨틱 검색 정확도가 검증된다 | 테스트 쿼리 → 관련 노트 상위 5개 관련도 80%+ | P1 |
 
 ### 2.8 Frontend (전체 협업)
@@ -84,7 +84,7 @@
 
 | From | To | 내용 | 시점 |
 |------|-----|------|------|
-| W3 producer 토픽 | @platform-owner | gamification.* / card.review.due → notification 소비 | W4 Day 1 (W3 종료 직후) |
+| W3 producer 토픽 | @platform-owner | gamification.level.up / gamification.badge.earned / card.review.due → notification.send 토픽 경유 소비 | W4 Day 1 (W3 종료 직후) |
 | W3 producer 토픽 | @platform-owner | 모든 도메인 이벤트 → audit 소비 | W4 Day 1 |
 | @engagement-owner | @platform-owner | 신고 알림 → admin notification | W4 Day 2~ |
 | 전체 서비스 | @team-lead | E2E 시나리오 → 통합 조율 | W4 Day 3~ |

@@ -1,6 +1,7 @@
 package com.synapse.platform.auth.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.synapse.platform.auth.jwt.JwtAuthenticationFilter;
 import com.synapse.platform.auth.oauth.CustomOAuth2UserService;
 import com.synapse.platform.auth.oauth.OAuth2FailureHandler;
 import com.synapse.platform.auth.oauth.OAuth2SuccessHandler;
@@ -11,6 +12,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -19,16 +21,19 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
 
     public SecurityConfig(
             CustomOAuth2UserService customOAuth2UserService,
             OAuth2SuccessHandler oAuth2SuccessHandler,
             OAuth2FailureHandler oAuth2FailureHandler,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
             ObjectMapper objectMapper) {
         this.customOAuth2UserService = customOAuth2UserService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.oAuth2FailureHandler = oAuth2FailureHandler;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.objectMapper = objectMapper;
     }
 
@@ -43,8 +48,14 @@ public class SecurityConfig {
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)
                         .failureHandler(oAuth2FailureHandler))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/**", "/oauth2/**", "/login/**", "/api/v1/auth/callback").permitAll()
+                        .requestMatchers(
+                                "/actuator/**",
+                                "/oauth2/**",
+                                "/login/**",
+                                "/api/v1/auth/callback",
+                                "/api/v1/auth/refresh").permitAll()
                         .anyRequest().authenticated())
                 .build();
     }

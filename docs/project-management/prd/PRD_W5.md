@@ -27,7 +27,7 @@
 |----|------------|-----------|----------|
 | FR-TL-301 | 전체 서비스 성능이 SLA를 만족한다 | P95 API < 200ms, Kafka 지연 < 5s, 검색 < 2s | P0 |
 | FR-TL-302 | Schema Registry 전 토픽이 BACKWARD 호환된다 | 호환성 검증 전수 통과 | P0 |
-| FR-TL-303 | 모니터링 대시보드가 가동된다 | Grafana 대시보드 + Prometheus 메트릭 + Loki 로그 | P1 |
+| FR-TL-303 | 모니터링 대시보드가 가동된다 | Grafana 대시보드 + Prometheus 메트릭 + Fluent Bit → CloudWatch 로그 | P1 |
 | FR-TL-304 | API 문서가 최신 상태로 업데이트된다 | SpringDoc OpenAPI 자동 생성 + 수동 보완 | P0 |
 | FR-TL-305 | 팀이 최종 발표 자료를 준비하고 시연 리허설을 1회 이상 수행한다 | 슬라이드 + 데모 스크립트 + 시연 환경 검증 + 리허설 회고 | P0 |
 

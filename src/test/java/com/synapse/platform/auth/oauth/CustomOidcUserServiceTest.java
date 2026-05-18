@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-import com.synapse.platform.auth.domain.User;
+import com.synapse.platform.user.domain.User;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;

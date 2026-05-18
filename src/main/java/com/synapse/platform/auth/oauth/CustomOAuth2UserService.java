@@ -1,11 +1,11 @@
 package com.synapse.platform.auth.oauth;
 
-import com.synapse.platform.auth.domain.User;
 import com.synapse.platform.auth.repository.OAuthIdentityRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
-import com.synapse.platform.auth.repository.UserRepository;
-import com.synapse.platform.auth.repository.UserSettingsRepository;
+import com.synapse.platform.user.domain.User;
+import com.synapse.platform.user.repository.UserRepository;
+import com.synapse.platform.user.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
 import com.synapse.platform.shared.crypto.FieldEncryptor;
 import java.util.HashMap;

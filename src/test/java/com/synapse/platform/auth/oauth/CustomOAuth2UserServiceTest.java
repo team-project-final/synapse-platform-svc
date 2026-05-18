@@ -10,13 +10,13 @@ import static org.mockito.Mockito.verify;
 import com.synapse.platform.auth.domain.OAuthIdentity;
 import com.synapse.platform.auth.domain.Tenant;
 import com.synapse.platform.auth.domain.TenantMember;
-import com.synapse.platform.auth.domain.User;
-import com.synapse.platform.auth.domain.UserSettings;
 import com.synapse.platform.auth.repository.OAuthIdentityRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
-import com.synapse.platform.auth.repository.UserRepository;
-import com.synapse.platform.auth.repository.UserSettingsRepository;
+import com.synapse.platform.user.domain.User;
+import com.synapse.platform.user.domain.UserSettings;
+import com.synapse.platform.user.repository.UserRepository;
+import com.synapse.platform.user.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
 import com.synapse.platform.shared.crypto.FieldEncryptor;
 import java.nio.charset.StandardCharsets;
@@ -75,7 +75,7 @@ class CustomOAuth2UserServiceTest {
         // Given
         UUID userId = UUID.randomUUID();
         User existingUser = userWithId(userId, "user@example.com", "user");
-        OAuthIdentity identity = OAuthIdentity.of(existingUser, "google", "google-123", "user@example.com");
+        OAuthIdentity identity = OAuthIdentity.of(userId, "google", "google-123", "user@example.com");
         given(delegate.loadUser(any())).willReturn(googleUser());
         given(oauthIdentityRepository.findByProviderAndProviderUserId("google", "google-123"))
                 .willReturn(Optional.of(identity));

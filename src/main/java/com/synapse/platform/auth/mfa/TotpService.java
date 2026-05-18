@@ -1,8 +1,8 @@
 package com.synapse.platform.auth.mfa;
 
-import com.synapse.platform.auth.domain.User;
 import com.synapse.platform.auth.exception.UnauthorizedTokenException;
-import com.synapse.platform.auth.repository.UserRepository;
+import com.synapse.platform.user.domain.User;
+import com.synapse.platform.user.repository.UserRepository;
 import com.synapse.platform.shared.crypto.FieldEncryptor;
 import dev.samstevens.totp.code.DefaultCodeGenerator;
 import dev.samstevens.totp.code.DefaultCodeVerifier;

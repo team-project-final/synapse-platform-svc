@@ -1,6 +1,6 @@
 package com.synapse.platform.auth.oauth;
 
-import com.synapse.platform.auth.domain.User;
+import com.synapse.platform.user.domain.User;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;

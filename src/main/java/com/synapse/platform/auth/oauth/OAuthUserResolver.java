@@ -3,13 +3,13 @@ package com.synapse.platform.auth.oauth;
 import com.synapse.platform.auth.domain.OAuthIdentity;
 import com.synapse.platform.auth.domain.Tenant;
 import com.synapse.platform.auth.domain.TenantMember;
-import com.synapse.platform.auth.domain.User;
-import com.synapse.platform.auth.domain.UserSettings;
 import com.synapse.platform.auth.repository.OAuthIdentityRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
-import com.synapse.platform.auth.repository.UserRepository;
-import com.synapse.platform.auth.repository.UserSettingsRepository;
+import com.synapse.platform.user.domain.User;
+import com.synapse.platform.user.domain.UserSettings;
+import com.synapse.platform.user.repository.UserRepository;
+import com.synapse.platform.user.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
 import com.synapse.platform.shared.crypto.FieldEncryptor;
 import java.util.Optional;
@@ -59,7 +59,7 @@ public class OAuthUserResolver {
             Optional<User> existingUser = userRepository.findByEmail(attributes.email());
             if (existingUser.isPresent()) {
                 oauthIdentityRepository.save(OAuthIdentity.of(
-                        existingUser.get(),
+                        existingUser.get().getId(),
                         attributes.provider(),
                         attributes.providerId(),
                         attributes.email(),
@@ -82,7 +82,7 @@ public class OAuthUserResolver {
         User savedUser = userRepository.save(user);
 
         oauthIdentityRepository.save(OAuthIdentity.of(
-                savedUser,
+                savedUser.getId(),
                 attributes.provider(),
                 attributes.providerId(),
                 attributes.email(),

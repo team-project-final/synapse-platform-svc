@@ -1,4 +1,4 @@
-package com.synapse.platform.auth.domain;
+package com.synapse.platform.user.domain;
 
 import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.Column;

@@ -67,6 +67,41 @@ class OAuthAttributesTest {
     }
 
     @Test
+    void of_appleAttributes_shouldMapSubEmailNameWithoutAvatar() {
+        // Given
+        Map<String, Object> attributes = Map.of(
+                "sub", "apple-123",
+                "email", "apple@example.com",
+                "name", "Apple User");
+
+        // When
+        OAuthAttributes result = OAuthAttributes.of("apple", attributes);
+
+        // Then
+        assertThat(result.provider()).isEqualTo("apple");
+        assertThat(result.providerId()).isEqualTo("apple-123");
+        assertThat(result.email()).isEqualTo("apple@example.com");
+        assertThat(result.name()).isEqualTo("Apple User");
+        assertThat(result.avatarUrl()).isNull();
+        assertThat(result.nameAttributeKey()).isEqualTo("sub");
+    }
+
+    @Test
+    void of_appleAttributes_nameMissing_shouldKeepNameNull() {
+        // Given
+        Map<String, Object> attributes = Map.of(
+                "sub", "apple-123",
+                "email", "apple@example.com");
+
+        // When
+        OAuthAttributes result = OAuthAttributes.of("apple", attributes);
+
+        // Then
+        assertThat(result.name()).isNull();
+        assertThat(result.email()).isEqualTo("apple@example.com");
+    }
+
+    @Test
     void of_unknownProvider_shouldThrowIllegalArgumentException() {
         // Given
         Map<String, Object> attributes = Map.of("id", "unknown-1");

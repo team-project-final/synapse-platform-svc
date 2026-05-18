@@ -3,7 +3,7 @@ package com.synapse.platform;
 import org.junit.jupiter.api.Test;
 import org.springframework.modulith.core.ApplicationModules;
 
-class ModuleStructureTest {
+class ApplicationModulesTest {
 
     @Test
     void verifyModuleStructure() {

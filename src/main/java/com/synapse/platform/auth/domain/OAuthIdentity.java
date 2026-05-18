@@ -43,18 +43,18 @@ public class OAuthIdentity {
     protected OAuthIdentity() {
     }
 
-    public static OAuthIdentity of(User user, String provider, String providerUserId, String email) {
-        return of(user, provider, providerUserId, email, null);
+    public static OAuthIdentity of(UUID userId, String provider, String providerUserId, String email) {
+        return of(userId, provider, providerUserId, email, null);
     }
 
     public static OAuthIdentity of(
-            User user,
+            UUID userId,
             String provider,
             String providerUserId,
             String email,
             String accessTokenEnc) {
         OAuthIdentity identity = new OAuthIdentity();
-        identity.userId = user.getId();
+        identity.userId = userId;
         identity.provider = provider;
         identity.providerUserId = providerUserId;
         identity.email = email;

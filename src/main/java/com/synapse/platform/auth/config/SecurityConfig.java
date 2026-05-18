@@ -2,6 +2,7 @@ package com.synapse.platform.auth.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.auth.jwt.JwtAuthenticationFilter;
+import com.synapse.platform.auth.oauth.CustomOidcUserService;
 import com.synapse.platform.auth.oauth.CustomOAuth2UserService;
 import com.synapse.platform.auth.oauth.OAuth2FailureHandler;
 import com.synapse.platform.auth.oauth.OAuth2SuccessHandler;
@@ -19,6 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final CustomOidcUserService customOidcUserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -26,11 +28,13 @@ public class SecurityConfig {
 
     public SecurityConfig(
             CustomOAuth2UserService customOAuth2UserService,
+            CustomOidcUserService customOidcUserService,
             OAuth2SuccessHandler oAuth2SuccessHandler,
             OAuth2FailureHandler oAuth2FailureHandler,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             ObjectMapper objectMapper) {
         this.customOAuth2UserService = customOAuth2UserService;
+        this.customOidcUserService = customOidcUserService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.oAuth2FailureHandler = oAuth2FailureHandler;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -45,7 +49,9 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization
                                 .authorizationRequestRepository(cookieAuthorizationRequestRepository()))
-                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                                .oidcUserService(customOidcUserService))
                         .successHandler(oAuth2SuccessHandler)
                         .failureHandler(oAuth2FailureHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

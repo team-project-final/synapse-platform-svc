@@ -22,6 +22,8 @@
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | Step 1 재점검 | 신규 문서 기준 골격 수정 | Done | 2026-05-18 | 2026-05-18 | audit/billing package-info 복구, 테스트 클래스명 수정 |
+| Step 2 재점검 | 신규 문서 기준 OAuth 수정 | Done | 2026-05-18 | 2026-05-18 | Apple OAuth OIDC 구현, Microsoft TODO 문서화 |
+| Step 3 재점검 | 신규 문서 기준 JWT/MFA 점검 | Done | 2026-05-18 | 2026-05-18 | 코드 변경 없음 — 구현이 신규 문서 기준 완전 충족 확인 |
 
 ### W2 (2026-05-19 ~ 05-23)
 
@@ -227,6 +229,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-05-18 | Step 3 재점검 완료 — RS256 JWT, DB+Redis Refresh Token, TOTP MFA 신규 문서 기준 전면 충족 확인. 코드 변경 없음. WORKFLOW/TASK 체크박스 업데이트 |
 | 2026-05-18 | Step 2 재점검 완료 — Apple OAuth OIDC 구현(OAuthUserResolver 추출, CustomOidcUserService), Microsoft TODO 문서화 |
 | 2026-05-18 | Step 1 재점검 완료 — 신규 문서 기준, audit/billing package-info 복구, 테스트 클래스명 수정 |
 | 2026-05-15 | W1 보정 완료 기록 — D-005~D-010, Step 3 완료일 갱신, 대시보드 Step 번호 TASK 기준으로 정렬 |

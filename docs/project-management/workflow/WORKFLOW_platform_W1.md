@@ -136,66 +136,66 @@
 ## Step 3: JWT + MFA 기초
 
 ### 1.1 TASK 시작
-- [ ] Step Goal / Done When / Scope / Input 확인
-- [ ] PRD_W1 해당 요구사항 확인 (FR-AU-xxx JWT/MFA)
-- [ ] Duration 산정 확인 (2일)
+- [x] Step Goal / Done When / Scope / Input 확인
+- [x] PRD_W1 해당 요구사항 확인 (FR-AU-xxx JWT/MFA)
+- [x] Duration 산정 확인 (2일)
 
 ### 1.2 요구사항 분석
-- [ ] JWT Access/Refresh Token 발급 플로우 분석
-- [ ] Refresh Token Redis 저장 구조 설계
-- [ ] TOTP(RFC 6238) MFA 플로우 분석
-- [ ] Instructions 초안 → TASK 문서 반영
+- [x] JWT Access/Refresh Token 발급 플로우 분석
+- [x] Refresh Token Redis 저장 구조 설계
+- [x] TOTP(RFC 6238) MFA 플로우 분석
+- [x] Instructions 초안 → TASK 문서 반영
 
 ### 1.3 Security 1차 검토
-- [ ] 인증 필요 여부: Yes (MFA 설정은 인증 필요)
-- [ ] 권한 종류: 로그인 사용자
-- [ ] 공개 API 여부: POST /auth/refresh는 공개, POST /auth/mfa/* 는 인증 필요
-- [ ] JWT 서명 알고리즘: RS256
-- [ ] 결과 → TASK Constraints 반영
+- [x] 인증 필요 여부: Yes (MFA 설정은 인증 필요)
+- [x] 권한 종류: 로그인 사용자
+- [x] 공개 API 여부: POST /auth/refresh는 공개, POST /auth/mfa/* 는 인증 필요
+- [x] JWT 서명 알고리즘: RS256
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.4 ERD 설계
-- [ ] refresh_tokens 테이블 설계 (id, user_id, token_hash, device_fingerprint, ip_address, expires_at, created_at) — ERD에 DB 테이블로 정의됨 (Redis 전용이 아님)
-- [ ] mfa_credentials 테이블 설계 (id, user_id, type: totp, secret_enc, is_active, verified_at, created_at)
-- [ ] 인덱스 설계 (user_id UNIQUE on mfa_credentials)
-- [ ] Duration(final) 갱신
+- [x] refresh_tokens 테이블 설계 (id, user_id, token_hash, device_fingerprint, ip_address, expires_at, created_at) — ERD에 DB 테이블로 정의됨 (Redis 전용이 아님)
+- [x] mfa_credentials 테이블 설계 (id, user_id, type: totp, secret_enc, is_active, verified_at, created_at)
+- [x] 인덱스 설계 (user_id UNIQUE on mfa_credentials)
+- [x] Duration(final) 갱신
 
 ### 1.5 Security 2차 검토
-- [ ] 민감 정보 암호화: TOTP secret AES-256-GCM 암호화 저장
-- [ ] Refresh Token 이중 저장 전략: Redis(활성 세션 빠른 조회용) + DB `refresh_tokens` 테이블(영속성/감사용) 병행 — token_hash, device_fingerprint, ip_address, expires_at 포함
-- [ ] 행 단위 접근 제어: 필요 (본인 MFA만 관리)
-- [ ] 결과 → TASK Constraints 반영
+- [x] 민감 정보 암호화: TOTP secret AES-256-GCM 암호화 저장
+- [x] Refresh Token 이중 저장 전략: Redis(활성 세션 빠른 조회용) + DB `refresh_tokens` 테이블(영속성/감사용) 병행 — token_hash, device_fingerprint, ip_address, expires_at 포함
+- [x] 행 단위 접근 제어: 필요 (본인 MFA만 관리)
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.6 DTO / Entity 설계 (API First)
-- [ ] TokenRefreshRequest 정의 (refreshToken)
-- [ ] TokenResponse 정의 (accessToken, refreshToken, expiresIn)
-- [ ] MfaSetupResponse 정의 (qrCodeUrl, secret)
-- [ ] MfaVerifyRequest 정의 (code)
-- [ ] MfaCredential Entity 작성 (type, is_active, verified_at)
-- [ ] Output Format → TASK 반영
+- [x] TokenRefreshRequest 정의 (refreshToken)
+- [x] TokenResponse 정의 (accessToken, refreshToken)
+- [x] MfaSetupResponse 정의 (otpAuthUri, secret)
+- [x] MfaVerifyRequest 정의 (code)
+- [x] MfaCredential Entity 작성 (type, is_active, verified_at)
+- [x] Output Format → TASK 반영
 
 ### 1.7 Repository 구현
-- [ ] MfaCredentialRepository 인터페이스 작성
-- [ ] RefreshTokenRepository 인터페이스 작성 (DB 저장 + Redis 캐싱 병행)
+- [x] MfaCredentialRepository 인터페이스 작성
+- [x] RefreshTokenRepository 인터페이스 작성 (DB 저장 + Redis 캐싱 병행)
 
 ### 1.8 Service + Test
-- [ ] JwtService 구현 (생성, 파싱, 검증 — RS256)
-- [ ] RefreshTokenService 구현 (Redis CRUD)
-- [ ] MfaService 구현 (TOTP 생성, QR URL, 검증 — mfa_credentials 기반)
-- [ ] 단위 테스트 작성 (Mockito)
-- [ ] 테스트 통과 확인
+- [x] JwtTokenProvider 구현 (생성, 파싱, 검증 — RS256)
+- [x] RefreshTokenService 구현 (DB + Redis 이중 저장, rotate 포함)
+- [x] TotpService 구현 (TOTP 생성, QR URL, 검증 — mfa_credentials 기반)
+- [x] 단위 테스트 작성 (Mockito + Testcontainers)
+- [x] 테스트 통과 확인
 
 ### 1.9 Controller + Test
-- [ ] POST /auth/refresh 엔드포인트 구현
-- [ ] POST /auth/mfa/setup 엔드포인트 구현
-- [ ] POST /auth/mfa/verify 엔드포인트 구현
-- [ ] Security Filter에 JWT 검증 추가
-- [ ] 슬라이스 테스트 (@WebMvcTest)
-- [ ] 401/403 응답 테스트
-- [ ] 테스트 통과 확인
+- [x] POST /auth/refresh 엔드포인트 구현 (AuthController)
+- [x] POST /auth/mfa/setup 엔드포인트 구현 (MfaController)
+- [x] POST /auth/mfa/verify 엔드포인트 구현 (MfaController)
+- [x] Security Filter에 JWT 검증 추가 (JwtAuthenticationFilter)
+- [x] 슬라이스 테스트 (@WebMvcTest)
+- [x] 401/403 응답 테스트
+- [x] 테스트 통과 확인
 
 ### 1.10 View + Test (해당 시)
-- [ ] Flutter 화면 연동: 해당 없음 (프론트 별도)
-- [ ] Swagger API 문서 확인
-- [ ] RULE Reference → TASK 반영
+- [x] Flutter 화면 연동: 해당 없음 (프론트 별도)
+- [x] Swagger API 문서 확인
+- [x] RULE Reference → TASK 반영
 
-**Step 3 Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Step 3 Status**: [ ] Not Started / [ ] In Progress / [x] Done

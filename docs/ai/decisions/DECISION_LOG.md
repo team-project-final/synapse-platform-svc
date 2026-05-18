@@ -58,6 +58,51 @@
 
 ---
 
+## [D-011] 2026-05-19 — billing 모듈 독립 유지 (D-005 보정)
+
+**결정**: billing 모듈(`com.synapse.platform.billing`)을 독립 Spring Modulith 모듈로 유지한다. D-005의 "Step 4에서 auth 산하 통합" 메모는 잘못된 기록으로 무효 처리.
+**근거**: WORKFLOW_platform_W2.md Step 4가 "billing 모듈" 기준으로 작성되어 있고, 2026-05-18 W2 재점검 시 billing/package-info.java(@ApplicationModule)가 실제로 재생성된 것이 HISTORY에 기록됨. TASK_platform.md Step 4 엔드포인트도 `/billing/*` 경로 사용.
+**기각된 대안**: auth 모듈 산하 통합 — 모듈 경계 불명확, WORKFLOW 기준 불일치
+**결정자**: Director
+
+---
+
+## [D-012] 2026-05-19 — tenantId를 JWT Access Token claim에 추가
+
+**결정**: `JwtTokenProvider.createAccessToken()`에 `tenantId` 파라미터를 추가하고 JWT claim으로 포함한다. billing 모듈 Controller는 `authentication.getCredentials()`로 raw token을 획득 후 `JwtTokenProvider.getTenantId()`로 tenantId를 추출한다.
+**근거**: 현재 JWT subject는 userId만 포함. billing 모듈이 tenantId를 얻으려면 auth 모듈 내 TenantMemberRepository를 직접 참조해야 하는데, 이는 Modulith 모듈 경계 위반 가능성. JWT claim 추가가 가장 단순하고 성능 부담 없는 해결책.
+**기각된 대안**: TenantMemberRepository 직접 참조 — Modulith 경계 위반 위험 / shared 모듈 인터페이스 추출 — 현재 단계에서 과도한 추상화
+**결정자**: Director
+
+---
+
+## [D-013] 2026-05-19 — Gradle 멀티모듈 아키텍처로 전면 마이그레이션
+
+**결정**: Spring Modulith 단일 앱 구조를 해체하고, `platform-common` + 4개 독립 Spring Boot 서비스(`auth-service`, `billing-service`, `audit-service`, `notification-service`)로 전환한다. 패키지 루트도 `com.synapse.platform` → `io.synapse.platform`으로 변경한다.
+**근거**: 팀 공식 아키텍처 문서(`docs/synapse-platform-svc_ARCHITECTURE.md` v1.0)가 Gradle 멀티모듈 독립 배포 구조로 정의되어 있음. 현재 Modulith 구조로 Steps 5~11을 계속 구현하면 나중 마이그레이션 비용이 급증.
+**기각된 대안**: 현재 Modulith 구조 유지 후 나중에 마이그레이션 — Steps 5~11 완료 이후엔 포팅 범위가 지금의 4배 이상
+**결정자**: Director
+
+---
+
+## [D-014] 2026-05-19 — feature/PLAT-007-stripe-billing 브랜치 폐기
+
+**결정**: `feature/PLAT-007-stripe-billing`에 구현된 billing 코드를 dev에 머지하지 않고 폐기한다. Stripe billing은 멀티모듈 마이그레이션 완료 후 새 `billing-service` 구조에서 Step 5로 재구현한다.
+**근거**: D-013 결정에 따라 프로젝트 구조가 전면 변경되므로 기존 billing 코드 포팅보다 새 구조에서 처음부터 구현하는 것이 기술 부채를 최소화함.
+**기각된 대안**: 기존 코드 포팅 — 패키지 rename + 모듈 이동 + API 경로 변경이 동시에 필요해 오류 가능성 높음
+**결정자**: Director
+
+---
+
+## [D-015] 2026-05-19 — gRPC 내부 통신 Phase 2로 연기
+
+**결정**: 아키텍처 문서에 정의된 gRPC 내부 통신(`AuthService.Introspect`, `UserService.GetById` 등)은 이번 마이그레이션 범위에서 제외하고 Phase 2(W4 이후)로 연기한다. 현재 단계에서 서비스 간 직접 gRPC 호출이 없으므로 기능적 리스크 없음.
+**근거**: gRPC proto 정의 + 서버/클라이언트 설정은 최소 3~4일 작업. 현재 각 서비스가 독립 동작하므로 마이그레이션 리스크 없이 연기 가능.
+**기각된 대안**: 이번 마이그레이션에 gRPC 포함 — 일정 리스크 과대
+**결정자**: Director
+
+---
+
 <!-- 결정 발생 시 아래 템플릿 복사 후 추가 -->
 
 <!--

@@ -29,8 +29,9 @@
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 4 | Stripe 결제 연동 | Not Started | — | — | |
-| Step 5 | FCM 디바이스 등록 | Not Started | — | — | |
+| Step 4 | 멀티모듈 아키텍처 마이그레이션 | In Progress | 2026-05-19 | — | feature/PLAT-000-multi-module-migration |
+| Step 5 | Stripe 결제 연동 | Not Started | — | — | feature/PLAT-007 폐기 → 재구현 예정 |
+| Step 6 | FCM 디바이스 등록 | Not Started | — | — | |
 
 **W2 진행률**: 0/2 Steps 완료
 
@@ -143,9 +144,17 @@
 
 #### 2026-05-19 (화)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - Step 4 샘플링 문서 검토 (SAMPLING_STEP4_STRIPE.md, HANDOFF_MAIN.md)
+  - D-011 (billing 모듈 독립 확정), D-012 (tenantId JWT claim 추가) 설계 결정
+  - feature/PLAT-007-stripe-billing 브랜치 생성 + Worker Stripe billing 구현 (단위/통합 테스트 통과)
+  - 팀 공식 아키텍처 문서(synapse-platform-svc_ARCHITECTURE.md v1.0) 검토
+  - D-013 (멀티모듈 마이그레이션), D-014 (PLAT-007 폐기), D-015 (gRPC Phase 2 연기) 설계 결정
+  - feature/PLAT-007-stripe-billing 폐기 결정 (dev 머지 안 함)
+  - TASK_platform.md Step 4→Migration 삽입, 구 Step 4~10 → Step 5~11 전면 재번호
+  - CLAUDE.md, TASK.md, CONTEXT.md, HANDOFF.md 마이그레이션 기준 갱신
+- **진행 중**: Worker — feature/PLAT-000-multi-module-migration 구현 대기
+- **이슈**: 없음
+- **다음**: Worker(Codex) HANDOFF.md 기반 멀티모듈 마이그레이션 구현 → Director 리뷰
 
 #### 2026-05-20 (수)
 - **완료**:
@@ -229,6 +238,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-05-19 | 멀티모듈 아키텍처 마이그레이션 결정 (D-013~D-015). PLAT-007 폐기. Step 번호 전면 재정비(4~10 → 5~11, 신규 Step 4 삽입). feature/PLAT-000-multi-module-migration 브랜치 시작 |
 | 2026-05-18 | Step 3 재점검 완료 — RS256 JWT, DB+Redis Refresh Token, TOTP MFA 신규 문서 기준 전면 충족 확인. 코드 변경 없음. WORKFLOW/TASK 체크박스 업데이트 |
 | 2026-05-18 | Step 2 재점검 완료 — Apple OAuth OIDC 구현(OAuthUserResolver 추출, CustomOidcUserService), Microsoft TODO 문서화 |
 | 2026-05-18 | Step 1 재점검 완료 — 신규 문서 기준, audit/billing package-info 복구, 테스트 클래스명 수정 |
@@ -237,3 +247,23 @@
 | 2026-05-13 | 전체 일정 재정비 (05-12~06-05, 월~금), Step 1 Done 반영 |
 | 2026-05-11 | W2/W3/W4 대시보드 및 로그 템플릿 추가 |
 | 2026-05-11 | 초기 템플릿 생성 |
+
+## 2026-05-18 Worker Log
+
+**Completed**
+- Step 4 Gradle multi-module migration implemented.
+- Created platform-common, auth-service, billing-service, audit-service, notification-service modules.
+- Moved auth/user code into auth-service and shared exception/crypto code into platform-common.
+- Replaced com.synapse package root with io.synapse package root.
+- Removed Spring Modulith references, ApplicationModulesTest, PlatformSvcApplication, and root src directory.
+- Added placeholder Boot apps for billing, audit, and notification services.
+
+**Fixes recorded for director review**
+- Fixed invalid encoding strings in migrated auth files and SlugGeneratorTest.
+- Added ConfigurationPropertiesScan to AuthServiceApplication for JwtProperties binding.
+- Updated SpotBugs exclude package patterns from com.synapse to io.synapse.
+
+**Verification**
+- .\gradlew.bat :auth-service:test :platform-common:test :billing-service:build :audit-service:build :notification-service:build build -> PASS.
+- Test-Path src -> False.
+- rg com.synapse/spring-modulith/Modulith/Stripe patterns in Java/KTS/YML/XML -> no matches.

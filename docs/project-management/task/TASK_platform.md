@@ -192,7 +192,7 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Status**: [ ] Not Started / [x] In Progress / [ ] Done
 
 ---
 

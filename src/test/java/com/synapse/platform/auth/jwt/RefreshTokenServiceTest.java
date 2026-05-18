@@ -2,8 +2,8 @@ package com.synapse.platform.auth.jwt;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.synapse.platform.auth.domain.User;
-import com.synapse.platform.auth.repository.UserRepository;
+import com.synapse.platform.user.domain.User;
+import com.synapse.platform.user.repository.UserRepository;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;

@@ -1,4 +1,4 @@
-package com.synapse.platform.auth.domain;
+package com.synapse.platform.user.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

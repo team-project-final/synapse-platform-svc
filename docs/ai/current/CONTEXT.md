@@ -19,6 +19,7 @@
 - 사용자당 Refresh Token 1개 active (D-009, D-010)
 - 모듈 간 순환 의존 금지
 - 테스트 커버리지: 신규 코드 80% 이상
+- Apple OAuth: scope `openid,name,email`, client-authentication-method `client_secret_post`
 
 ## 참고할 공식 문서
 

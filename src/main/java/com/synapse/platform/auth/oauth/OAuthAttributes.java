@@ -14,6 +14,7 @@ public record OAuthAttributes(
         return switch (provider) {
             case "google" -> ofGoogle(attributes);
             case "github" -> ofGithub(attributes);
+            case "apple" -> ofApple(attributes);
             default -> throw new IllegalArgumentException("지원하지 않는 provider: " + provider);
         };
     }
@@ -37,10 +38,23 @@ public record OAuthAttributes(
                 String.valueOf(attributes.getOrDefault("avatar_url", "")));
     }
 
+    private static OAuthAttributes ofApple(Map<String, Object> attributes) {
+        Object nameObj = attributes.get("name");
+        String name = nameObj == null ? null : String.valueOf(nameObj);
+        String email = attributes.get("email") == null ? null : String.valueOf(attributes.get("email"));
+        return new OAuthAttributes(
+                "apple",
+                String.valueOf(attributes.get("sub")),
+                email,
+                name,
+                null);
+    }
+
     public String nameAttributeKey() {
         return switch (provider) {
             case "google" -> "sub";
             case "github" -> "id";
+            case "apple" -> "sub";
             default -> throw new IllegalArgumentException("지원하지 않는 provider: " + provider);
         };
     }

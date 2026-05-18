@@ -17,6 +17,14 @@
 
 **W1 진행률**: 3/3 Steps 완료 (W1 auth 범위 완료)
 
+### W2 prep (2026-05-18)
+
+| Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
+|------|------|------|--------|--------|------|
+| Step 1 재점검 | 신규 문서 기준 골격 수정 | Done | 2026-05-18 | 2026-05-18 | audit/billing package-info 복구, 테스트 클래스명 수정 |
+| Step 2 재점검 | 신규 문서 기준 OAuth 수정 | Done | 2026-05-18 | 2026-05-18 | Apple OAuth OIDC 구현, Microsoft TODO 문서화 |
+| Step 3 재점검 | 신규 문서 기준 JWT/MFA 점검 | Done | 2026-05-18 | 2026-05-18 | 코드 변경 없음 — 구현이 신규 문서 기준 완전 충족 확인 |
+
 ### W2 (2026-05-19 ~ 05-23)
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
@@ -122,6 +130,17 @@
 
 ### W2 (2026-05-19 ~ 05-23)
 
+#### 2026-05-18 (월, W2 시작 전)
+- **완료**:
+  - 팀장 문서 리뉴얼 이후 Step 1 신규 문서 기준 재점검
+  - audit/package-info.java 복구 (git D 상태 → 재생성, @ApplicationModule)
+  - billing/package-info.java 신규 생성 (@ApplicationModule)
+  - ModuleStructureTest → ApplicationModulesTest 클래스명 rename
+  - ApplicationModulesTest 통과 확인 / archive 이동 완료
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: Step 2 재점검 (신규 문서 기준) → 완료 (동일 날짜)
+
 #### 2026-05-19 (화)
 - **완료**:
 - **진행 중**:
@@ -210,6 +229,9 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-05-18 | Step 3 재점검 완료 — RS256 JWT, DB+Redis Refresh Token, TOTP MFA 신규 문서 기준 전면 충족 확인. 코드 변경 없음. WORKFLOW/TASK 체크박스 업데이트 |
+| 2026-05-18 | Step 2 재점검 완료 — Apple OAuth OIDC 구현(OAuthUserResolver 추출, CustomOidcUserService), Microsoft TODO 문서화 |
+| 2026-05-18 | Step 1 재점검 완료 — 신규 문서 기준, audit/billing package-info 복구, 테스트 클래스명 수정 |
 | 2026-05-15 | W1 보정 완료 기록 — D-005~D-010, Step 3 완료일 갱신, 대시보드 Step 번호 TASK 기준으로 정렬 |
 | 2026-05-14 | Step 3 Done 반영 (JWT 발급/검증, Redis Refresh Token, TOTP MFA, 검증 결과 기록) |
 | 2026-05-13 | 전체 일정 재정비 (05-12~06-05, 월~금), Step 1 Done 반영 |

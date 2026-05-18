@@ -137,7 +137,7 @@
   - ApplicationModulesTest 통과 확인 / archive 이동 완료
 - **진행 중**: 없음
 - **이슈**: 없음
-- **다음**: Step 2 재점검 (신규 문서 기준)
+- **다음**: Step 2 재점검 (신규 문서 기준) → 완료 (동일 날짜)
 
 #### 2026-05-19 (화)
 - **완료**:
@@ -227,6 +227,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-05-18 | Step 2 재점검 완료 — Apple OAuth OIDC 구현(OAuthUserResolver 추출, CustomOidcUserService), Microsoft TODO 문서화 |
 | 2026-05-18 | Step 1 재점검 완료 — 신규 문서 기준, audit/billing package-info 복구, 테스트 클래스명 수정 |
 | 2026-05-15 | W1 보정 완료 기록 — D-005~D-010, Step 3 완료일 갱신, 대시보드 Step 번호 TASK 기준으로 정렬 |
 | 2026-05-14 | Step 3 Done 반영 (JWT 발급/검증, Redis Refresh Token, TOTP MFA, 검증 결과 기록) |

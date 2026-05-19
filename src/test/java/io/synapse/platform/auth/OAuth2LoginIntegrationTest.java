@@ -65,9 +65,9 @@ class OAuth2LoginIntegrationTest {
     }
 
     @Test
-    void protectedEndpoint_withoutAuthentication_shouldReturnRedirect() throws Exception {
+    void protectedEndpoint_withoutAuthentication_shouldReturnUnauthorized() throws Exception {
         // When & Then
         mockMvc.perform(get("/api/private"))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -7,7 +7,7 @@ plugins {
     id("com.github.spotbugs") version "6.0.9"
 }
 
-group = "io.synapse"
+group = "com.synapse"
 version = "0.0.1-SNAPSHOT"
 
 java {
@@ -97,7 +97,7 @@ tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             element = "PACKAGE"
-            includes = listOf("io.synapse.platform.billing*")
+            includes = listOf("com.synapse.platform.billing*")
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"

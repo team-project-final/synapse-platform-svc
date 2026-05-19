@@ -1,11 +1,11 @@
 package com.synapse.platform.auth.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.synapse.platform.auth.jwt.JwtAuthenticationFilter;
-import com.synapse.platform.auth.oauth.CustomOidcUserService;
-import com.synapse.platform.auth.oauth.CustomOAuth2UserService;
-import com.synapse.platform.auth.oauth.OAuth2FailureHandler;
-import com.synapse.platform.auth.oauth.OAuth2SuccessHandler;
+import com.synapse.platform.auth.config.JwtAuthenticationFilter;
+import com.synapse.platform.auth.service.CustomOidcUserService;
+import com.synapse.platform.auth.service.CustomOAuth2UserService;
+import com.synapse.platform.auth.service.OAuth2FailureHandler;
+import com.synapse.platform.auth.service.OAuth2SuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

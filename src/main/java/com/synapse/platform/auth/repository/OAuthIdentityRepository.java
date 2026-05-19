@@ -1,6 +1,6 @@
 package com.synapse.platform.auth.repository;
 
-import com.synapse.platform.auth.domain.OAuthIdentity;
+import com.synapse.platform.auth.entity.OAuthIdentity;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

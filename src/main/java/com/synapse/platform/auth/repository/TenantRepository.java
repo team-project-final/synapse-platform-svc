@@ -1,6 +1,6 @@
 package com.synapse.platform.auth.repository;
 
-import com.synapse.platform.auth.domain.Tenant;
+import com.synapse.platform.auth.entity.Tenant;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 

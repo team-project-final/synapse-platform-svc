@@ -8,8 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.synapse.platform.auth.jwt.JwtTokenProvider;
-import com.synapse.platform.auth.jwt.RefreshTokenService;
+import com.synapse.platform.auth.controller.AuthController;
+import com.synapse.platform.auth.service.JwtTokenProvider;
+import com.synapse.platform.auth.service.RefreshTokenService;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
 import java.util.List;
 import java.util.Map;

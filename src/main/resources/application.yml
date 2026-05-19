@@ -61,3 +61,16 @@ app:
     redirect-uri: ${APP_OAUTH2_REDIRECT_URI:http://localhost:3000/auth/callback}
   crypto:
     aes-secret-key: ${AES_SECRET_KEY}
+
+stripe:
+  api:
+    key: ${STRIPE_API_KEY}
+  webhook:
+    secret: ${STRIPE_WEBHOOK_SECRET}
+  plans:
+    pro:
+      price-id: ${STRIPE_PRO_PRICE_ID}
+    team:
+      price-id: ${STRIPE_TEAM_PRICE_ID}
+    enterprise:
+      price-id: ${STRIPE_ENTERPRISE_PRICE_ID}

@@ -79,4 +79,17 @@ public class Tenant {
     public String getSlug() {
         return slug;
     }
+
+    public String getPlan() {
+        return plan;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void activatePlan(String planCode) {
+        this.plan = planCode;
+        this.updatedAt = OffsetDateTime.now();
+    }
 }

@@ -143,6 +143,81 @@
 
 ---
 
+## [D-020] 2026-05-19 — D-012 무효 처리: tenantId를 JWT 대신 UserApi로 조회
+
+**결정**: D-012(tenantId를 JWT claim에 추가)를 무효 처리한다. billing 모듈은 `UserApi.findById(userId).defaultTenantId()`로 tenantId를 조회한다.
+**근거**: D-017 이후 현재 아키텍처는 Spring Modulith 단일 앱. JwtTokenProvider는 auth 모듈 내부 클래스로 @NamedInterface 미설정 → billing이 직접 호출 불가. UserApi는 이미 @NamedInterface("api")로 공개되어 있고 defaultTenantId 필드도 포함. UserApi 호출 방식이 모듈 경계를 준수하는 유일한 방법.
+**기각된 대안**: D-012 유지(JWT claim 추가) — auth 모듈 수정 범위 확대 + billing이 JWT 파싱에 의존하는 순환 구조 위험
+**결정자**: Director
+
+---
+
+## [D-021] 2026-05-19 — billing 모듈 패키지 신규 생성 (D-017 갭 해소)
+
+**결정**: `io.synapse.platform.billing` 패키지를 신규 생성한다. D-017 재전환 시 billing은 포함되지 않았으므로 이번 Step 4에서 처음 구현한다.
+**근거**: ARCHITECTURE_v2.md에 billing이 언급되지 않은 것은 "알려진 갭"이고, TASK_platform.md Step 4가 billing 모듈 구현 목표. `/api/v1/billing/*` 엔드포인트 경로가 TASK에 명시되어 있음.
+**기각된 대안**: auth 모듈 내 billing 기능 통합 — 모듈 경계 불명확, 단일 책임 원칙 위반
+**결정자**: Director
+
+---
+
+## [D-022] 2026-05-19 — TenantApi @NamedInterface 신규 추가 (auth 모듈)
+
+**결정**: `auth/api/TenantApi.java`를 @NamedInterface로 추가한다. billing이 tenant.plan을 업데이트할 때 이 인터페이스를 통한다. 구현체 `TenantService`는 auth 모듈 내부에서 TenantRepository를 감싼다.
+**근거**: billing이 tenant.plan 업데이트를 위해 auth 모듈의 TenantRepository를 직접 주입하면 Spring Modulith 모듈 경계 위반. UserApi 패턴(@NamedInterface + DTO)을 동일하게 적용하는 것이 일관성 있는 설계.
+**기각된 대안**: Spring ApplicationEvent 발행 — 비동기 처리 복잡도 증가, 트랜잭션 경계 관리 어려움
+**결정자**: Director
+
+---
+
+## [D-023] 2026-05-19 — Stripe Webhook 멱등성 전략: payment_intent_id UNIQUE + DB 체크
+
+**결정**: `payment_history.stripe_payment_intent_id`에 UNIQUE 제약을 걸고, 처리 전 `existsByStripePaymentIntentId()` 체크로 중복 이벤트를 early return 처리한다.
+**근거**: Stripe는 네트워크 오류 시 동일 이벤트를 재전송. DB UNIQUE 제약은 애플리케이션 레이어 체크가 실패해도 중복 저장을 방지하는 최후 방어선. checkout.session.completed에는 payment_intent_id가 포함되어 있어 멱등 키로 사용 가능.
+**기각된 대안**: Redis 기반 분산 락 — 인프라 의존성 증가, UNIQUE 제약으로 충분
+**결정자**: Director
+
+---
+
+## [D-024] 2026-05-19 — payment_history 저장 시점: checkout.session.completed → invoice.paid 이동
+
+**결정**:
+1. `checkout.session.completed`: Subscription 생성/활성화 + tenantApi.activatePlan() 전담. payment_history 저장 없음.
+2. `invoice.paid`: payment_history 저장 전담. 멱등 키는 `invoice.paymentIntent`.
+3. DDL status 기본값과 partial unique index를 `'ACTIVE'`(UPPERCASE)로 통일 — Java `@Enumerated(EnumType.STRING)` enum 값과 일치.
+
+**근거**: Stripe subscription mode에서 `checkout.session.completed`의 `payment_intent`는 null일 수 있음. 결제 완료의 공식 확인 지점은 `invoice.paid`. DDL lowercase vs Java enum UPPERCASE 불일치는 partial unique index 오동작을 유발.
+
+**기각된 대안**: checkout.session.completed에서 payment_history 저장 — subscription mode에서 payment_intent 부재 시 저장 누락 위험
+
+**결정자**: Director (Worker 리뷰 반영)
+
+---
+
+## [D-025] 2026-05-19 — 스파이크 결과 반영: SDK 32.1.0 + StripeClient Bean + processed_events 멱등성
+
+**결정**:
+1. Stripe SDK: `26.4.0` → `32.1.0` (Spring Boot 4 / Jakarta EE 11 호환 샘플링 검증 완료)
+2. 초기화: `Stripe.apiKey` 정적 setter → `StripeClient.builder()` Spring Bean (v32.x 표준)
+3. Session 생성: `Session.create()` 정적 → `stripeClient.checkout().sessions().create()`
+4. Webhook 수신: `@RequestBody String` → `@RequestBody byte[]` + UTF-8 변환 (샘플링 검증 완료)
+5. 멱등성: D-023의 `payment_history.stripe_payment_intent_id` UNIQUE 전략 → `processed_events` 테이블(V26) + `event.id` ON CONFLICT DO NOTHING으로 전체 이벤트 통합 처리
+
+**근거**: docs/spike/billing/ 샘플링 결과. processed_events 방식이 모든 이벤트 타입에 일관 적용되고, payment_intent 없는 이벤트에도 안전.
+**기각된 대안**: D-023 payment_intent_id UNIQUE 유지 — invoice.paid 외 이벤트에 적용 불가
+**결정자**: Director (스파이크 결과 반영)
+
+---
+
+## [D-026] 2026-05-19 — customer.subscription.deleted → tenant.plan FREE 복원
+
+**결정**: `customer.subscription.deleted` 웹훅 수신 시 subscription을 취소 상태로 변경하고, `tenantApi.activatePlan(tenantId, PlanCode.FREE.value())`를 호출하여 테넌트 플랜을 `free`로 복원한다.
+**근거**: 구독 삭제 후 tenant.plan을 원상복구하지 않으면 무료 사용자가 유료 기능에 계속 접근 가능. FREE 복원은 최소 권한 원칙의 일환.
+**기각된 대안**: 별도 플랜 복원 이벤트 발행 — 불필요한 간접화, 동기 처리로 충분
+**결정자**: Director
+
+---
+
 <!-- 결정 발생 시 아래 템플릿 복사 후 추가 -->
 
 <!--

@@ -30,10 +30,11 @@
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | Arch Migration | Spring Modulith v2 전환 (D-017) | Done | 2026-05-19 | 2026-05-19 | feature/PLAT-004-stripe-billing, `./gradlew test` 통과 |
-| Step 5 | Stripe 결제 연동 | Not Started | — | — | feature/PLAT-007 폐기 → 재구현 예정 |
-| Step 6 | FCM 디바이스 등록 | Not Started | — | — | |
+| Step 4 | Stripe Checkout 결제 + Webhook | Done | 2026-05-19 | 2026-05-19 | StripeClient 32.1.0, processed_events 멱등성, TenantApi, JaCoCo 80%+ |
+| Step 5 | FCM 디바이스 등록 | Not Started | — | — | |
+| Step 6 | Kafka → audit_logs | Not Started | — | — | |
 
-**W2 진행률**: 0/2 Steps 완료
+**W2 진행률**: 1/2 Steps 완료 (Step 4 완료)
 
 ### W3 (2026-05-26 ~ 05-29)
 
@@ -158,6 +159,9 @@
 - **진행 중**: 없음
 - **이슈**: 없음
 - **다음**: Step 4 (Stripe Checkout 결제) 착수 — TASK_platform.md Step 4 기준
+
+#### 2026-05-19 (화) — 추가
+- **완료**: Step 4 Stripe Checkout 결제 + Webhook 구현 완료 (PR #17, `./gradlew check` 108 tests 통과)
 
 #### 2026-05-20 (수)
 - **완료**:

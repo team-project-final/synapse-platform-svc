@@ -6,6 +6,7 @@ import io.synapse.platform.auth.oauth.CustomOidcUserService;
 import io.synapse.platform.auth.oauth.CustomOAuth2UserService;
 import io.synapse.platform.auth.oauth.OAuth2FailureHandler;
 import io.synapse.platform.auth.oauth.OAuth2SuccessHandler;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -54,6 +55,10 @@ public class SecurityConfig {
                                 .oidcUserService(customOidcUserService))
                         .successHandler(oAuth2SuccessHandler)
                         .failureHandler(oAuth2FailureHandler))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(
+                                (request, response, ex) ->
+                                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
@@ -61,7 +66,8 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/**",
                                 "/api/v1/auth/callback",
-                                "/api/v1/auth/refresh").permitAll()
+                                "/api/v1/auth/refresh",
+                                "/api/v1/billing/webhooks").permitAll()
                         .anyRequest().authenticated())
                 .build();
     }

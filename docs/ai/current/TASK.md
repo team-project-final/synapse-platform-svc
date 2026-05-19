@@ -1,58 +1,72 @@
-# TASK — Step N: {Step 이름}
+# TASK — Refactor: 템플릿 기준 패키지/디렉토리 구조 정렬
 
-> 출처: TASK_platform.md Step N
+> 출처: Director 지시 (TASK_platform.md 외 작업)
 
 ## 상태
 
-- Phase: [분석 / 설계 / 구현 / 리뷰 / 완료]
-- 담당 Agent: [Director / Worker / Researcher]
-- 시작일: YYYY-MM-DD
-- 목표 완료일: YYYY-MM-DD
+- Phase: 구현
+- 담당 Agent: Worker
+- 시작일: 2026-05-19
+- 목표 완료일: 2026-05-19
 
 ---
 
 ## Step Goal
 
-{TASK_platform.md Step Goal 복사}
+`synapse-platform-svc`의 패키지·디렉토리 구조를 팀 표준 템플릿(`docs/synapse-svc-template-skeleton-platform-w1`)에 맞게 정렬한다. 기능 코드는 변경하지 않는다.
 
 ## Done When
 
-- [ ] 조건 1
-- [ ] 조건 2
-- [ ] 조건 3
+- [ ] `io.synapse.platform` → `com.synapse.platform` 전체 치환 완료
+- [ ] `shared/` → `global/` 이름 변경 완료
+- [ ] `auth/jwt/`, `auth/mfa/`, `auth/oauth/`, `auth/domain/` 평탄화 완료
+- [ ] `user/domain/` → `user/entity/` 변경 완료
+- [ ] `billing/domain/` → `billing/entity/` 변경 완료
+- [ ] `billing/dto/` → `billing/dto/request/` + `billing/dto/response/` 분리 완료
+- [ ] `auth/api/`, `user/api/` 위치 유지 확인
+- [ ] `.\gradlew.bat clean build` 통과
+- [ ] `.\gradlew.bat test` 전체 그린
+- [ ] `PlatformModuleStructureTest` 통과
 
 ## Scope
 
 - In Scope:
-  - 항목 1
-  - 항목 2
+  - package 선언 변경
+  - import 경로 변경
+  - 디렉토리 이동/이름 변경
+  - `build.gradle.kts` group 변경
 - Out of Scope:
-  - 항목 1
+  - 비즈니스 로직 변경
+  - 의존성 추가/제거
+  - 테스트 로직 변경
+  - SQL 마이그레이션 파일 변경
 
 ## Input
 
-{TASK_platform.md Input 복사}
+- `docs/synapse-svc-template-skeleton-platform-w1/` — 목표 구조 레퍼런스
+- `docs/ai/current/HANDOFF.md` — Phase별 상세 실행 스펙
+- `docs/ai/current/CONTEXT.md` — 확정된 제약 및 불변 항목
 
 ## Instructions
 
-1. 단계 1
-2. 단계 2
-3. 단계 3
-
-## Output Format
-
-{TASK_platform.md Output Format 복사}
+1. Phase 1: `io.synapse` → `com.synapse` 전체 치환 + 디렉토리 이동 → `compileJava` 확인 → 커밋
+2. Phase 2: `shared/` → `global/` 이름 변경 → `compileJava` 확인 → 커밋
+3. Phase 3: `auth` 모듈 서브패키지 평탄화 → `compileJava` + auth 테스트 → 커밋
+4. Phase 4: `user` 모듈 정렬 → `compileJava` + user 테스트 → 커밋
+5. Phase 5: `billing` 모듈 정렬 → `compileJava` + billing 테스트 → 커밋
+6. Phase 7: `clean build` + 전체 테스트 통과 확인
 
 ## Constraints
 
-- 제약 1
-- 제약 2
+- `auth/api/package-info.java`, `user/api/package-info.java` 절대 이동 금지
+- Phase별 `compileJava` 통과 후 다음 Phase로 진행
+- 커밋은 Phase 단위로 분리
 
 ## Duration
 
-N일
+0.5일
 
 ## Assignee / Reviewer
 
-- Assignee: @platform-owner
-- Reviewer: @team-lead
+- Assignee: @platform-owner (Worker)
+- Reviewer: @team-lead (Director)

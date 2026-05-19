@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.synapse.platform.auth.entity.RefreshToken;
 import com.synapse.platform.auth.repository.RefreshTokenRepository;
-import com.synapse.platform.user.domain.User;
+import com.synapse.platform.user.entity.User;
 import com.synapse.platform.user.repository.UserRepository;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;

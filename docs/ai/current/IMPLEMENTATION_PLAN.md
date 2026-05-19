@@ -339,7 +339,7 @@ git commit -m "refactor(auth): jwt/mfa/oauth 서브패키지 평탄화 → contr
 - Move: `src/main/java/com/synapse/platform/user/domain/*.java` -> `user/entity/`
 - Keep: `src/main/java/com/synapse/platform/user/api/*`
 
-- [ ] **Step 1: user 목표 디렉토리 생성 및 이동**
+- [x] **Step 1: user 목표 디렉토리 생성 및 이동**
 
 Run:
 
@@ -352,7 +352,7 @@ Move-Item -LiteralPath "$user\domain\*" -Destination "$user\entity"
 Remove-Item -LiteralPath "$user\domain" -Recurse
 ```
 
-- [ ] **Step 2: user package/import 치환**
+- [x] **Step 2: user package/import 치환**
 
 Apply across `src/main/java` and `src/test/java`:
 
@@ -365,7 +365,7 @@ package com.synapse.platform.user; -> package com.synapse.platform.user.service;
 package com.synapse.platform.user.domain -> package com.synapse.platform.user.entity
 ```
 
-- [ ] **Step 3: Phase 4 검증**
+- [x] **Step 3: Phase 4 검증**
 
 Run:
 
@@ -376,7 +376,9 @@ Run:
 
 Expected: both pass.
 
-- [ ] **Step 4: Phase 4 커밋**
+Execution note: 현재 `src/test/java`에는 `com.synapse.platform.user.*` 패키지의 user 전용 테스트 클래스가 없어 `.\gradlew.bat test --tests "com.synapse.platform.user.*" --no-daemon`는 `No tests found`로 실패한다. Phase 4 검증은 `compileJava`, `compileTestJava`, 잔여 `user.domain` 참조 검색으로 대체했고, 전체 테스트는 최종 Phase 7에서 수행한다.
+
+- [x] **Step 4: Phase 4 커밋**
 
 Run:
 

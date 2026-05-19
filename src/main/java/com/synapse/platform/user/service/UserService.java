@@ -1,10 +1,10 @@
-package com.synapse.platform.user;
+package com.synapse.platform.user.service;
 
 import com.synapse.platform.user.api.OAuthUserCreateCommand;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
-import com.synapse.platform.user.domain.User;
-import com.synapse.platform.user.domain.UserSettings;
+import com.synapse.platform.user.entity.User;
+import com.synapse.platform.user.entity.UserSettings;
 import com.synapse.platform.user.repository.UserRepository;
 import com.synapse.platform.user.repository.UserSettingsRepository;
 import java.util.Optional;

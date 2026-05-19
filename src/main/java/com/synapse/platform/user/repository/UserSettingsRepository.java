@@ -1,6 +1,6 @@
 package com.synapse.platform.user.repository;
 
-import com.synapse.platform.user.domain.UserSettings;
+import com.synapse.platform.user.entity.UserSettings;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 

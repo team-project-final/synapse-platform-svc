@@ -1,4 +1,4 @@
-package com.synapse.platform.shared.crypto;
+package com.synapse.platform.global.crypto;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

@@ -1,4 +1,4 @@
-package com.synapse.platform.shared.exception;
+package com.synapse.platform.global.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;

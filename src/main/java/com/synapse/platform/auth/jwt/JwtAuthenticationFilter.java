@@ -1,7 +1,7 @@
 package com.synapse.platform.auth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.synapse.platform.shared.exception.GlobalExceptionHandler;
+import com.synapse.platform.global.exception.GlobalExceptionHandler;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

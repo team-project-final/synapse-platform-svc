@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.synapse.platform.auth.exception.UnauthorizedTokenException;
-import com.synapse.platform.shared.crypto.FieldEncryptor;
+import com.synapse.platform.global.crypto.FieldEncryptor;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import dev.samstevens.totp.code.DefaultCodeGenerator;

@@ -1,4 +1,4 @@
-package com.synapse.platform.shared.exception;
+package com.synapse.platform.global.exception;
 
 public abstract class BusinessException extends RuntimeException {
 

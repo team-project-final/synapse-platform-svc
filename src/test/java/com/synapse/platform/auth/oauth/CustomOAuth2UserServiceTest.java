@@ -21,7 +21,7 @@ import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.repository.UserRepository;
 import com.synapse.platform.user.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
-import com.synapse.platform.shared.crypto.FieldEncryptor;
+import com.synapse.platform.global.crypto.FieldEncryptor;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;

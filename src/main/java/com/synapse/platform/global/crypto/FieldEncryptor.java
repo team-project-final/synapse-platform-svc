@@ -1,4 +1,4 @@
-package com.synapse.platform.shared.crypto;
+package com.synapse.platform.global.crypto;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;

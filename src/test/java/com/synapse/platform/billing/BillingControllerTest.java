@@ -15,7 +15,7 @@ import com.synapse.platform.billing.dto.CheckoutSessionRequest;
 import com.synapse.platform.billing.dto.CheckoutSessionResponse;
 import com.synapse.platform.billing.dto.SubscriptionResponse;
 import com.synapse.platform.billing.exception.BillingException;
-import com.synapse.platform.shared.exception.GlobalExceptionHandler;
+import com.synapse.platform.global.exception.GlobalExceptionHandler;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.UUID;

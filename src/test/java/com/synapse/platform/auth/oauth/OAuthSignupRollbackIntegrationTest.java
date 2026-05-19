@@ -13,7 +13,7 @@ import com.synapse.platform.auth.repository.TenantRepository;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.repository.UserRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
-import com.synapse.platform.shared.crypto.FieldEncryptor;
+import com.synapse.platform.global.crypto.FieldEncryptor;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;

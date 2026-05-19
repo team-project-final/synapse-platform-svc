@@ -1,4 +1,4 @@
-package com.synapse.platform.shared.exception;
+package com.synapse.platform.global.exception;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;

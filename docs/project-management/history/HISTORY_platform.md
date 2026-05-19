@@ -161,8 +161,7 @@
 - **다음**: Step 4 (Stripe Checkout 결제) 착수 — TASK_platform.md Step 4 기준
 
 #### 2026-05-19 (화) — 추가
-- **완료**: Step 4 준비 (TASK.md / CONTEXT.md 작성, TASK_platform.md In Progress 갱신)
-- **진행 중**: Step 4 설계 단계 (10단계 워크플로 ①~③ 진행 예정)
+- **완료**: Step 4 Stripe Checkout 결제 + Webhook 구현 완료 (PR #17, `./gradlew check` 108 tests 통과)
 
 #### 2026-05-20 (수)
 - **완료**:

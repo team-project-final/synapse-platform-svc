@@ -209,6 +209,15 @@
 
 ---
 
+## [D-026] 2026-05-19 — customer.subscription.deleted → tenant.plan FREE 복원
+
+**결정**: `customer.subscription.deleted` 웹훅 수신 시 subscription을 취소 상태로 변경하고, `tenantApi.activatePlan(tenantId, PlanCode.FREE.value())`를 호출하여 테넌트 플랜을 `free`로 복원한다.
+**근거**: 구독 삭제 후 tenant.plan을 원상복구하지 않으면 무료 사용자가 유료 기능에 계속 접근 가능. FREE 복원은 최소 권한 원칙의 일환.
+**기각된 대안**: 별도 플랜 복원 이벤트 발행 — 불필요한 간접화, 동기 처리로 충분
+**결정자**: Director
+
+---
+
 <!-- 결정 발생 시 아래 템플릿 복사 후 추가 -->
 
 <!--

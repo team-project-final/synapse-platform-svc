@@ -103,6 +103,46 @@
 
 ---
 
+## [D-016] 2026-05-19 — JWT 검증 로직 platform-common 추출
+
+**결정**: JWT 검증(파싱 + AuthenticatedUser 추출 + SecurityContext 설정)을 `platform-common/security/` 패키지로 추출한다. 구체적으로 `JwtTokenValidator`(일반 클래스), `JwtAuthenticationFilter`(OncePerRequestFilter), `AuthenticatedUser`(record)를 platform-common에 추가한다. JWT **발급/서명**(`JwtTokenProvider.create*Token()`)은 auth-service에 유지한다.
+**근거**: billing-service(Step 4), notification-service(Step 7), audit-service(Step 6) 모두 JWT 검증이 필요하다. 서비스마다 독립 구현하면 코드 중복 + 검증 로직 불일치 위험. 아키텍처 문서 §2가 이미 `platform-common/auth/` 아래 `JwtUtils, RoleEnum`을 명시하고 있다.
+**기각된 대안**: 서비스별 독립 구현 — 검증 로직 중복 발생, RS256 공개키 처리 각자 구현 필요 / auth-service에서 gRPC Introspect로 검증 위임 — D-015에서 Phase 2로 연기됨
+**결정자**: Director
+
+---
+
+## [D-017] 2026-05-19 — D-013 번복: Spring Modulith 단일 앱으로 재전환
+
+**결정**: D-013(Gradle 멀티모듈)을 번복하고 `ARCHITECTURE_v2.md` 기준 Spring Modulith 단일 Spring Boot 앱으로 재전환한다. 모듈 구조: `auth`, `user`, `notification`, `admin`, `shared`. billing은 v2에서 제외(알려진 갭).
+**근거**: `ARCHITECTURE_v2.md`(v2.0, 2026-05-18)가 실제 레포 구조 기반으로 재작성됨. 루트 Dockerfile과 docker-compose.yml이 이미 단일 앱 기준으로 작성되어 있어 멀티모듈 구조가 실제로 완성되지 않은 상태였음. 단일 앱 유지 시 Steps 4~10의 모듈 간 통신을 Spring ApplicationEvent로 처리 가능 → 서비스 간 네트워크 호출 불필요.
+**기각된 대안**: D-013 멀티모듈 유지 — Dockerfile/docker-compose가 단일 앱 기준이고 나머지 3개 서비스가 placeholder 상태이므로 멀티모듈 완성 비용이 더 큼
+**결정자**: Director
+
+---
+
+## [D-018] 2026-05-19 — Spring Boot 4.0 유지 + Spring Modulith 호환 버전 확인
+
+**결정**: Spring Boot 4.0.0은 유지한다. HANDOFF에 명시한 `spring-modulith-bom:1.3.0`은 Boot 3.4 기준이므로 제거. Worker가 공식 호환표(https://docs.spring.io/spring-modulith/reference/appendix.html)에서 Boot 4.0 호환 Modulith 버전을 확인 후 지정한다. 예상 버전: `2.0.x`.
+**근거**: 프로젝트 전체가 Boot 4.0.0으로 이미 구현·테스트 완료. 다운그레이드 시 전체 코드 재검증 필요 → 비용 과대. 버전 미스매치로 빌드 실패가 발생하면 이슈가 즉시 드러나므로 Worker가 확인 후 적용하는 방식이 안전.
+**기각된 대안**: Boot 3.4/3.5로 다운그레이드 — 전체 재검증 비용 과대
+**결정자**: Director
+
+---
+
+## [D-019] 2026-05-19 — UserApi 설계: @NamedInterface + DTO 반환 + createForOAuth 추가
+
+**결정**: 
+1. `user/api/package-info.java`에 `@NamedInterface("api")` 추가 — auth 모듈이 `user.api` 패키지에 접근 가능
+2. `UserApi` 반환 타입은 `User` 엔티티가 아닌 `UserInfo` record (same `user.api` 패키지) — `user.domain`이 `@NamedInterface` 없이도 경계 안전 유지
+3. `UserApi` 메서드: `findById`, `findByEmail`, `createForOAuth(OAuthUserCreateCommand)` — `OAuthUserResolver.signUp()`이 User+UserSettings를 생성하는 책임을 user 모듈로 이전
+4. `OAuthUserResolver`는 Tenant+OAuthIdentity+TenantMember 생성 책임만 유지, userApi.createForOAuth() 호출
+**근거**: Spring Modulith 기본 규칙상 subpackage는 internal이므로 `user.api.UserApi`는 `@NamedInterface` 없으면 auth에서 접근 불가. `User` 엔티티를 외부에 노출하면 `user.domain`도 `@NamedInterface` 필요 → 엔티티 노출은 나쁜 경계 설계. `OAuthUserResolver.signUp()`은 이미 UserRepository + UserSettingsRepository를 직접 사용하므로 user 모듈로 이동이 자연스럽다.
+**기각된 대안**: `user.domain`에도 `@NamedInterface` 추가 — 도메인 엔티티를 외부 모듈에 직접 노출하는 설계 안티패턴
+**결정자**: Director
+
+---
+
 <!-- 결정 발생 시 아래 템플릿 복사 후 추가 -->
 
 <!--

@@ -29,7 +29,7 @@
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 4 | 멀티모듈 아키텍처 마이그레이션 | In Progress | 2026-05-19 | — | feature/PLAT-000-multi-module-migration |
+| Arch Migration | Spring Modulith v2 전환 (D-017) | Done | 2026-05-19 | 2026-05-19 | feature/PLAT-004-stripe-billing, `./gradlew test` 통과 |
 | Step 5 | Stripe 결제 연동 | Not Started | — | — | feature/PLAT-007 폐기 → 재구현 예정 |
 | Step 6 | FCM 디바이스 등록 | Not Started | — | — | |
 
@@ -144,17 +144,20 @@
 
 #### 2026-05-19 (화)
 - **완료**:
-  - Step 4 샘플링 문서 검토 (SAMPLING_STEP4_STRIPE.md, HANDOFF_MAIN.md)
-  - D-011 (billing 모듈 독립 확정), D-012 (tenantId JWT claim 추가) 설계 결정
-  - feature/PLAT-007-stripe-billing 브랜치 생성 + Worker Stripe billing 구현 (단위/통합 테스트 통과)
-  - 팀 공식 아키텍처 문서(synapse-platform-svc_ARCHITECTURE.md v1.0) 검토
-  - D-013 (멀티모듈 마이그레이션), D-014 (PLAT-007 폐기), D-015 (gRPC Phase 2 연기) 설계 결정
-  - feature/PLAT-007-stripe-billing 폐기 결정 (dev 머지 안 함)
-  - TASK_platform.md Step 4→Migration 삽입, 구 Step 4~10 → Step 5~11 전면 재번호
-  - CLAUDE.md, TASK.md, CONTEXT.md, HANDOFF.md 마이그레이션 기준 갱신
-- **진행 중**: Worker — feature/PLAT-000-multi-module-migration 구현 대기
+  - ARCHITECTURE_v2.md 기준 D-017 결정 (D-013 번복 — Spring Modulith 단일 앱 복원)
+  - D-018 (Spring Modulith 2.0.6, Boot 4.0 호환), D-019 (UserApi 설계 — @NamedInterface, UserInfo DTO, createForOAuth) 설계 결정
+  - TASK.md / CONTEXT.md / HANDOFF.md 작성 — Worker(Codex) 전달
+  - Worker 구현 완료: 멀티모듈 → Spring Modulith 전환
+    - settings.gradle.kts 단순화, 루트 build.gradle.kts 단일 앱 전환
+    - 5개 모듈 패키지 생성 (auth, user, notification, admin, shared)
+    - OAuthUserResolver / TotpService → UserApi 경유로 user 모듈 경계 준수
+    - `io.synapse.platform.common.*` → `shared.*` 전수 교체
+    - .env.example 추가, docker-compose.yml env_file 보정
+  - `./gradlew test` 전체 통과 확인 / **Arch Migration 완료**
+  - current/ → archive/20260519-arch-migration-v2/ 이동 + 초기화
+- **진행 중**: 없음
 - **이슈**: 없음
-- **다음**: Worker(Codex) HANDOFF.md 기반 멀티모듈 마이그레이션 구현 → Director 리뷰
+- **다음**: Step 4 (Stripe Checkout 결제) 착수 — TASK_platform.md Step 4 기준
 
 #### 2026-05-20 (수)
 - **완료**:

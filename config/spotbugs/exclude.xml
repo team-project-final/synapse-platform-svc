@@ -8,4 +8,8 @@
         <Class name="~io\.synapse\.platform\.auth\.(AuthController|jwt\.RefreshTokenService|jwt\.JwtAuthenticationFilter|mfa\.MfaController|oauth\.OAuth2SuccessHandler)"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+    <Match>
+        <Class name="io.synapse.platform.billing.BillingService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
 </FindBugsFilter>

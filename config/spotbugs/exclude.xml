@@ -9,7 +9,7 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
-        <Class name="io.synapse.platform.billing.BillingService"/>
+        <Class name="com.synapse.platform.billing.BillingService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

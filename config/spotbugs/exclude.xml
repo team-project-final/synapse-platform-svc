@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter>
     <Match>
-        <Class name="~io\.synapse\.platform\.auth\.config\.(OAuth2AuthorizationRequestDto|HttpCookieOAuth2AuthorizationRequestRepository|SecurityConfig)"/>
+        <Class name="~com\.synapse\.platform\.auth\.config\.(OAuth2AuthorizationRequestDto|HttpCookieOAuth2AuthorizationRequestRepository|SecurityConfig)"/>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
     </Match>
     <Match>
-        <Class name="~io\.synapse\.platform\.auth\.(AuthController|jwt\.RefreshTokenService|jwt\.JwtAuthenticationFilter|mfa\.MfaController|oauth\.OAuth2SuccessHandler)"/>
+        <Class name="~com\.synapse\.platform\.auth\.(controller\.(AuthController|MfaController)|config\.JwtAuthenticationFilter|service\.(RefreshTokenService|OAuth2SuccessHandler))"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
-        <Class name="com.synapse.platform.billing.BillingService"/>
+        <Class name="com.synapse.platform.billing.service.BillingService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

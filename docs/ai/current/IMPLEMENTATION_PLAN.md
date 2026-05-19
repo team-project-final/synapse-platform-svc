@@ -478,7 +478,7 @@ git commit -m "refactor(billing): domain → entity, DTO request/response 분리
 - Check: `src/main/java/com/synapse/platform/admin/package-info.java`
 - Check: `src/main/java/com/synapse/platform/notification/package-info.java`
 
-- [ ] **Step 1: package-info 선언 확인**
+- [x] **Step 1: package-info 선언 확인**
 
 Run:
 
@@ -499,7 +499,7 @@ package com.synapse.platform.notification;
 **Files:**
 - No planned edits.
 
-- [ ] **Step 1: 잔여 구 패키지 검색**
+- [x] **Step 1: 잔여 구 패키지 검색**
 
 Run:
 
@@ -509,7 +509,7 @@ rg -n "io\.synapse|com\.synapse\.platform\.shared|com\.synapse\.platform\.(auth|
 
 Expected: no output.
 
-- [ ] **Step 2: 목표 구조 확인**
+- [x] **Step 2: 목표 구조 확인**
 
 Run:
 
@@ -526,7 +526,7 @@ Test-Path src\main\java\com\synapse\platform\billing\dto\response
 
 Expected: all `True`.
 
-- [ ] **Step 3: NamedInterface 위치 확인**
+- [x] **Step 3: NamedInterface 위치 확인**
 
 Run:
 
@@ -537,7 +537,7 @@ Test-Path src\main\java\com\synapse\platform\user\api\package-info.java
 
 Expected: both `True`.
 
-- [ ] **Step 4: Modulith 구조 검증**
+- [x] **Step 4: Modulith 구조 검증**
 
 Run:
 
@@ -547,7 +547,7 @@ Run:
 
 Expected: pass.
 
-- [ ] **Step 5: 전체 빌드 및 테스트**
+- [x] **Step 5: 전체 빌드 및 테스트**
 
 Run:
 
@@ -558,7 +558,9 @@ Run:
 
 Expected: both pass.
 
-- [ ] **Step 6: 최종 커밋**
+Execution note: 최종 `clean build` 첫 실행은 `spotbugsMain`에서 실패했다. 실제 로직 결함이 아니라 `config/spotbugs/exclude.xml`의 EI/EI2 제외 규칙이 예전 `io.synapse` 및 이동 전 billing/auth 패키지를 가리켜, 이동된 controller/service/config 클래스가 다시 검출된 것이다. 제외 규칙을 새 `com.synapse.platform` 구조에 맞춰 갱신한다.
+
+- [x] **Step 6: 최종 커밋**
 
 Run:
 

@@ -31,10 +31,10 @@
 |------|------|------|--------|--------|------|
 | Arch Migration | Spring Modulith v2 전환 (D-017) | Done | 2026-05-19 | 2026-05-19 | feature/PLAT-004-stripe-billing, `./gradlew test` 통과 |
 | Step 4 | Stripe Checkout 결제 + Webhook | Done | 2026-05-19 | 2026-05-19 | StripeClient 32.1.0, processed_events 멱등성, TenantApi, JaCoCo 80%+ |
-| Step 5 | FCM 디바이스 등록 | Not Started | — | — | |
+| Step 5 | FCM 디바이스 등록 | Done | 2026-05-19 | 2026-05-19 | NotificationSecurityConfig @Order(1), Modulith 경계 준수, 9개 통합 테스트, JaCoCo 92.38% |
 | Step 6 | Kafka → audit_logs | Not Started | — | — | |
 
-**W2 진행률**: 1/2 Steps 완료 (Step 4 완료)
+**W2 진행률**: 2/2 Steps 완료 (Step 4, Step 5 완료)
 
 ### W3 (2026-05-26 ~ 05-29)
 
@@ -162,6 +162,15 @@
 
 #### 2026-05-19 (화) — 추가
 - **완료**: Step 4 Stripe Checkout 결제 + Webhook 구현 완료 (PR #17, `./gradlew check` 108 tests 통과)
+- **완료**: Step 5 FCM 디바이스 등록 구현 완료
+  - V27__create_device_tokens.sql (tenant_id, is_active, CHECK constraint, tenant_id prefix index)
+  - Platform enum (AttributeConverter + @JsonCreator/@JsonValue), DeviceToken entity, Repository (native UPSERT)
+  - DeviceTokenService (register/unregister, UserApi tenantId resolve), DeviceTokenController (POST 201 / DELETE 204)
+  - NotificationSecurityConfig @Bean @Order(1) — Modulith 경계 준수 (@Qualifier Filter 주입)
+  - SecurityConfig @Bean @Order(2) 추가
+  - GlobalExceptionHandler: EntityNotFoundException→404, HttpMessageNotReadableException→400 추가
+  - 통합 테스트 9개 시나리오 전체 통과, JaCoCo 92.38% (기준 80%)
+  - `./gradlew test`: BUILD SUCCESSFUL
 
 #### 2026-05-20 (수)
 - **완료**:

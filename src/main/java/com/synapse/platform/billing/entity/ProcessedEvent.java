@@ -1,4 +1,4 @@
-package com.synapse.platform.billing.domain;
+package com.synapse.platform.billing.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

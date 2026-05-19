@@ -1,4 +1,4 @@
-package com.synapse.platform.billing.domain;
+package com.synapse.platform.billing.entity;
 
 public enum PlanCode {
     FREE, PRO, TEAM, ENTERPRISE;

@@ -3,9 +3,9 @@ package com.synapse.platform.billing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.synapse.platform.billing.domain.PlanCode;
-import com.synapse.platform.billing.domain.Subscription;
-import com.synapse.platform.billing.domain.SubscriptionStatus;
+import com.synapse.platform.billing.entity.PlanCode;
+import com.synapse.platform.billing.entity.Subscription;
+import com.synapse.platform.billing.entity.SubscriptionStatus;
 import com.synapse.platform.billing.repository.ProcessedEventRepository;
 import com.synapse.platform.billing.repository.SubscriptionRepository;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package com.synapse.platform.billing;
+package com.synapse.platform.billing.service;
 
 import com.stripe.StripeClient;
 import com.stripe.exception.SignatureVerificationException;
@@ -13,13 +13,13 @@ import com.stripe.net.Webhook;
 import com.stripe.param.checkout.SessionCreateParams;
 import com.synapse.platform.auth.api.TenantApi;
 import com.synapse.platform.billing.config.StripeProperties;
-import com.synapse.platform.billing.domain.PaymentHistory;
-import com.synapse.platform.billing.domain.PlanCode;
-import com.synapse.platform.billing.domain.Subscription;
-import com.synapse.platform.billing.domain.SubscriptionStatus;
-import com.synapse.platform.billing.dto.CheckoutSessionRequest;
-import com.synapse.platform.billing.dto.CheckoutSessionResponse;
-import com.synapse.platform.billing.dto.SubscriptionResponse;
+import com.synapse.platform.billing.entity.PaymentHistory;
+import com.synapse.platform.billing.entity.PlanCode;
+import com.synapse.platform.billing.entity.Subscription;
+import com.synapse.platform.billing.entity.SubscriptionStatus;
+import com.synapse.platform.billing.dto.request.CheckoutSessionRequest;
+import com.synapse.platform.billing.dto.response.CheckoutSessionResponse;
+import com.synapse.platform.billing.dto.response.SubscriptionResponse;
 import com.synapse.platform.billing.exception.BillingException;
 import com.synapse.platform.billing.repository.PaymentHistoryRepository;
 import com.synapse.platform.billing.repository.ProcessedEventRepository;

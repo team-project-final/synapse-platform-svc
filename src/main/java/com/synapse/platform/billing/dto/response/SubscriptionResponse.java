@@ -1,4 +1,4 @@
-package com.synapse.platform.billing.dto;
+package com.synapse.platform.billing.dto.response;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

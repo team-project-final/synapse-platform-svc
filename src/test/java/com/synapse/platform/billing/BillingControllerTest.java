@@ -10,11 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.synapse.platform.billing.domain.PlanCode;
-import com.synapse.platform.billing.dto.CheckoutSessionRequest;
-import com.synapse.platform.billing.dto.CheckoutSessionResponse;
-import com.synapse.platform.billing.dto.SubscriptionResponse;
+import com.synapse.platform.billing.controller.BillingController;
+import com.synapse.platform.billing.entity.PlanCode;
+import com.synapse.platform.billing.dto.request.CheckoutSessionRequest;
+import com.synapse.platform.billing.dto.response.CheckoutSessionResponse;
+import com.synapse.platform.billing.dto.response.SubscriptionResponse;
 import com.synapse.platform.billing.exception.BillingException;
+import com.synapse.platform.billing.service.BillingService;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;

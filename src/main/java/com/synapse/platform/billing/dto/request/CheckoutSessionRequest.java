@@ -1,6 +1,6 @@
-package com.synapse.platform.billing.dto;
+package com.synapse.platform.billing.dto.request;
 
-import com.synapse.platform.billing.domain.PlanCode;
+import com.synapse.platform.billing.entity.PlanCode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

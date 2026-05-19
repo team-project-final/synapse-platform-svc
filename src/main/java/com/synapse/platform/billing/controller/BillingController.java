@@ -1,9 +1,10 @@
-package com.synapse.platform.billing;
+package com.synapse.platform.billing.controller;
 
-import com.synapse.platform.billing.dto.CheckoutSessionRequest;
-import com.synapse.platform.billing.dto.CheckoutSessionResponse;
-import com.synapse.platform.billing.dto.SubscriptionResponse;
+import com.synapse.platform.billing.dto.request.CheckoutSessionRequest;
+import com.synapse.platform.billing.dto.response.CheckoutSessionResponse;
+import com.synapse.platform.billing.dto.response.SubscriptionResponse;
 import com.synapse.platform.billing.exception.BillingException;
+import com.synapse.platform.billing.service.BillingService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;

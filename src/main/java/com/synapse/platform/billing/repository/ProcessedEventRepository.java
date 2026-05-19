@@ -1,6 +1,6 @@
 package com.synapse.platform.billing.repository;
 
-import com.synapse.platform.billing.domain.ProcessedEvent;
+import com.synapse.platform.billing.entity.ProcessedEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

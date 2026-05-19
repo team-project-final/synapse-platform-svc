@@ -397,7 +397,7 @@ git commit -m "refactor(user): domain → entity, Controller/Service 서브패�
 - Move: `src/main/java/com/synapse/platform/billing/dto/CheckoutSessionResponse.java` -> `billing/dto/response/CheckoutSessionResponse.java`
 - Move: `src/main/java/com/synapse/platform/billing/dto/SubscriptionResponse.java` -> `billing/dto/response/SubscriptionResponse.java`
 
-- [ ] **Step 1: billing 목표 디렉토리 생성 및 이동**
+- [x] **Step 1: billing 목표 디렉토리 생성 및 이동**
 
 Run:
 
@@ -413,7 +413,7 @@ Move-Item -LiteralPath "$billing\dto\SubscriptionResponse.java" -Destination "$b
 Remove-Item -LiteralPath "$billing\domain" -Recurse
 ```
 
-- [ ] **Step 2: billing package/import 치환**
+- [x] **Step 2: billing package/import 치환**
 
 Apply across `src/main/java` and `src/test/java`:
 
@@ -431,7 +431,7 @@ package com.synapse.platform.billing.dto -> package com.synapse.platform.billing
 package com.synapse.platform.billing.dto -> package com.synapse.platform.billing.dto.response for response DTO files
 ```
 
-- [ ] **Step 3: billing test package 이동 여부 정리**
+- [x] **Step 3: billing test package 이동 여부 정리**
 
 Move billing domain tests to entity package:
 
@@ -448,7 +448,7 @@ Set test package:
 package com.synapse.platform.billing.entity;
 ```
 
-- [ ] **Step 4: Phase 5 검증**
+- [x] **Step 4: Phase 5 검증**
 
 Run:
 
@@ -459,7 +459,11 @@ Run:
 
 Expected: both pass.
 
-- [ ] **Step 5: Phase 5 커밋**
+Execution note: Phase 5 첫 `compileJava`에서 `BillingController`와 `BillingService`가 서로 다른 패키지로 분리되며 기존 same-package 참조가 깨졌다. 기능 변경 없이 `BillingController`에 `com.synapse.platform.billing.service.BillingService` import를 보강한다.
+
+Execution note: Phase 5 첫 billing 테스트 실행 중 `compileTestJava`에서도 root package 테스트의 same-package 참조가 깨졌다. `BillingControllerTest`, `BillingSecurityIntegrationTest`, `BillingServiceTest`에 이동된 controller/service import를 보강한다.
+
+- [x] **Step 5: Phase 5 커밋**
 
 Run:
 

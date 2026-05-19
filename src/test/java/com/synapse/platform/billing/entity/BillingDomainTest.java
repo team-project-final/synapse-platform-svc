@@ -1,4 +1,4 @@
-package com.synapse.platform.billing.domain;
+package com.synapse.platform.billing.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

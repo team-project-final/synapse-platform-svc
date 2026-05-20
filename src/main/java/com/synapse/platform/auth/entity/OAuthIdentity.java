@@ -24,7 +24,7 @@ public class OAuthIdentity {
     @Column(nullable = false)
     private String provider;
 
-    @Column(name = "provider_user_id", nullable = false)
+    @Column(name = "provider_id", nullable = false)
     private String providerUserId;
 
     @Column

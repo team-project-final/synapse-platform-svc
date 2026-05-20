@@ -27,14 +27,15 @@ CREATE TABLE oauth_identities (
     id               UUID         PRIMARY KEY,
     user_id          UUID         NOT NULL,
     provider         VARCHAR(50)  NOT NULL,
-    provider_user_id VARCHAR(255) NOT NULL,
+    provider_id      VARCHAR(255) NOT NULL,
     email            VARCHAR(255),
+    access_token_enc TEXT,
     metadata         JSONB        NOT NULL DEFAULT '{}'::jsonb,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     CONSTRAINT fk_oauth_identities_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX uq_oauth_provider_user ON oauth_identities(provider, provider_user_id);
+CREATE UNIQUE INDEX uq_oauth_provider_user ON oauth_identities(provider, provider_id);
 CREATE INDEX idx_oauth_user_id             ON oauth_identities(user_id);
 
 CREATE TABLE user_settings (

@@ -143,7 +143,7 @@ JaCoCo LINE coverage: 92.38% (covered 921, missed 76)
 | `GET` | `/oauth2/authorization/github` | GitHub OAuth 로그인 시작 | 불필요 |
 | `GET` | `/oauth2/authorization/apple` | Apple OAuth 로그인 시작 | 불필요 |
 
-OAuth 로그인 성공 시 `?userId={uuid}` 쿼리 파라미터와 함께 `successRedirectUri`로 리디렉트됩니다.
+OAuth 로그인 성공 시 `?access_token={jwt}&refresh_token={token}` 쿼리 파라미터와 함께 `app.oauth2.redirect-uri`로 리디렉트됩니다.
 
 ### Billing
 
@@ -228,7 +228,7 @@ Flyway로 관리합니다. 마이그레이션 파일은 `src/main/resources/db/m
 | V17 | 공통 trigger 생성 |
 | V18 | plan quota seed |
 | V19 | totp_credentials 생성 |
-| V20 | oauth_identities.access_token_enc 추가 |
+| V20 | oauth_identities.access_token_enc 추가 (기존 환경 보정용 — V3에 포함됨) |
 | V21 | refresh_tokens 생성 |
 | V22 | totp_credentials에서 mfa_credentials로 이관 |
 | V23 | refresh_tokens(user_id) unique index 추가 |

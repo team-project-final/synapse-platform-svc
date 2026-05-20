@@ -17,14 +17,24 @@
 
 **W1 진행률**: 3/3 Steps 완료 (W1 auth 범위 완료)
 
+### W2 prep (2026-05-18)
+
+| Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
+|------|------|------|--------|--------|------|
+| Step 1 재점검 | 신규 문서 기준 골격 수정 | Done | 2026-05-18 | 2026-05-18 | audit/billing package-info 복구, 테스트 클래스명 수정 |
+| Step 2 재점검 | 신규 문서 기준 OAuth 수정 | Done | 2026-05-18 | 2026-05-18 | Apple OAuth OIDC 구현, Microsoft TODO 문서화 |
+| Step 3 재점검 | 신규 문서 기준 JWT/MFA 점검 | Done | 2026-05-18 | 2026-05-18 | 코드 변경 없음 — 구현이 신규 문서 기준 완전 충족 확인 |
+
 ### W2 (2026-05-19 ~ 05-23)
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 4 | Stripe 결제 연동 | Not Started | — | — | |
-| Step 5 | FCM 디바이스 등록 | Not Started | — | — | |
+| Arch Migration | Spring Modulith v2 전환 (D-017) | Done | 2026-05-19 | 2026-05-19 | feature/PLAT-004-stripe-billing, `./gradlew test` 통과 |
+| Step 4 | Stripe Checkout 결제 + Webhook | Done | 2026-05-19 | 2026-05-19 | StripeClient 32.1.0, processed_events 멱등성, TenantApi, JaCoCo 80%+ |
+| Step 5 | FCM 디바이스 등록 | Done | 2026-05-19 | 2026-05-19 | NotificationSecurityConfig @Order(1), Modulith 경계 준수, 9개 통합 테스트, JaCoCo 92.38% |
+| Step 6 | Kafka → audit_logs | Not Started | — | — | |
 
-**W2 진행률**: 0/2 Steps 완료
+**W2 진행률**: 2/2 Steps 완료 (Step 4, Step 5 완료)
 
 ### W3 (2026-05-26 ~ 05-29)
 
@@ -122,11 +132,45 @@
 
 ### W2 (2026-05-19 ~ 05-23)
 
+#### 2026-05-18 (월, W2 시작 전)
+- **완료**:
+  - 팀장 문서 리뉴얼 이후 Step 1 신규 문서 기준 재점검
+  - audit/package-info.java 복구 (git D 상태 → 재생성, @ApplicationModule)
+  - billing/package-info.java 신규 생성 (@ApplicationModule)
+  - ModuleStructureTest → ApplicationModulesTest 클래스명 rename
+  - ApplicationModulesTest 통과 확인 / archive 이동 완료
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: Step 2 재점검 (신규 문서 기준) → 완료 (동일 날짜)
+
 #### 2026-05-19 (화)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - ARCHITECTURE_v2.md 기준 D-017 결정 (D-013 번복 — Spring Modulith 단일 앱 복원)
+  - D-018 (Spring Modulith 2.0.6, Boot 4.0 호환), D-019 (UserApi 설계 — @NamedInterface, UserInfo DTO, createForOAuth) 설계 결정
+  - TASK.md / CONTEXT.md / HANDOFF.md 작성 — Worker(Codex) 전달
+  - Worker 구현 완료: 멀티모듈 → Spring Modulith 전환
+    - settings.gradle.kts 단순화, 루트 build.gradle.kts 단일 앱 전환
+    - 5개 모듈 패키지 생성 (auth, user, notification, admin, shared)
+    - OAuthUserResolver / TotpService → UserApi 경유로 user 모듈 경계 준수
+    - `io.synapse.platform.common.*` → `shared.*` 전수 교체
+    - .env.example 추가, docker-compose.yml env_file 보정
+  - `./gradlew test` 전체 통과 확인 / **Arch Migration 완료**
+  - current/ → archive/20260519-arch-migration-v2/ 이동 + 초기화
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: Step 4 (Stripe Checkout 결제) 착수 — TASK_platform.md Step 4 기준
+
+#### 2026-05-19 (화) — 추가
+- **완료**: Step 4 Stripe Checkout 결제 + Webhook 구현 완료 (PR #17, `./gradlew check` 108 tests 통과)
+- **완료**: Step 5 FCM 디바이스 등록 구현 완료
+  - V27__create_device_tokens.sql (tenant_id, is_active, CHECK constraint, tenant_id prefix index)
+  - Platform enum (AttributeConverter + @JsonCreator/@JsonValue), DeviceToken entity, Repository (native UPSERT)
+  - DeviceTokenService (register/unregister, UserApi tenantId resolve), DeviceTokenController (POST 201 / DELETE 204)
+  - NotificationSecurityConfig @Bean @Order(1) — Modulith 경계 준수 (@Qualifier Filter 주입)
+  - SecurityConfig @Bean @Order(2) 추가
+  - GlobalExceptionHandler: EntityNotFoundException→404, HttpMessageNotReadableException→400 추가
+  - 통합 테스트 9개 시나리오 전체 통과, JaCoCo 92.38% (기준 80%)
+  - `./gradlew test`: BUILD SUCCESSFUL
 
 #### 2026-05-20 (수)
 - **완료**:
@@ -210,8 +254,32 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-05-19 | 멀티모듈 아키텍처 마이그레이션 결정 (D-013~D-015). PLAT-007 폐기. Step 번호 전면 재정비(4~10 → 5~11, 신규 Step 4 삽입). feature/PLAT-000-multi-module-migration 브랜치 시작 |
+| 2026-05-18 | Step 3 재점검 완료 — RS256 JWT, DB+Redis Refresh Token, TOTP MFA 신규 문서 기준 전면 충족 확인. 코드 변경 없음. WORKFLOW/TASK 체크박스 업데이트 |
+| 2026-05-18 | Step 2 재점검 완료 — Apple OAuth OIDC 구현(OAuthUserResolver 추출, CustomOidcUserService), Microsoft TODO 문서화 |
+| 2026-05-18 | Step 1 재점검 완료 — 신규 문서 기준, audit/billing package-info 복구, 테스트 클래스명 수정 |
 | 2026-05-15 | W1 보정 완료 기록 — D-005~D-010, Step 3 완료일 갱신, 대시보드 Step 번호 TASK 기준으로 정렬 |
 | 2026-05-14 | Step 3 Done 반영 (JWT 발급/검증, Redis Refresh Token, TOTP MFA, 검증 결과 기록) |
 | 2026-05-13 | 전체 일정 재정비 (05-12~06-05, 월~금), Step 1 Done 반영 |
 | 2026-05-11 | W2/W3/W4 대시보드 및 로그 템플릿 추가 |
 | 2026-05-11 | 초기 템플릿 생성 |
+
+## 2026-05-18 Worker Log
+
+**Completed**
+- Step 4 Gradle multi-module migration implemented.
+- Created platform-common, auth-service, billing-service, audit-service, notification-service modules.
+- Moved auth/user code into auth-service and shared exception/crypto code into platform-common.
+- Replaced com.synapse package root with io.synapse package root.
+- Removed Spring Modulith references, ApplicationModulesTest, PlatformSvcApplication, and root src directory.
+- Added placeholder Boot apps for billing, audit, and notification services.
+
+**Fixes recorded for director review**
+- Fixed invalid encoding strings in migrated auth files and SlugGeneratorTest.
+- Added ConfigurationPropertiesScan to AuthServiceApplication for JwtProperties binding.
+- Updated SpotBugs exclude package patterns from com.synapse to io.synapse.
+
+**Verification**
+- .\gradlew.bat :auth-service:test :platform-common:test :billing-service:build :audit-service:build :notification-service:build build -> PASS.
+- Test-Path src -> False.
+- rg com.synapse/spring-modulith/Modulith/Stripe patterns in Java/KTS/YML/XML -> no matches.

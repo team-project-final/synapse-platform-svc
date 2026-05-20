@@ -1,6 +1,6 @@
 package com.synapse.platform.auth.exception;
 
-import com.synapse.platform.shared.exception.BusinessException;
+import com.synapse.platform.global.exception.BusinessException;
 
 public class OAuthProcessingException extends BusinessException {
 

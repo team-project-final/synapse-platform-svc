@@ -1,12 +1,15 @@
 package com.synapse.platform.auth.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.synapse.platform.auth.jwt.JwtAuthenticationFilter;
-import com.synapse.platform.auth.oauth.CustomOAuth2UserService;
-import com.synapse.platform.auth.oauth.OAuth2FailureHandler;
-import com.synapse.platform.auth.oauth.OAuth2SuccessHandler;
+import com.synapse.platform.auth.config.JwtAuthenticationFilter;
+import com.synapse.platform.auth.service.CustomOidcUserService;
+import com.synapse.platform.auth.service.CustomOAuth2UserService;
+import com.synapse.platform.auth.service.OAuth2FailureHandler;
+import com.synapse.platform.auth.service.OAuth2SuccessHandler;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -16,9 +19,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@Order(2)
 public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final CustomOidcUserService customOidcUserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -26,11 +31,13 @@ public class SecurityConfig {
 
     public SecurityConfig(
             CustomOAuth2UserService customOAuth2UserService,
+            CustomOidcUserService customOidcUserService,
             OAuth2SuccessHandler oAuth2SuccessHandler,
             OAuth2FailureHandler oAuth2FailureHandler,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             ObjectMapper objectMapper) {
         this.customOAuth2UserService = customOAuth2UserService;
+        this.customOidcUserService = customOidcUserService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.oAuth2FailureHandler = oAuth2FailureHandler;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -38,6 +45,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -45,9 +53,15 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization
                                 .authorizationRequestRepository(cookieAuthorizationRequestRepository()))
-                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                                .oidcUserService(customOidcUserService))
                         .successHandler(oAuth2SuccessHandler)
                         .failureHandler(oAuth2FailureHandler))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(
+                                (request, response, ex) ->
+                                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
@@ -55,7 +69,8 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/**",
                                 "/api/v1/auth/callback",
-                                "/api/v1/auth/refresh").permitAll()
+                                "/api/v1/auth/refresh",
+                                "/api/v1/billing/webhooks").permitAll()
                         .anyRequest().authenticated())
                 .build();
     }

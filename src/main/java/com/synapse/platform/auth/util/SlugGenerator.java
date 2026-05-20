@@ -32,7 +32,7 @@ public class SlugGenerator {
             }
         }
 
-        throw new IllegalStateException("사용 가능한 slug를 생성하지 못했습니다");
+        throw new IllegalStateException("Unable to generate available slug");
     }
 
     private String baseFrom(String email) {

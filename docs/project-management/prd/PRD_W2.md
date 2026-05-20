@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| 기간 | 2026-05-19 (월) ~ 2026-05-23 (금) |
+| 기간 | 2026-05-18 (월) ~ 2026-05-22 (금) |
 | 목표 | SRS 복습 / AI 카드 골격 / Graph + ES / 커뮤니티 공유 / Schema Registry 등록 |
-| 전주 결과 | W1에서 4-서비스 골격 + 기본 CRUD + 인프라 셋업 완료 |
+| 전주 결과 | W1에서 4개 서비스 골격 + 기본 CRUD + 인프라 셋업 완료 |
 | GitHub Repositories | [synapse-platform-svc](https://github.com/team-project-final/synapse-platform-svc) · [synapse-engagement-svc](https://github.com/team-project-final/synapse-engagement-svc) · [synapse-knowledge-svc](https://github.com/team-project-final/synapse-knowledge-svc) · [synapse-learning-svc](https://github.com/team-project-final/synapse-learning-svc) · [synapse-frontend](https://github.com/team-project-final/synapse-frontend) · [synapse-shared](https://github.com/team-project-final/synapse-shared) |
 
 ## 2. 기능 요구사항
@@ -17,7 +17,7 @@
 |----|------------|-----------|----------|
 | FR-TL-101 | 팀장이 Kafka 토픽을 설계하고 생성할 수 있다 | 도메인별 토픽 목록 확정 + Kafka에 토픽 생성 완료 | P0 |
 | FR-TL-102 | Schema Registry에서 BACKWARD 호환성이 글로벌로 강제된다 | 호환성 정책 설정 + 비호환 스키마 등록 거부 확인 | P0 |
-| FR-TL-103 | Gateway가 4개 서비스로 라우팅한다 | /api/v1/notes → knowledge, /api/v1/cards → learning 등 경로 매핑 동작 | P0 |
+| FR-TL-103 | Gateway가 4개 서비스로 라우팅한다 | /notes → knowledge, /cards → learning 등 경로 매핑 동작 | P0 |
 
 ### 2.2 @platform-owner — Billing + Notification 기초
 
@@ -25,23 +25,23 @@
 |----|------------|-----------|----------|
 | FR-PL-101 | 사용자가 Stripe Checkout으로 유료 플랜을 결제할 수 있다 | Checkout 세션 생성 → 결제 완료 → Webhook 수신 → 플랜 활성화 | P0 |
 | FR-PL-102 | Stripe Webhook이 결제 이벤트를 처리한다 | checkout.session.completed → 구독 상태 갱신 | P0 |
-| FR-PL-103 | 사용자가 플랜별 기능 제한을 확인할 수 있다 | GET /api/v1/billing/plan → 현재 플랜 + 한도 반환 | P1 |
-| FR-PL-104 | 사용자가 FCM 푸시 알림을 받기 위해 디바이스를 등록할 수 있다 | POST /api/v1/notifications/devices → device_token 저장 | P1 |
+| FR-PL-103 | 사용자가 플랜별 기능 제한을 확인할 수 있다 | GET /billing/plans → 현재 플랜 + 한도 반환 | P1 |
+| FR-PL-104 | 사용자가 FCM 푸시 알림을 받기 위해 디바이스를 등록할 수 있다 | POST /notifications/devices → device_token 저장 | P1 |
 
 ### 2.3 @engagement-owner — Gamification XP + 공유
 
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
 | FR-EG-101 | 사용자가 학습 활동으로 XP를 적립할 수 있다 | card.reviewed 이벤트 → xp_events 기록 → 누적 XP 조회 | P0 |
-| FR-EG-102 | 사용자가 덱/노트를 share_token으로 공유할 수 있다 | POST /api/v1/shares → share_token 발행 + 공유 링크 생성 | P0 |
-| FR-EG-103 | 사용자가 공유된 콘텐츠를 검색하고 복사할 수 있다 | GET /api/v1/shares/search + POST /api/v1/shares/{token}/copy → 내 덱으로 복사 | P0 |
+| FR-EG-102 | 사용자가 덱/노트를 share_token으로 공유할 수 있다 | POST /community/shared-decks (덱) 또는 POST /community/shared-notes (노트) → share_token 발행 + 공유 링크 생성 | P0 |
+| FR-EG-103 | 사용자가 공유된 콘텐츠를 검색하고 복사할 수 있다 | GET /community/shared-decks?q=... + POST /community/shared-decks/{id}/copy → 내 덱으로 복사 | P0 |
 
 ### 2.4 @knowledge-owner-1 — Graph + ES
 
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
-| FR-KN-101 | 사용자가 노트 간 백링크를 조회할 수 있다 | GET /api/v1/notes/{id}/backlinks → 이 노트를 참조하는 노트 목록 | P0 |
-| FR-KN-102 | 사용자가 D3.js 지식 그래프 데이터를 조회할 수 있다 | GET /api/v1/graph → 노드(노트) + 엣지(위키링크) JSON | P0 |
+| FR-KN-101 | 사용자가 노트 간 백링크를 조회할 수 있다 | GET /notes/{id}/backlinks → 이 노트를 참조하는 노트 목록 | P0 |
+| FR-KN-102 | 사용자가 D3.js 지식 그래프 데이터를 조회할 수 있다 | GET /graph/data → 노드(노트) + 엣지(위키링크) JSON | P0 |
 | FR-KN-103 | 노트 변경 시 Elasticsearch에 자동 동기화된다 | 노트 생성/수정 → Kafka → ES 인덱싱 + 검색 반영 | P0 |
 
 ### 2.5 @knowledge-owner-2 — Chunking + BM25
@@ -49,24 +49,24 @@
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
 | FR-K2-101 | 노트가 비동기로 청크 분할된다 | 노트 생성 → 비동기 청크 분할 → chunks 테이블 저장 | P0 |
-| FR-K2-102 | 사용자가 키워드로 노트를 검색할 수 있다 | GET /api/v1/search?q=keyword → BM25 기반 ES 검색 결과 | P0 |
+| FR-K2-102 | 사용자가 키워드로 노트를 검색할 수 있다 | GET /notes/search?q=keyword → BM25 기반 ES 검색 결과 | P0 |
 
 ### 2.6 @learning-card-owner — SRS 복습 세션
 
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
-| FR-LC-101 | 사용자가 복습 세션을 시작하여 오늘 복습할 카드를 받을 수 있다 | GET /api/v1/review/session → 오늘 복습 대상 카드 큐 반환 | P0 |
-| FR-LC-102 | 사용자가 카드에 난이도(Again/Hard/Good/Easy)를 매기면 다음 복습일이 계산된다 | POST /api/v1/review/{cardId} + rating → SM-2 → 다음 복습일 갱신 | P0 |
-| FR-LC-103 | 복습 완료 시 card.reviewed Kafka 이벤트가 발행된다 | 복습 → Kafka knowledge.card.reviewed.v1 발행 → engagement XP 적립 트리거 | P0 |
-| FR-LC-104 | 사용자가 복습 통계(일별 카드 수, 정답률)를 조회할 수 있다 | GET /api/v1/review/stats → review_sessions 기반 통계 | P1 |
+| FR-LC-101 | 사용자가 복습 세션을 시작하여 오늘 복습할 카드를 받을 수 있다 | GET /reviews/queue → 오늘 복습 대상 카드 큐 반환 | P0 |
+| FR-LC-102 | 사용자가 카드에 난이도(1=Again/2=Hard/3=Good/4=Easy, 정수)를 매기면 다음 복습일이 계산된다 | POST /reviews/sessions/{sessionId}/submit + rating → SM-2 → 다음 복습일 갱신 | P0 |
+| FR-LC-103 | 복습 완료 시 card.reviewed Kafka 이벤트가 발행된다 | 복습 → Kafka card.reviewed 발행 → engagement XP 적립 트리거 | P0 |
+| FR-LC-104 | 사용자가 복습 통계(일별 카드 수, 정답률)를 조회할 수 있다 | GET /stats/overview → review_sessions 기반 통계 | P1 |
 
 ### 2.7 @learning-ai-owner — 시맨틱 검색 + AI 카드 골격
 
 | ID | 유저 스토리 | 수용 기준 | 우선순위 |
 |----|------------|-----------|----------|
 | FR-LA-101 | 시스템이 노트 텍스트를 벡터로 변환하여 pgvector에 저장한다 | 노트 → Embedding API → 1536차원 벡터 → pgvector 저장 | P0 |
-| FR-LA-102 | 사용자가 시맨틱 검색으로 유사한 노트를 찾을 수 있다 | GET /api/v1/ai/search?q=텍스트 → 코사인 유사도 상위 N개 | P0 |
-| FR-LA-103 | 시스템이 노트 내용으로 플래시카드를 자동 생성할 수 있다 | POST /api/v1/ai/generate-cards → LLM → 앞면/뒷면 카드 목록 반환 | P1 |
+| FR-LA-102 | 사용자가 시맨틱 검색으로 유사한 노트를 찾을 수 있다 | POST /ai/search/semantic (body: query 텍스트) → 코사인 유사도 상위 N개 | P0 |
+| FR-LA-103 | 시스템이 노트 내용으로 플래시카드를 자동 생성할 수 있다 | POST /ai/cards/generate → LLM → 앞면/뒷면 카드 목록 반환 | P1 |
 
 ### 2.8 Frontend (전체 협업)
 

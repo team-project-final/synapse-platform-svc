@@ -22,6 +22,26 @@ spring:
             client-id: ${GITHUB_CLIENT_ID}
             client-secret: ${GITHUB_CLIENT_SECRET}
             scope: read:user,user:email
+          apple:
+            client-id: ${APPLE_CLIENT_ID}
+            client-secret: ${APPLE_CLIENT_SECRET}
+            scope: openid,name,email
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-authentication-method: client_secret_post
+          # TODO: Microsoft OAuth - MVP 이후 확장 Provider
+          # client-id: ${MICROSOFT_CLIENT_ID}
+          # client-secret: ${MICROSOFT_CLIENT_SECRET}
+          # scope: openid,profile,email
+          # provider: microsoft
+        provider:
+          apple:
+            authorization-uri: https://appleid.apple.com/auth/authorize
+            token-uri: https://appleid.apple.com/auth/token
+            jwk-set-uri: https://appleid.apple.com/auth/keys
+            user-name-attribute: sub
+          # microsoft:
+          #   authorization-uri: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
 
 management:
   endpoints:
@@ -41,3 +61,16 @@ app:
     redirect-uri: ${APP_OAUTH2_REDIRECT_URI:http://localhost:3000/auth/callback}
   crypto:
     aes-secret-key: ${AES_SECRET_KEY}
+
+stripe:
+  api:
+    key: ${STRIPE_API_KEY}
+  webhook:
+    secret: ${STRIPE_WEBHOOK_SECRET}
+  plans:
+    pro:
+      price-id: ${STRIPE_PRO_PRICE_ID}
+    team:
+      price-id: ${STRIPE_TEAM_PRICE_ID}
+    enterprise:
+      price-id: ${STRIPE_ENTERPRISE_PRICE_ID}

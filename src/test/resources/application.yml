@@ -22,6 +22,19 @@ spring:
             client-id: test-github-client-id
             client-secret: test-github-client-secret
             scope: read:user,user:email
+          apple:
+            client-id: test-apple-client-id
+            client-secret: test-apple-client-secret
+            scope: openid,name,email
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-authentication-method: client_secret_post
+        provider:
+          apple:
+            authorization-uri: https://appleid.apple.com/auth/authorize
+            token-uri: https://appleid.apple.com/auth/token
+            jwk-set-uri: https://appleid.apple.com/auth/keys
+            user-name-attribute: sub
 
 cors:
   allowed-origins: http://localhost:3000
@@ -37,3 +50,16 @@ jwt:
   public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAspYublqbb7MHpuJ6d0SUkDTl63/92T74N+dg3Mibzrqz5U8KGZtz8v6sdzbMTaDPmxlDkBLkFaszU3Ym9PvSFoym55dIRzTZKpjLPMFyURgfd6nXfBPoAlzIb00cGYje6eQE1U1OAWoje7XffjZtTsbN3VtEOa6eNbRW2uv95IXkJDtcG/koeLiNb42BF28rhpAYmGE24iQxfARRqh7IZ3E6giWmuXIDsEaWJCKt/UlUbmKpUSAfnwriWxE78lALXHQSmFWl2WZ9ruXzUBWpQZJPEGO4RxX2898HxA7Jv5V7VqmGvEqB3ZYXs2wyaeXpFjfv/iWPC/+83PMyRi6VtQIDAQAB
   kid: synapse-key-2026-05
   issuer: synapse-auth
+
+stripe:
+  api:
+    key: sk_test_unit
+  webhook:
+    secret: whsec_test
+  plans:
+    pro:
+      price-id: price_pro_test
+    team:
+      price-id: price_team_test
+    enterprise:
+      price-id: price_enterprise_test

@@ -67,7 +67,7 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
             String json = objectMapper.writeValueAsString(OAuth2AuthorizationRequestDto.from(request));
             return Base64.getUrlEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new IllegalStateException("OAuth2AuthorizationRequest 직렬화 실패", e);
+            throw new IllegalStateException("OAuth2AuthorizationRequest serialization failed", e);
         }
     }
 
@@ -76,7 +76,7 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
             String json = new String(Base64.getUrlDecoder().decode(value), StandardCharsets.UTF_8);
             return objectMapper.readValue(json, OAuth2AuthorizationRequestDto.class).toRequest();
         } catch (IOException e) {
-            throw new IllegalStateException("OAuth2AuthorizationRequest 역직렬화 실패", e);
+            throw new IllegalStateException("OAuth2AuthorizationRequest deserialization failed", e);
         }
     }
 

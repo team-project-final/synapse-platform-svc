@@ -15,13 +15,11 @@
 ## 활성 제약
 
 - JWT 서명: RS256 고정
-- Refresh Token raw 원문 저장 금지 (DB token_hash + Redis 캐시, D-006)
-- 사용자당 Refresh Token 1개 active (D-009, D-010)
+- Refresh Token: Redis 전용, DB 저장 금지
 - 모듈 간 순환 의존 금지
 - 테스트 커버리지: 신규 코드 80% 이상
 
 ## 참고할 공식 문서
 
 - docs/project-management/task/TASK_platform.md
-- docs/ai/decisions/DECISION_LOG.md — D-005 ~ D-010
 - docs/rules/06-auth-token.md

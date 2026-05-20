@@ -5,7 +5,11 @@
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
     </Match>
     <Match>
-        <Class name="~com\.synapse\.platform\.(auth\.AuthController|auth\.jwt\.RefreshTokenService|auth\.jwt\.JwtAuthenticationFilter|auth\.mfa\.MfaController|auth\.oauth\.OAuth2SuccessHandler)"/>
+        <Class name="~com\.synapse\.platform\.auth\.(controller\.(AuthController|MfaController)|config\.JwtAuthenticationFilter|service\.(RefreshTokenService|OAuth2SuccessHandler))"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="com.synapse.platform.billing.service.BillingService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

@@ -1,5 +1,2 @@
-@org.springframework.modulith.ApplicationModule(
-    displayName = "Auth",
-    allowedDependencies = {"shared", "shared::exception", "shared::crypto"}
-)
+@org.springframework.modulith.ApplicationModule
 package com.synapse.platform.auth;

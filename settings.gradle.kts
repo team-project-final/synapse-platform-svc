@@ -1,1 +1,1 @@
-rootProject.name = "platform-svc"
+rootProject.name = "synapse-platform-svc"

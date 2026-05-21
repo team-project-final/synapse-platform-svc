@@ -22,7 +22,7 @@ public enum Platform {
     @JsonCreator
     public static Platform from(String value) {
         for (Platform platform : values()) {
-            if (platform.value.equalsIgnoreCase(value)) {
+            if (platform.value.equals(value)) {
                 return platform;
             }
         }

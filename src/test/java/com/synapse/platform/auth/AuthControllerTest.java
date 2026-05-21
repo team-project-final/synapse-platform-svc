@@ -1,6 +1,7 @@
 package com.synapse.platform.auth;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.auth.controller.AuthController;
+import com.synapse.platform.auth.exception.UnauthorizedTokenException;
 import com.synapse.platform.auth.service.JwtTokenProvider;
 import com.synapse.platform.auth.service.RefreshTokenService;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
@@ -57,7 +59,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("new-access-token"))
                 .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"));
-        verify(refreshTokenService).rotate(userId, "new-refresh-token");
+        verify(refreshTokenService).rotate(userId, "old-refresh-token", "new-refresh-token");
     }
 
     @Test
@@ -81,6 +83,28 @@ class AuthControllerTest {
         given(jwtTokenProvider.validateRefreshToken("old-refresh-token")).willReturn(true);
         given(jwtTokenProvider.getUserId("old-refresh-token")).willReturn(userId);
         given(refreshTokenService.isValid(userId, "old-refresh-token")).willReturn(false);
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", "old-refresh-token"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("PLAT-002"));
+    }
+
+    @Test
+    void refresh_tokenRotatedAfterValidation_shouldReturnUnauthorizedProblem() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(jwtTokenProvider.validateRefreshToken("old-refresh-token")).willReturn(true);
+        given(jwtTokenProvider.getUserId("old-refresh-token")).willReturn(userId);
+        given(refreshTokenService.isValid(userId, "old-refresh-token")).willReturn(true);
+        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("new-access-token");
+        given(jwtTokenProvider.createRefreshToken(userId)).willReturn("new-refresh-token");
+        doThrow(new UnauthorizedTokenException("Refresh token does not match stored token"))
+                .when(refreshTokenService)
+                .rotate(userId, "old-refresh-token", "new-refresh-token");
 
         // When & Then
         mockMvc.perform(post("/api/v1/auth/refresh")

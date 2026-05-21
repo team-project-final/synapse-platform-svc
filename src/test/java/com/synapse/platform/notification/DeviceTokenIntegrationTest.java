@@ -194,6 +194,22 @@ class DeviceTokenIntegrationTest {
     }
 
     @Test
+    void register_uppercasePlatform_shouldReturn400() throws Exception {
+        UserFixture fixture = createUserFixture("uppercase-platform");
+
+        mockMvc.perform(post("/api/v1/notifications/devices")
+                        .with(user(fixture.userId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token": "uppercase-platform-token",
+                                  "platform": "IOS"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void register_withoutJwt_shouldReturn401() throws Exception {
         mockMvc.perform(post("/api/v1/notifications/devices")
                         .contentType(MediaType.APPLICATION_JSON)

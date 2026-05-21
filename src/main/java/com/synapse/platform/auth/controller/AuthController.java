@@ -40,7 +40,7 @@ public class AuthController {
 
         String newAccessToken = jwtTokenProvider.createAccessToken(userId, AuthRoles.DEFAULT_USER_ROLES);
         String newRefreshToken = jwtTokenProvider.createRefreshToken(userId);
-        refreshTokenService.rotate(userId, newRefreshToken);
+        refreshTokenService.rotate(userId, refreshToken, newRefreshToken);
         return new TokenRefreshResponse(newAccessToken, newRefreshToken);
     }
 

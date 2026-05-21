@@ -32,9 +32,10 @@
 | Arch Migration | Spring Modulith v2 전환 (D-017) | Done | 2026-05-19 | 2026-05-19 | feature/PLAT-004-stripe-billing, `./gradlew test` 통과 |
 | Step 4 | Stripe Checkout 결제 + Webhook | Done | 2026-05-19 | 2026-05-19 | StripeClient 32.1.0, processed_events 멱등성, TenantApi, JaCoCo 80%+ |
 | Step 5 | FCM 디바이스 등록 | Done | 2026-05-19 | 2026-05-19 | NotificationSecurityConfig @Order(1), Modulith 경계 준수, 9개 통합 테스트, JaCoCo 92.38% |
+| RT 보정 | 멀티 디바이스 세션 지원 (D-027) | Done | 2026-05-21 | 2026-05-21 | 사용자당 최대 5대 세션, FIFO 자동 만료, pg advisory lock 적용 |
 | Step 6 | Kafka → audit_logs | Not Started | — | — | |
 
-**W2 진행률**: 2/2 Steps 완료 (Step 4, Step 5 완료)
+**W2 진행률**: 2/2 Steps + 1 보정 완료 (Step 4, Step 5, RT 보정 완료)
 
 ### W3 (2026-05-26 ~ 05-29)
 
@@ -180,9 +181,17 @@
 
 #### 2026-05-21 (목)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - Refresh Token 멀티 디바이스 세션 지원 (최대 5대) 설계 및 구현 완료
+  - `uq_refresh_tokens_user_id` UNIQUE INDEX 해제 마이그레이션 (`V28`) 추가
+  - Redis 캐시 키를 `refresh:{userId}:{tokenHash}`로 고도화하여 독립 제어
+  - 사용자당 최대 5개 세션 제한 및 초과 시 FIFO 자동 만료 구현
+  - `rotate()` 시 구버전 토큰 정보를 넘겨 메타데이터(IP, 핑거프린트) 승계 및 특정 기기 세션만 회전하도록 개선
+  - concurrent save 시 5개 세션 한도 초과 방지를 위해 PostgreSQL transaction-scoped advisory lock 도입
+  - 회전 도중 세션 누락 시 500 에러를 401(Unauthorized) 및 `PLAT-002` 응답으로 전환
+  - `RefreshTokenServiceTest` 및 `AuthControllerTest` 고도화 및 `./gradlew test` 전체 성공
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: Step 6 (Kafka 이벤트 기반 Audit Log 자동 기록) 착수
 
 #### 2026-05-22 (금)
 - **완료**:

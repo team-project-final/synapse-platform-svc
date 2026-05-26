@@ -36,10 +36,12 @@ spring:
             jwk-set-uri: https://appleid.apple.com/auth/keys
             user-name-attribute: sub
 
-cors:
-  allowed-origins: http://localhost:3000
-
 app:
+  cors:
+    allowed-origins: http://127.0.0.1:8088
+  cookie:
+    same-site: Lax
+    secure: false
   oauth2:
     redirect-uri: http://localhost:3000/auth/callback
   crypto:

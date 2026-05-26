@@ -196,7 +196,7 @@ class RefreshTokenServiceTest {
             List<Future<Object>> futures = IntStream.rangeClosed(1, 6)
                     .mapToObj(index -> executor.submit(() -> {
                         ready.countDown();
-                        start.await(5, TimeUnit.SECONDS);
+                        assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
                         refreshTokenService.save(userId, "concurrent-token-" + index, null, null);
                         return null;
                     }))

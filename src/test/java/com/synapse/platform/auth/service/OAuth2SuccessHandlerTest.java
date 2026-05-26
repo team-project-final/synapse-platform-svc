@@ -22,7 +22,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 class OAuth2SuccessHandlerTest {
 
     @Test
-    void onAuthenticationSuccess_oauthUser_shouldRedirectToClientWithJwtTokens() throws Exception {
+    void onAuthenticationSuccess_oauthUser_shouldRedirectWithAccessTokenAndRefreshCookie() throws Exception {
         // Given
         UUID userId = UUID.randomUUID();
         OAuth2User user = new DefaultOAuth2User(
@@ -37,7 +37,9 @@ class OAuth2SuccessHandlerTest {
         OAuth2SuccessHandler handler = new OAuth2SuccessHandler(
                 jwtTokenProvider,
                 refreshTokenService,
-                "http://localhost:3000/auth/callback");
+                "http://localhost:3000/auth/callback",
+                "Lax",
+                false);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("X-Device-Fingerprint", "device-1");
         request.setRemoteAddr("127.0.0.1");
@@ -50,7 +52,12 @@ class OAuth2SuccessHandlerTest {
         assertThat(response.getRedirectedUrl())
                 .startsWith("http://localhost:3000/auth/callback")
                 .contains("access_token=access-token")
-                .contains("refresh_token=refresh-token");
+                .doesNotContain("refresh_token");
+        assertThat(response.getHeader("Set-Cookie"))
+                .contains("refresh_token=refresh-token")
+                .contains("Path=/api/v1/auth")
+                .contains("HttpOnly")
+                .contains("SameSite=Lax");
         verify(refreshTokenService).save(userId, "refresh-token", "device-1", "127.0.0.1");
     }
 }

@@ -11,9 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.synapse.platform.auth.controller.AuthController;
+import com.synapse.platform.auth.exception.AccountLockedException;
+import com.synapse.platform.auth.exception.InvalidEmailPasswordLoginException;
+import com.synapse.platform.auth.service.EmailPasswordAuthService;
 import com.synapse.platform.auth.exception.UnauthorizedTokenException;
 import com.synapse.platform.auth.service.JwtTokenProvider;
+import com.synapse.platform.auth.service.LoginResult;
 import com.synapse.platform.auth.service.RefreshTokenService;
+import com.synapse.platform.auth.service.SignupResult;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
 import jakarta.servlet.http.Cookie;
 import java.util.List;
@@ -22,6 +27,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -30,6 +36,7 @@ class AuthControllerTest {
 
     private final JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
+    private final EmailPasswordAuthService emailPasswordAuthService = mock(EmailPasswordAuthService.class);
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -40,6 +47,7 @@ class AuthControllerTest {
                 .standaloneSetup(new AuthController(
                         jwtTokenProvider,
                         refreshTokenService,
+                        emailPasswordAuthService,
                         "Lax",
                         false,
                         List.of("http://127.0.0.1:8088")))
@@ -171,5 +179,107 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.code").value("PLAT-002"));
+    }
+
+    @Test
+    void signup_validRequest_shouldReturnCreatedUserId() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(emailPasswordAuthService.signup("user@example.com", "P@ssw0rd!"))
+                .willReturn(new SignupResult(userId));
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "P@ssw0rd!"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(userId.toString()));
+    }
+
+    @Test
+    void signup_badPassword_shouldReturnBadRequest() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "password"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verifyNoInteractions(emailPasswordAuthService);
+    }
+
+    @Test
+    void login_validRequest_shouldReturnAccessTokenAndSetRefreshCookie() throws Exception {
+        // Given
+        given(emailPasswordAuthService.login("user@example.com", "P@ssw0rd!"))
+                .willReturn(new LoginResult("access-token", "refresh-token"));
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "P@ssw0rd!"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, Matchers.allOf(
+                        Matchers.containsString("refresh_token=refresh-token"),
+                        Matchers.containsString("Path=/api/v1/auth"),
+                        Matchers.containsString("HttpOnly"),
+                        Matchers.containsString("SameSite=Lax"))))
+                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void login_badPassword_shouldReturnUnauthorizedProblem() throws Exception {
+        // Given
+        given(emailPasswordAuthService.login("user@example.com", "Wrong1!!"))
+                .willThrow(new InvalidEmailPasswordLoginException());
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "Wrong1!!"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("PLAT-009-002"));
+    }
+
+    @Test
+    void login_lockedAccount_shouldReturnLockedProblem() throws Exception {
+        // Given
+        given(emailPasswordAuthService.login("user@example.com", "P@ssw0rd!"))
+                .willThrow(new AccountLockedException());
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "P@ssw0rd!"
+                                }
+                                """))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.status").value(423))
+                .andExpect(jsonPath("$.code").value("PLAT-009-004"));
     }
 }

@@ -15,6 +15,9 @@ import org.hibernate.annotations.SQLRestriction;
 @SQLRestriction("deleted_at IS NULL")
 public class User {
 
+    private static final int MAX_FAILED_LOGIN_COUNT = 5;
+    private static final long LOCK_MINUTES = 15;
+
     @Id
     private UUID id;
 
@@ -78,6 +81,17 @@ public class User {
         return user;
     }
 
+    public static User ofEmailPassword(String email, String username, String passwordHash, UUID defaultTenantId) {
+        User user = new User();
+        user.email = email;
+        user.username = username;
+        user.passwordHash = passwordHash;
+        user.displayName = username;
+        user.defaultTenantId = defaultTenantId;
+        user.passwordChangedAt = OffsetDateTime.now();
+        return user;
+    }
+
     @PrePersist
     void prePersist() {
         if (id == null) {
@@ -89,6 +103,29 @@ public class User {
 
     public void updateDefaultTenantId(UUID tenantId) {
         defaultTenantId = tenantId;
+    }
+
+    public boolean hasPassword() {
+        return passwordHash != null && !passwordHash.isBlank();
+    }
+
+    public boolean isLocked(OffsetDateTime now) {
+        return lockedUntil != null && lockedUntil.isAfter(now);
+    }
+
+    public void recordFailedLogin(OffsetDateTime now) {
+        failedLoginCount++;
+        if (failedLoginCount >= MAX_FAILED_LOGIN_COUNT) {
+            lockedUntil = now.plusMinutes(LOCK_MINUTES);
+        }
+        updatedAt = now;
+    }
+
+    public void recordSuccessfulLogin(OffsetDateTime now) {
+        failedLoginCount = 0;
+        lockedUntil = null;
+        lastLoginAt = now;
+        updatedAt = now;
     }
 
     public UUID getId() {
@@ -109,6 +146,22 @@ public class User {
 
     public String getAvatarUrl() {
         return avatarUrl;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public OffsetDateTime getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public int getFailedLoginCount() {
+        return failedLoginCount;
+    }
+
+    public OffsetDateTime getLockedUntil() {
+        return lockedUntil;
     }
 
     public UUID getDefaultTenantId() {

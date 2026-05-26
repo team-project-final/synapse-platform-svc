@@ -203,9 +203,23 @@
 
 #### 2026-05-26 (화)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - 프론트엔드 W2 잔무 현황 파악 및 백엔드 대응 항목 정리
+  - Refresh Token 전달 방식 결정 (D-028): HttpOnly Cookie 전환, 프론트엔드 팀 합의 완료
+  - `feature/PLAT-008-httponly-refresh-cookie` 브랜치 생성 및 구현 완료 (PR #29 → dev merge)
+    - OAuth2SuccessHandler: Refresh Token Cookie Set, redirect URL에서 제거
+    - AuthController: /refresh Cookie 기반 전환 + Origin 검증 추가
+    - SecurityConfig: CORS allowCredentials 적용, CorsConfig 통합
+    - application.yml: forward-headers-strategy native, 프로파일별 cookie/cors 분리
+    - 테스트 전체 통과 (AuthControllerTest 7케이스, OAuth2SuccessHandlerTest, SecurityConfigTest)
+  - 프론트엔드 변경 안내 내용 정리 (withCredentials, /refresh body 제거)
+  - docs/ai/current/ → archive/20260526-plat-008-httponly-cookie/ 이동 + 초기화
+  - PLAT-009 이메일/비밀번호 회원가입·로그인 구현 및 리뷰 후속 보정 완료
+    - 회원가입/로그인 API, BCrypt password_hash 저장, access token body + refresh_token HttpOnly Cookie 응답 구현
+    - 리뷰 후속: login 실패 카운터를 `PESSIMISTIC_WRITE` user row lock으로 직렬화해 동시 bad-password 시도도 5회 잠금을 우회하지 못하게 보정
+    - 리뷰 후속: signup DB unique 충돌을 `PLAT-009-001` / HTTP 409로 변환해 동시 중복 가입 race가 500으로 노출되지 않게 보정
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: GET /billing/plans 구현 (W2 잔무 2번) 또는 W3 Step 6 착수
 
 #### 2026-05-27 (수)
 - **완료**:

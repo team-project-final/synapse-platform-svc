@@ -1,96 +1,239 @@
 # HANDOFF
 
-**FROM**: Director (Claude)  
-**TO**: Worker (Codex)  
-**DATE**: 2026-05-21  
-**SUBJECT**: Step 5 Done When 검증
+> Agent 간 작업 전달 문서입니다.
+> 태스크마다 덮어씁니다. 이전 HANDOFF는 archive에 있습니다.
+
+## FROM
+
+Director (Claude)
+
+## TO
+
+Worker (Codex)
+
+## DATE
+
+2026-05-26
+
+## SUBJECT
+
+Refresh Token → HttpOnly Cookie 전환 (D-028)
 
 ---
 
-## 요청 내용
+## 배경
 
-Step 5 (FCM 디바이스 등록) 코드가 구현되어 main에 머지된 상태입니다.
-그런데 TASK_platform.md의 Done When 체크박스가 비어 있습니다.
+OAuth 로그인 성공 시 현재 Access Token + Refresh Token을 모두 redirect query string으로 전달하고 있다.
+프론트엔드 팀과 합의하여 아래 방식으로 전환한다.
 
-아래 Done When 항목을 코드를 읽고 직접 검증한 뒤 결과를 이 파일 하단에 기록해주세요.
-신규 코드 작성은 하지 않습니다. 검증만 합니다.
+- Access Token → redirect query string 유지 (JS가 읽어서 flutter_secure_storage 저장)
+- Refresh Token → HttpOnly Cookie (JS 접근 불가, XSS 방어)
 
----
-
-## 검증 대상 파일
-
-```
-src/main/resources/db/migration/V27__create_device_tokens.sql
-src/main/java/com/synapse/platform/notification/entity/DeviceToken.java
-src/main/java/com/synapse/platform/notification/entity/Platform.java
-src/main/java/com/synapse/platform/notification/controller/DeviceTokenController.java
-src/main/java/com/synapse/platform/notification/service/DeviceTokenService.java
-src/main/java/com/synapse/platform/notification/repository/DeviceTokenRepository.java
-src/test/java/com/synapse/platform/notification/DeviceTokenIntegrationTest.java
-src/test/java/com/synapse/platform/notification/DeviceTokenServiceTest.java
-```
+결정 근거: DECISION_LOG.md D-028 참고.
 
 ---
 
-## Done When 체크리스트 (각 항목 PASS / FAIL / PARTIAL 판정)
+## 브랜치
 
-| # | 기준 | 판정 | 근거 (파일:라인) |
-|---|------|------|-----------------|
-| 1 | `POST /notifications/devices` 엔드포인트 존재 + JWT 인증 필수 | PASS | `DeviceTokenController.java:18-33` (`/api/v1/notifications/devices`), `NotificationSecurityConfig.java:29-33`, `DeviceTokenIntegrationTest.java:197-202` |
-| 2 | `DELETE /notifications/devices/{id}` 엔드포인트 존재 + 본인 소유 검증 | PASS | `DeviceTokenController.java:36-41`, `DeviceTokenService.java:40-45`, `DeviceTokenIntegrationTest.java:206-228` |
-| 3 | `device_tokens` 테이블 DDL 완비 (id, user_id, token, platform, is_active, created_at, UNIQUE(token)) | PASS | `V27__create_device_tokens.sql:1-10`, `DeviceToken.java:17-40` |
-| 4 | 통합 테스트 실행 결과 PASS (`./gradlew test --tests "*.notification.*"`) | PASS | `build/reports/tests/test/index.html:41-70`, `build/reports/tests/test/index.html:88-108` |
-
-## 추가 확인 항목
-
-| # | 기준 | 판정 | 근거 |
-|---|------|------|------|
-| A | 한 사용자 최대 5개 디바이스 제한 로직 존재 | PASS | `DeviceTokenService.java:18`, `DeviceTokenService.java:31-33`, `DeviceTokenServiceTest.java:38-49`, `DeviceTokenIntegrationTest.java:164-178` |
-| B | platform 값 `ios`/`android`/`web` 소문자 강제 | PARTIAL | DB 저장/제약은 소문자 강제: `V27__create_device_tokens.sql:6`, `Platform.java:7-9`, `PlatformConverter.java:10-12`, `DeviceTokenServiceTest.java:75-80`. 단, API 역직렬화는 `equalsIgnoreCase`라 대문자 입력을 거부하지 않음: `Platform.java:22-26` |
-| C | 중복 토큰 등록 시 upsert 또는 409 처리 | PASS | `DeviceTokenRepository.java:20-34`, `DeviceTokenService.java:31-35`, `DeviceTokenIntegrationTest.java:128-162` |
+`feature/PLAT-008-httponly-refresh-cookie` (이미 생성됨, dev 기준)
 
 ---
 
-## Worker 검증 결과
+## 변경 대상 파일
 
-> 아래에 결과를 채워주세요.
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/main/java/com/synapse/platform/auth/service/OAuth2SuccessHandler.java` | Refresh Token Cookie Set, redirect에서 refresh_token 제거 |
+| `src/main/java/com/synapse/platform/auth/controller/AuthController.java` | `/refresh`: RequestBody → @CookieValue, response에서 refreshToken 제거 후 Cookie Set |
+| `src/main/java/com/synapse/platform/auth/config/SecurityConfig.java` | CORS allowCredentials + 명시적 origin 추가 |
+| `src/main/resources/application.yml` | forward-headers-strategy, cookie/cors 기본값 추가 |
+| `src/main/resources/application-prod.yml` | prod 쿠키 설정 (SameSite=None; Secure) |
 
-### 테스트 실행 결과
+---
 
+## 구현 명세
+
+### 1. OAuth2SuccessHandler.java
+
+현재 코드:
+```java
+String redirectUrl = UriComponentsBuilder.fromUriString(clientRedirectUri)
+        .queryParam("access_token", accessToken)
+        .queryParam("refresh_token", refreshToken)
+        .build().toUriString();
+response.sendRedirect(redirectUrl);
 ```
-> .\gradlew.bat test --tests "*.notification.*"
 
-Note: C:\workspace\team_project_2\synapse-platform-svc\src\main\java\com\synapse\platform\billing\service\BillingService.java uses or overrides a deprecated API.
-Note: Recompile with -Xlint:deprecation for details.
-Note: C:\workspace\team_project_2\synapse-platform-svc\src\test\java\com\synapse\platform\billing\BillingServiceTest.java uses or overrides a deprecated API.
-Note: Recompile with -Xlint:deprecation for details.
-Note: Some input files use unchecked or unsafe operations.
-Note: Recompile with -Xlint:unchecked for details.
-OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+변경 후:
+```java
+// Refresh Token → HttpOnly Cookie
+ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", refreshToken)
+        .httpOnly(true)
+        .path("/api/v1/auth")
+        .maxAge(Duration.ofDays(7))
+        .sameSite(sameSite)
+        .secure(secure)
+        .build();
+response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
-Exit code: 0
-
-Test report:
-- DeviceTokenIntegrationTest: tests=9, failures=0, skipped=0, success=100%
-- DeviceTokenServiceTest: tests=7, failures=0, skipped=0, success=100%
-- Total: tests=16, failures=0, skipped=0, success=100%
+// Access Token만 redirect
+String redirectUrl = UriComponentsBuilder.fromUriString(clientRedirectUri)
+        .queryParam("access_token", accessToken)
+        .build().toUriString();
+response.sendRedirect(redirectUrl);
 ```
 
-### 판정 요약
+`sameSite`, `secure`는 `@Value`로 주입:
+```java
+@Value("${app.cookie.same-site}") String sameSite
+@Value("${app.cookie.secure}") boolean secure
+```
 
-Done When 4개 항목은 모두 PASS입니다.
+---
 
-추가 확인 항목은 A/C PASS, B PARTIAL입니다. `platform`은 DB CHECK 제약과 JPA converter를 통해 저장값이 `ios`/`android`/`web` 소문자로 강제됩니다. 다만 `Platform.from()`이 `equalsIgnoreCase`를 사용하므로 API 요청에서 `"IOS"` 같은 대문자 입력은 400으로 거부되지 않고 정상 매핑될 수 있습니다.
+### 2. AuthController.java — `/refresh` 엔드포인트
 
-### Director에게 전달할 사항
+현재:
+```java
+@PostMapping("/refresh")
+public TokenRefreshResponse refresh(@Valid @RequestBody TokenRefreshRequest request) {
+    String refreshToken = request.refreshToken();
+    ...
+    return new TokenRefreshResponse(newAccessToken, newRefreshToken);
+}
 
-Step 5 Done When 자체는 충족으로 판단됩니다.
+public record TokenRefreshRequest(@NotBlank String refreshToken) {}
+public record TokenRefreshResponse(String accessToken, String refreshToken) {}
+```
 
-다만 "platform 소문자 강제"가 API 입력에서도 엄격히 소문자만 허용한다는 의미라면 Fix가 필요합니다. 현재는 `Platform.java:22-26`에서 대소문자 무시 매칭을 사용하므로, 대문자 입력 거부 테스트를 추가하고 `equals` 기반 비교로 바꾸는 후속 작업이 필요합니다.
+변경 후:
+```java
+@PostMapping("/refresh")
+public ResponseEntity<TokenRefreshResponse> refresh(
+        @CookieValue(name = "refresh_token", required = false) String refreshToken,
+        HttpServletResponse response) {
+
+    if (refreshToken == null || refreshToken.isBlank()) {
+        throw new UnauthorizedTokenException("Refresh token cookie missing");
+    }
+    if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+        throw new UnauthorizedTokenException("Invalid refresh token");
+    }
+
+    UUID userId = jwtTokenProvider.getUserId(refreshToken);
+    if (!refreshTokenService.isValid(userId, refreshToken)) {
+        throw new UnauthorizedTokenException("Refresh token does not match stored token");
+    }
+
+    String newAccessToken = jwtTokenProvider.createAccessToken(userId, AuthRoles.DEFAULT_USER_ROLES);
+    String newRefreshToken = jwtTokenProvider.createRefreshToken(userId);
+    refreshTokenService.rotate(userId, refreshToken, newRefreshToken);
+
+    // 새 Refresh Token → Cookie 교체
+    ResponseCookie newRefreshCookie = ResponseCookie.from("refresh_token", newRefreshToken)
+            .httpOnly(true)
+            .path("/api/v1/auth")
+            .maxAge(Duration.ofDays(7))
+            .sameSite(sameSite)
+            .secure(secure)
+            .build();
+    response.addHeader(HttpHeaders.SET_COOKIE, newRefreshCookie.toString());
+
+    return ResponseEntity.ok(new TokenRefreshResponse(newAccessToken));
+}
+
+// refreshToken 필드 제거
+public record TokenRefreshResponse(String accessToken) {}
+// TokenRefreshRequest record 삭제
+```
+
+`sameSite`, `secure`는 `@Value`로 주입 (OAuth2SuccessHandler와 동일하게).
+
+---
+
+### 3. SecurityConfig.java — CORS 추가
+
+```java
+.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+```
+
+Bean 추가:
+```java
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration config = new CorsConfiguration();
+    config.setAllowedOrigins(allowedOrigins); // @Value("${app.cors.allowed-origins}")
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    config.setAllowedHeaders(List.of("*"));
+    config.setAllowCredentials(true);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
+    return source;
+}
+```
+
+---
+
+### 4. application.yml 추가 설정
+
+```yaml
+server:
+  forward-headers-strategy: native
+
+app:
+  cors:
+    allowed-origins: http://127.0.0.1:8088
+  cookie:
+    same-site: Lax
+    secure: false
+```
+
+### 5. application-prod.yml 추가
+
+```yaml
+app:
+  cors:
+    allowed-origins: https://app.synapse.io
+  cookie:
+    same-site: None
+    secure: true
+```
+
+---
+
+## 테스트 작성 필수
+
+아래 케이스를 포함하는 통합 테스트 또는 단위 테스트를 작성한다.
+
+| 케이스 | 검증 포인트 |
+|--------|-----------|
+| OAuth 로그인 성공 | `Set-Cookie` 헤더에 `refresh_token` 존재, `HttpOnly` 확인, redirect URL에 `refresh_token` 쿼리 파라미터 없음 |
+| `POST /api/v1/auth/refresh` — 정상 | Cookie에서 refresh_token 읽어 처리, response body에 `accessToken`만 존재, 새 `Set-Cookie` 헤더 존재 |
+| `POST /api/v1/auth/refresh` — Cookie 없음 | 401 반환 |
+| `POST /api/v1/auth/refresh` — 유효하지 않은 토큰 | 401 반환 |
+
+기존 `TokenRefreshRequest` body 방식 테스트는 삭제한다.
+
+---
+
+## 제약 사항
+
+- 쿠키 `path`는 `/api/v1/auth`로 제한 (다른 경로 요청 시 자동 전송 방지)
+- `TokenRefreshResponse`에서 `refreshToken` 필드 제거 필수
+- `TokenRefreshRequest` record 삭제 필수 (더 이상 사용 안 함)
+- 테스트 커버리지 80% 이상 유지
+- 빌드 후 `./gradlew test` 전체 통과 확인
+
+---
 
 ## 필요한 출력 형식
 
-위 표의 판정 컬럼을 PASS/FAIL/PARTIAL로 채우고, 테스트 실행 결과를 붙여넣어 주세요.
+구현 완료 후 아래 항목 기록:
+
+- [ ] 변경된 파일 목록
+- [ ] 추가/삭제된 테스트 목록
+- [ ] `./gradlew test` 결과 (통과 여부)
+- [ ] 빌드 성공 여부
 
 ## 첨부할 파일
 
@@ -99,4 +242,4 @@ Step 5 Done When 자체는 충족으로 판단됩니다.
 
 ## 기한
 
-2026-05-21
+2026-05-26

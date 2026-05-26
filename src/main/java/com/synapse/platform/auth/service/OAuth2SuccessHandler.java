@@ -6,8 +6,11 @@ import com.synapse.platform.auth.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -20,14 +23,20 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
     private final String clientRedirectUri;
+    private final String sameSite;
+    private final boolean secure;
 
     public OAuth2SuccessHandler(
             JwtTokenProvider jwtTokenProvider,
             RefreshTokenService refreshTokenService,
-            @Value("${app.oauth2.redirect-uri}") String clientRedirectUri) {
+            @Value("${app.oauth2.redirect-uri}") String clientRedirectUri,
+            @Value("${app.cookie.same-site}") String sameSite,
+            @Value("${app.cookie.secure}") boolean secure) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.refreshTokenService = refreshTokenService;
         this.clientRedirectUri = clientRedirectUri;
+        this.sameSite = sameSite;
+        this.secure = secure;
     }
 
     @Override
@@ -42,9 +51,16 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String deviceFingerprint = request.getHeader("X-Device-Fingerprint");
         String ipAddress = request.getRemoteAddr();
         refreshTokenService.save(userId, refreshToken, deviceFingerprint, ipAddress);
+        ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", refreshToken)
+                .httpOnly(true)
+                .path("/api/v1/auth")
+                .maxAge(Duration.ofDays(7))
+                .sameSite(sameSite)
+                .secure(secure)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         String redirectUrl = UriComponentsBuilder.fromUriString(clientRedirectUri)
                 .queryParam("access_token", accessToken)
-                .queryParam("refresh_token", refreshToken)
                 .build()
                 .toUriString();
         response.sendRedirect(redirectUrl);

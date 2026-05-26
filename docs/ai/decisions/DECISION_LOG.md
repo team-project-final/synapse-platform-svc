@@ -235,6 +235,25 @@
 
 ---
 
+## [D-028] 2026-05-26 — OAuth 토큰 전달 방식: Refresh Token → HttpOnly Cookie 전환
+
+**결정**:
+1. OAuth 로그인 성공 시 Refresh Token은 HttpOnly Cookie로 전달. Access Token만 redirect query string으로 전달.
+2. `POST /api/v1/auth/refresh`는 Cookie에서 refresh_token을 읽고, 새 Access Token만 response body로 반환. 새 Refresh Token은 Cookie로 교체.
+3. 환경별 쿠키 설정: dev 프로파일 → `SameSite=Lax`, Secure 없음 (HTTP 로컬). prod 프로파일 → `SameSite=None; Secure` (HTTPS).
+4. `server.forward-headers-strategy: native` 설정으로 Gateway `X-Forwarded-Proto` 헤더 신뢰.
+
+**근거**: Access Token은 JS가 읽어야 하므로 flutter_secure_storage 저장이 적합. Refresh Token은 JS 접근이 불필요하고 7일 TTL로 고가치이므로 HttpOnly Cookie가 XSS 방어에 유일한 수단. MSA 운영 환경에서는 Gateway가 TLS를 종료하므로 내부 HTTP 통신은 쿠키 Secure 플래그에 무관. 프론트엔드 팀 합의 완료.
+
+**기각된 대안**:
+- query string 유지: URL/브라우저 히스토리에 토큰 노출, 보안 취약
+- 둘 다 HttpOnly Cookie: Access Token을 JS에서 읽을 수 없어 Authorization 헤더 구성 불가
+- 둘 다 flutter_secure_storage: Refresh Token이 Web에서 JS 접근 가능한 localStorage에 저장 → XSS 취약
+
+**결정자**: Director
+
+---
+
 <!-- 결정 발생 시 아래 템플릿 복사 후 추가 -->
 
 <!--

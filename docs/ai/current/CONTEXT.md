@@ -6,32 +6,27 @@
 
 ## 현재 확정된 것
 
-- Step 5 코드가 `feature/PLAT-005-fcm-device` 브랜치에서 구현되어 main PR #24로 머지 완료
-- `V27__create_device_tokens.sql` Flyway 마이그레이션 파일 존재
-- notification 모듈 파일 목록:
-  - `DeviceTokenController.java`
-  - `DeviceTokenService.java`
-  - `DeviceTokenRepository.java`
-  - `DeviceToken.java` (entity)
-  - `Platform.java` (enum)
-  - `DeviceTokenIntegrationTest.java`
-  - `DeviceTokenServiceTest.java`
-- TASK_platform.md: Done When 체크박스 미체크 / Status 줄은 Done 표기 (불일치 상태)
+- 브랜치: `feature/PLAT-008-httponly-refresh-cookie` (dev 기준, 생성 완료)
+- 토큰 전달 방식 (D-028): Access Token → query string, Refresh Token → HttpOnly Cookie
+- 환경별 쿠키: dev=SameSite=Lax+Secure없음, prod=SameSite=None+Secure
+- `server.forward-headers-strategy: native` 추가 예정 (Gateway X-Forwarded-Proto 신뢰)
+- CORS: allowCredentials(true) + 명시적 origins (`app.cors.allowed-origins`)
+- 프론트엔드 합의 완료 (flutter_secure_storage for access_token, Cookie for refresh_token)
 
 ## 현재 미결 사항
 
-- Done When 5개 항목 실제 충족 여부 미확인 (Worker 검증 필요)
-- 통합 테스트 실제 PASS 여부 미확인
+- Worker 구현 결과 대기 중
 
 ## 활성 제약
 
 - JWT 서명: RS256 고정
+- Refresh Token raw 저장 금지 (DB: SHA-256 hash만, Redis: 조회 캐시)
 - 모듈 간 순환 의존 금지
 - 테스트 커버리지: 신규 코드 80% 이상
-- 한 사용자 최대 5개 디바이스
-- platform 값: `ios`, `android`, `web` (소문자)
+- 쿠키 path: `/api/v1/auth`로 제한
 
 ## 참고할 공식 문서
 
-- docs/project-management/task/TASK_platform.md (Step 5)
-- docs/rules/07-platform.md
+- docs/ai/decisions/DECISION_LOG.md (D-028)
+- docs/rules/06-auth-token.md
+- docs/ai/current/HANDOFF.md

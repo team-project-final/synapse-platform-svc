@@ -1,12 +1,12 @@
 server:
-  port: 8080
+  port: 8081
   forward-headers-strategy: native
 
 spring:
   application:
-    name: synapse-platform-svc
+    name: platform-svc
   profiles:
-    active: local
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -79,3 +79,7 @@ stripe:
       price-id: ${STRIPE_TEAM_PRICE_ID}
     enterprise:
       price-id: ${STRIPE_ENTERPRISE_PRICE_ID}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5p [%thread] %logger{36} - %msg%n"

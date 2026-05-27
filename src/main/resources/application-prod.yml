@@ -19,8 +19,12 @@ spring:
             client-secret: ${GITHUB_CLIENT_SECRET}
             scope: read:user,user:email
 
-cors:
-  allowed-origins: ${PROD_FRONTEND_ORIGIN:https://app.synapse.example.com}
+app:
+  cors:
+    allowed-origins: ${PROD_FRONTEND_ORIGINS:https://app.synapse.io}
+  cookie:
+    same-site: None
+    secure: true
 
 jwt:
   private-key: ${JWT_PRIVATE_KEY}

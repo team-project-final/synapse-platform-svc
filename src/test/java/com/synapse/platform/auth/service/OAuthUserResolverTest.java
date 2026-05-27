@@ -12,9 +12,12 @@ import com.synapse.platform.auth.entity.TenantMember;
 import com.synapse.platform.auth.repository.OAuthIdentityRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
+import com.synapse.platform.user.api.EmailPasswordUserCreateCommand;
+import com.synapse.platform.user.api.LoginFailureResult;
 import com.synapse.platform.user.api.OAuthUserCreateCommand;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
+import com.synapse.platform.user.api.UserLoginCredential;
 import com.synapse.platform.user.entity.User;
 import com.synapse.platform.user.entity.UserSettings;
 import com.synapse.platform.user.repository.UserRepository;
@@ -22,6 +25,7 @@ import com.synapse.platform.user.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
 import com.synapse.platform.global.crypto.FieldEncryptor;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
@@ -129,6 +133,21 @@ class OAuthUserResolverTest {
             }
 
             @Override
+            public Optional<UserLoginCredential> findLoginCredentialByEmail(String email) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public boolean existsByEmail(String email) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public boolean existsByUsername(String username) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
             public UserInfo createForOAuth(OAuthUserCreateCommand command) {
                 User user = User.ofOAuth(
                         command.email(),
@@ -139,6 +158,21 @@ class OAuthUserResolverTest {
                 User saved = userRepository.save(user);
                 userSettingsRepository.save(UserSettings.defaultFor(saved.getId()));
                 return toUserInfo(saved);
+            }
+
+            @Override
+            public UserInfo createForEmailPassword(EmailPasswordUserCreateCommand command) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public LoginFailureResult recordFailedLogin(UUID userId, OffsetDateTime now) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public void recordSuccessfulLogin(UUID userId, OffsetDateTime now) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
             }
 
             private UserInfo toUserInfo(User user) {

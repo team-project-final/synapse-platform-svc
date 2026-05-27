@@ -201,7 +201,8 @@ Checkout 요청 예시:
 | `APPLE_CLIENT_ID` | Apple OAuth Client ID | |
 | `APPLE_CLIENT_SECRET` | Apple OAuth Client Secret | |
 | `APP_OAUTH2_REDIRECT_URI` | OAuth 성공 후 프론트 리디렉트 URI | `http://localhost:3000/auth/callback` |
-| `CORS_ALLOWED_ORIGINS` | 허용할 프론트엔드 Origin 목록 | `http://localhost:3000,http://localhost:5173` |
+| `CORS_ALLOWED_ORIGINS` | 허용할 프론트엔드 Origin 목록. `app.cors.allowed-origins`로 주입됨 | `http://127.0.0.1:8088` |
+| `PROD_FRONTEND_ORIGINS` | prod 프로파일 허용 Origin 목록 | `https://app.synapse.io` |
 | `JWT_PRIVATE_KEY` | RS256 JWT 서명용 개인키 PEM | |
 | `JWT_PUBLIC_KEY` | RS256 JWT 검증용 공개키 PEM | |
 | `JWT_KID` | JWT Key ID | `synapse-key-2026-05` |

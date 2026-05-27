@@ -218,6 +218,42 @@
 
 ---
 
+---
+
+## [D-027] 2026-05-21 — Refresh Token 멀티 디바이스 세션 지원 및 FIFO 정책 도입
+
+**결정**: 
+1. `uq_refresh_tokens_user_id` UNIQUE 인덱스를 해제하여 한 사용자가 여러 개의 refresh token row를 가질 수 있도록 합니다.
+2. Redis 캐시 키 구조를 `refresh:{userId}:{tokenHash}`로 변경하여 기기별 개별 토큰 유효성을 독립적으로 판단하고 TTL을 개별 적용합니다.
+3. 신규 로그인/토큰 저장 시 현재 활성 토큰 개수가 5개 이상이면 가장 오래된 토큰을 먼저 만료(FIFO)시키는 비즈니스 로직을 적용합니다.
+4. 토큰 갱신 시 `rotate` 메서드에 기존 토큰을 함께 넘겨 특정 기기의 세션만 갱신하도록 처리하고 기존 기기/IP 메타데이터는 유지시킵니다.
+
+**근거**: 팀 회의에서 멀티 디바이스 세션을 최대 5대까지 동시 유지하는 정책이 확정됨. 이에 따라 기존 1인 1세션 고정 정책(D-009, D-010)을 폐기하고, 다중 기기 세션 관리 구조로 개편이 필요함.
+**기각된 대안**: 
+- `user_id`와 `device_fingerprint`를 묶어 UNIQUE 인덱스 생성: 핑거프린트가 수집되지 않는 상황(null)이나 클라이언트 변경 등으로 충돌/동작 제어가 힘들어질 수 있어 애플리케이션 레벨의 FIFO(수량 체크 후 가장 오래된 토큰 삭제) 정책이 훨씬 안정적이고 단순함.
+**결정자**: Director
+
+---
+
+## [D-028] 2026-05-26 — OAuth 토큰 전달 방식: Refresh Token → HttpOnly Cookie 전환
+
+**결정**:
+1. OAuth 로그인 성공 시 Refresh Token은 HttpOnly Cookie로 전달. Access Token만 redirect query string으로 전달.
+2. `POST /api/v1/auth/refresh`는 Cookie에서 refresh_token을 읽고, 새 Access Token만 response body로 반환. 새 Refresh Token은 Cookie로 교체.
+3. 환경별 쿠키 설정: dev 프로파일 → `SameSite=Lax`, Secure 없음 (HTTP 로컬). prod 프로파일 → `SameSite=None; Secure` (HTTPS).
+4. `server.forward-headers-strategy: native` 설정으로 Gateway `X-Forwarded-Proto` 헤더 신뢰.
+
+**근거**: Access Token은 JS가 읽어야 하므로 flutter_secure_storage 저장이 적합. Refresh Token은 JS 접근이 불필요하고 7일 TTL로 고가치이므로 HttpOnly Cookie가 XSS 방어에 유일한 수단. MSA 운영 환경에서는 Gateway가 TLS를 종료하므로 내부 HTTP 통신은 쿠키 Secure 플래그에 무관. 프론트엔드 팀 합의 완료.
+
+**기각된 대안**:
+- query string 유지: URL/브라우저 히스토리에 토큰 노출, 보안 취약
+- 둘 다 HttpOnly Cookie: Access Token을 JS에서 읽을 수 없어 Authorization 헤더 구성 불가
+- 둘 다 flutter_secure_storage: Refresh Token이 Web에서 JS 접근 가능한 localStorage에 저장 → XSS 취약
+
+**결정자**: Director
+
+---
+
 <!-- 결정 발생 시 아래 템플릿 복사 후 추가 -->
 
 <!--
@@ -228,3 +264,4 @@
 **기각된 대안**: {다른 선택지와 기각 이유}
 **결정자**: Director
 -->
+

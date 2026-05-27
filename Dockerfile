@@ -23,6 +23,6 @@ COPY --from=builder /app/build/libs/*.jar app.jar
 RUN chown app:app app.jar
 USER app
 
-EXPOSE 8081
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

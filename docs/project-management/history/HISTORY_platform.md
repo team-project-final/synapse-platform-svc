@@ -32,9 +32,10 @@
 | Arch Migration | Spring Modulith v2 전환 (D-017) | Done | 2026-05-19 | 2026-05-19 | feature/PLAT-004-stripe-billing, `./gradlew test` 통과 |
 | Step 4 | Stripe Checkout 결제 + Webhook | Done | 2026-05-19 | 2026-05-19 | StripeClient 32.1.0, processed_events 멱등성, TenantApi, JaCoCo 80%+ |
 | Step 5 | FCM 디바이스 등록 | Done | 2026-05-19 | 2026-05-19 | NotificationSecurityConfig @Order(1), Modulith 경계 준수, 9개 통합 테스트, JaCoCo 92.38% |
+| RT 보정 | 멀티 디바이스 세션 지원 (D-027) | Done | 2026-05-21 | 2026-05-21 | 사용자당 최대 5대 세션, FIFO 자동 만료, pg advisory lock 적용 |
 | Step 6 | Kafka → audit_logs | Not Started | — | — | |
 
-**W2 진행률**: 2/2 Steps 완료 (Step 4, Step 5 완료)
+**W2 진행률**: 2/2 Steps + 1 보정 완료 (Step 4, Step 5, RT 보정 완료)
 
 ### W3 (2026-05-26 ~ 05-29)
 
@@ -180,9 +181,17 @@
 
 #### 2026-05-21 (목)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - Refresh Token 멀티 디바이스 세션 지원 (최대 5대) 설계 및 구현 완료
+  - `uq_refresh_tokens_user_id` UNIQUE INDEX 해제 마이그레이션 (`V28`) 추가
+  - Redis 캐시 키를 `refresh:{userId}:{tokenHash}`로 고도화하여 독립 제어
+  - 사용자당 최대 5개 세션 제한 및 초과 시 FIFO 자동 만료 구현
+  - `rotate()` 시 구버전 토큰 정보를 넘겨 메타데이터(IP, 핑거프린트) 승계 및 특정 기기 세션만 회전하도록 개선
+  - concurrent save 시 5개 세션 한도 초과 방지를 위해 PostgreSQL transaction-scoped advisory lock 도입
+  - 회전 도중 세션 누락 시 500 에러를 401(Unauthorized) 및 `PLAT-002` 응답으로 전환
+  - `RefreshTokenServiceTest` 및 `AuthControllerTest` 고도화 및 `./gradlew test` 전체 성공
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: Step 6 (Kafka 이벤트 기반 Audit Log 자동 기록) 착수
 
 #### 2026-05-22 (금)
 - **완료**:
@@ -194,9 +203,23 @@
 
 #### 2026-05-26 (화)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - 프론트엔드 W2 잔무 현황 파악 및 백엔드 대응 항목 정리
+  - Refresh Token 전달 방식 결정 (D-028): HttpOnly Cookie 전환, 프론트엔드 팀 합의 완료
+  - `feature/PLAT-008-httponly-refresh-cookie` 브랜치 생성 및 구현 완료 (PR #29 → dev merge)
+    - OAuth2SuccessHandler: Refresh Token Cookie Set, redirect URL에서 제거
+    - AuthController: /refresh Cookie 기반 전환 + Origin 검증 추가
+    - SecurityConfig: CORS allowCredentials 적용, CorsConfig 통합
+    - application.yml: forward-headers-strategy native, 프로파일별 cookie/cors 분리
+    - 테스트 전체 통과 (AuthControllerTest 7케이스, OAuth2SuccessHandlerTest, SecurityConfigTest)
+  - 프론트엔드 변경 안내 내용 정리 (withCredentials, /refresh body 제거)
+  - docs/ai/current/ → archive/20260526-plat-008-httponly-cookie/ 이동 + 초기화
+  - PLAT-009 이메일/비밀번호 회원가입·로그인 구현 및 리뷰 후속 보정 완료
+    - 회원가입/로그인 API, BCrypt password_hash 저장, access token body + refresh_token HttpOnly Cookie 응답 구현
+    - 리뷰 후속: login 실패 카운터를 `PESSIMISTIC_WRITE` user row lock으로 직렬화해 동시 bad-password 시도도 5회 잠금을 우회하지 못하게 보정
+    - 리뷰 후속: signup DB unique 충돌을 `PLAT-009-001` / HTTP 409로 변환해 동시 중복 가입 race가 500으로 노출되지 않게 보정
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: GET /billing/plans 구현 (W2 잔무 2번) 또는 W3 Step 6 착수
 
 #### 2026-05-27 (수)
 - **완료**:

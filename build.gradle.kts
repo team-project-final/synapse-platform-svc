@@ -41,6 +41,7 @@ dependencies {
     implementation("org.springframework.modulith:spring-modulith-starter-core")
 
     implementation("org.flywaydb:flyway-core")
+    implementation("org.springframework.boot:spring-boot-flyway")
     runtimeOnly("org.postgresql:postgresql")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
 

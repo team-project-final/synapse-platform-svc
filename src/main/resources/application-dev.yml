@@ -6,6 +6,8 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     show-sql: true
+    hibernate:
+      ddl-auto: update
   security:
     oauth2:
       client:
@@ -19,8 +21,9 @@ spring:
             client-secret: ${GITHUB_CLIENT_SECRET}
             scope: read:user,user:email
 
-cors:
-  allowed-origins: http://localhost:3000,http://localhost:5173,${DEV_FRONTEND_ORIGIN:http://localhost:3000}
+app:
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:5173,${DEV_FRONTEND_ORIGIN:http://localhost:3000}
 
 jwt:
   private-key: ${JWT_PRIVATE_KEY}

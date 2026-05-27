@@ -203,11 +203,11 @@
 - **Step Name**: FCM 디바이스 등록
 - **Step Goal**: 사용자가 FCM 푸시 알림을 받기 위해 디바이스를 등록할 수 있다.
 - **Done When**:
-  - [ ] `POST /notifications/devices` → FCM 토큰 등록 (구 `/devices`)
-  - [ ] `DELETE /notifications/devices/{id}` → 디바이스 해제 (구 `/devices/{id}`)
-  - [ ] ~~`GET /devices/me`~~ → Wiki에 정의되지 않은 엔드포인트 (디바이스 관리는 POST/DELETE만 지원)
-  - [ ] devices 테이블 Flyway 마이그레이션 완료
-  - [ ] 통합 테스트 통과
+  - [x] `POST /notifications/devices` → FCM 토큰 등록 (구 `/devices`)
+  - [x] `DELETE /notifications/devices/{id}` → 디바이스 해제 (구 `/devices/{id}`)
+  - [x] ~~`GET /devices/me`~~ → Wiki에 정의되지 않은 엔드포인트 (디바이스 관리는 POST/DELETE만 지원)
+  - [x] devices 테이블 Flyway 마이그레이션 완료
+  - [x] 통합 테스트 통과
 - **Scope**:
   - In Scope:
     - device_tokens 테이블 설계 + Flyway 마이그레이션 (구 `devices` → ERD 기준 `device_tokens`)

@@ -1,22 +1,32 @@
 package com.synapse.platform.auth;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.auth.controller.AuthController;
+import com.synapse.platform.auth.exception.AccountLockedException;
+import com.synapse.platform.auth.exception.InvalidEmailPasswordLoginException;
+import com.synapse.platform.auth.service.EmailPasswordAuthService;
+import com.synapse.platform.auth.exception.UnauthorizedTokenException;
 import com.synapse.platform.auth.service.JwtTokenProvider;
+import com.synapse.platform.auth.service.LoginResult;
 import com.synapse.platform.auth.service.RefreshTokenService;
+import com.synapse.platform.auth.service.SignupResult;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
+import jakarta.servlet.http.Cookie;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -26,7 +36,7 @@ class AuthControllerTest {
 
     private final JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EmailPasswordAuthService emailPasswordAuthService = mock(EmailPasswordAuthService.class);
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -34,14 +44,20 @@ class AuthControllerTest {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AuthController(jwtTokenProvider, refreshTokenService))
+                .standaloneSetup(new AuthController(
+                        jwtTokenProvider,
+                        refreshTokenService,
+                        emailPasswordAuthService,
+                        "Lax",
+                        false,
+                        List.of("http://127.0.0.1:8088")))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setValidator(validator)
                 .build();
     }
 
     @Test
-    void refresh_validRefreshToken_shouldReturnNewTokensAndRotateRefreshToken() throws Exception {
+    void refresh_validRefreshCookie_shouldReturnAccessTokenAndRotateRefreshCookie() throws Exception {
         // Given
         UUID userId = UUID.randomUUID();
         given(jwtTokenProvider.validateRefreshToken("old-refresh-token")).willReturn(true);
@@ -52,23 +68,51 @@ class AuthControllerTest {
 
         // When & Then
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", "old-refresh-token"))))
+                        .header("Origin", "http://127.0.0.1:8088")
+                        .cookie(new Cookie("refresh_token", "old-refresh-token")))
                 .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, Matchers.allOf(
+                        Matchers.containsString("refresh_token=new-refresh-token"),
+                        Matchers.containsString("Path=/api/v1/auth"),
+                        Matchers.containsString("HttpOnly"),
+                        Matchers.containsString("SameSite=Lax"))))
                 .andExpect(jsonPath("$.accessToken").value("new-access-token"))
-                .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"));
-        verify(refreshTokenService).rotate(userId, "new-refresh-token");
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+        verify(refreshTokenService).rotate(userId, "old-refresh-token", "new-refresh-token");
     }
 
     @Test
-    void refresh_tamperedRefreshToken_shouldReturnUnauthorizedProblem() throws Exception {
+    void refresh_disallowedOrigin_shouldReturnForbiddenWithoutRotatingToken() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .header("Origin", "https://evil.example")
+                        .cookie(new Cookie("refresh_token", "old-refresh-token")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+
+        verifyNoInteractions(jwtTokenProvider, refreshTokenService);
+    }
+
+    @Test
+    void refresh_missingOrigin_shouldReturnForbiddenWithoutRotatingToken() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(new Cookie("refresh_token", "old-refresh-token")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+
+        verifyNoInteractions(jwtTokenProvider, refreshTokenService);
+    }
+
+    @Test
+    void refresh_tamperedRefreshCookie_shouldReturnUnauthorizedProblem() throws Exception {
         // Given
         given(jwtTokenProvider.validateRefreshToken("tampered-token")).willReturn(false);
 
         // When & Then
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", "tampered-token"))))
+                        .header("Origin", "http://127.0.0.1:8088")
+                        .cookie(new Cookie("refresh_token", "tampered-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.code").value("PLAT-002"));
@@ -84,8 +128,30 @@ class AuthControllerTest {
 
         // When & Then
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", "old-refresh-token"))))
+                        .header("Origin", "http://127.0.0.1:8088")
+                        .cookie(new Cookie("refresh_token", "old-refresh-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("PLAT-002"));
+    }
+
+    @Test
+    void refresh_tokenRotatedAfterValidation_shouldReturnUnauthorizedProblem() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(jwtTokenProvider.validateRefreshToken("old-refresh-token")).willReturn(true);
+        given(jwtTokenProvider.getUserId("old-refresh-token")).willReturn(userId);
+        given(refreshTokenService.isValid(userId, "old-refresh-token")).willReturn(true);
+        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("new-access-token");
+        given(jwtTokenProvider.createRefreshToken(userId)).willReturn("new-refresh-token");
+        doThrow(new UnauthorizedTokenException("Refresh token does not match stored token"))
+                .when(refreshTokenService)
+                .rotate(userId, "old-refresh-token", "new-refresh-token");
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .header("Origin", "http://127.0.0.1:8088")
+                        .cookie(new Cookie("refresh_token", "old-refresh-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.code").value("PLAT-002"));
@@ -98,21 +164,122 @@ class AuthControllerTest {
 
         // When & Then
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", "access-token"))))
+                        .header("Origin", "http://127.0.0.1:8088")
+                        .cookie(new Cookie("refresh_token", "access-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.code").value("PLAT-002"));
     }
 
     @Test
-    void refresh_blankRefreshToken_shouldReturnBadRequestProblem() throws Exception {
+    void refresh_missingRefreshCookie_shouldReturnUnauthorizedProblem() throws Exception {
         // When & Then
         mockMvc.perform(post("/api/v1/auth/refresh")
+                        .header("Origin", "http://127.0.0.1:8088"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("PLAT-002"));
+    }
+
+    @Test
+    void signup_validRequest_shouldReturnCreatedUserId() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(emailPasswordAuthService.signup("user@example.com", "P@ssw0rd!"))
+                .willReturn(new SignupResult(userId));
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", ""))))
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "P@ssw0rd!"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(userId.toString()));
+    }
+
+    @Test
+    void signup_badPassword_shouldReturnBadRequest() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "password"
+                                }
+                                """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.code").value("PLAT-001"));
+                .andExpect(jsonPath("$.status").value(400));
+
+        verifyNoInteractions(emailPasswordAuthService);
+    }
+
+    @Test
+    void login_validRequest_shouldReturnAccessTokenAndSetRefreshCookie() throws Exception {
+        // Given
+        given(emailPasswordAuthService.login("user@example.com", "P@ssw0rd!"))
+                .willReturn(new LoginResult("access-token", "refresh-token"));
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "P@ssw0rd!"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, Matchers.allOf(
+                        Matchers.containsString("refresh_token=refresh-token"),
+                        Matchers.containsString("Path=/api/v1/auth"),
+                        Matchers.containsString("HttpOnly"),
+                        Matchers.containsString("SameSite=Lax"))))
+                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void login_badPassword_shouldReturnUnauthorizedProblem() throws Exception {
+        // Given
+        given(emailPasswordAuthService.login("user@example.com", "Wrong1!!"))
+                .willThrow(new InvalidEmailPasswordLoginException());
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "Wrong1!!"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("PLAT-009-002"));
+    }
+
+    @Test
+    void login_lockedAccount_shouldReturnLockedProblem() throws Exception {
+        // Given
+        given(emailPasswordAuthService.login("user@example.com", "P@ssw0rd!"))
+                .willThrow(new AccountLockedException());
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "P@ssw0rd!"
+                                }
+                                """))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.status").value(423))
+                .andExpect(jsonPath("$.code").value("PLAT-009-004"));
     }
 }

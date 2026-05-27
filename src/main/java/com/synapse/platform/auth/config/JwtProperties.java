@@ -8,7 +8,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "jwt")
+@ConfigurationProperties(prefix = "synapse.jwt")
 public record JwtProperties(
         String privateKey,
         String publicKey,

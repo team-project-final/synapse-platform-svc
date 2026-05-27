@@ -1,32 +1,64 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/synapsedb}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/synapse}
     username: ${DB_USERNAME:synapse}
-    password: ${DB_PASSWORD:synapse123}
+    password: ${DB_PASSWORD:synapse_local_pw}
     driver-class-name: org.postgresql.Driver
   jpa:
     show-sql: true
     hibernate:
       ddl-auto: update
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:redis_local_pw}
   security:
     oauth2:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
+            client-id: ${GOOGLE_CLIENT_ID:local-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:local-google-client-secret}
             scope: openid,email,profile
           github:
-            client-id: ${GITHUB_CLIENT_ID}
-            client-secret: ${GITHUB_CLIENT_SECRET}
+            client-id: ${GITHUB_CLIENT_ID:local-github-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:local-github-client-secret}
             scope: read:user,user:email
+          apple:
+            client-id: ${APPLE_CLIENT_ID:local-apple-client-id}
+            client-secret: ${APPLE_CLIENT_SECRET:local-apple-client-secret}
+            scope: openid,name,email
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-authentication-method: client_secret_post
 
 app:
   cors:
-    allowed-origins: http://localhost:3000,http://localhost:5173,${DEV_FRONTEND_ORIGIN:http://localhost:3000}
+    allowed-origins: http://127.0.0.1:8088,http://localhost:3000,http://localhost:5173
+  crypto:
+    aes-secret-key: ${AES_SECRET_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
 
-jwt:
-  private-key: ${JWT_PRIVATE_KEY}
-  public-key: ${JWT_PUBLIC_KEY}
-  kid: synapse-key-2026-05
-  issuer: synapse-auth
+synapse:
+  jwt:
+    private-key: ${JWT_PRIVATE_KEY:MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCyli5uWptvswem4np3RJSQNOXrf/3ZPvg352DcyJvOurPlTwoZm3Py/qx3NsxNoM+bGUOQEuQVqzNTdib0+9IWjKbnl0hHNNkqmMs8wXJRGB93qdd8E+gCXMhvTRwZiN7p5ATVTU4BaiN7td9+Nm1Oxs3dW0Q5rp41tFba6/3kheQkO1wb+Sh4uI1vjYEXbyuGkBiYYTbiJDF8BFGqHshncTqCJaa5cgOwRpYkIq39SVRuYqlRIB+fCuJbETvyUAtcdBKYVaXZZn2u5fNQFalBkk8QY7hHFfbz3wfEDsm/lXtWqYa8SoHdlhezbDJp5ekWN+/+JY8L/7zc8zJGLpW1AgMBAAECggEAOA/wTIFSKVsU7F1Nn7JeRvTsNqVL7c6YQoh2vmiVjOzMe5B39bj4ydAMGTKRKU9xzNk9/fUIOAsyBiHhsed5uM13ud0iegQLppUnvA9oUS/W9QxS0qc3HsK8wz/8McHnZJpJsCJf+g61S+k421i/sMq1Jqe3f7oi/W37FCegYQPlrPkkXMnPGzqG/3wEkbPyxkBNTvlpFjurlzU0jftMCCYDL5J8CthE6Iu/jWZCUez5SUi5QSFpUG6lub4zTHunhEBTtah/lcxynhW5ZppiGPedxk+v2HpNGfPBv7sqRpE5h8dTbtqjCgrX7M1xEgU7wODn5VPTRTIlY1b4WopeQwKBgQD1K2Zx1W4NBoTLjYqHoATcaFZ1Q42pdojbfXDw9XbxEOYpEVu7zUj0YKWDJaB1FxijQSBfo8ZcGRI9YOOPWOS0tQY3YY/AzWG7x/QLEijHxq42+KnLE2ebsVsfMyMLy2kkMQ4w7CGHhVV048OIwrzpLMjKmiBz9oArCrcpZAHOowKBgQC6ec0qQmKeTfDo4soD3cELaxxVY9Yb1kw309LMJOOLHjMtfiHHEc9Cp2n5ekIxblPXavCREMg5AF6Dz7EqyI3/vue4HKVdfLQmx1dZudfxT0TLGfEPdlAC32gx6aK7Q1/F7CCTA0HVopVWUjCIECO7l1NmilRsd+mdnIAXH+WHxwKBgQC2ep4efhgSU9bFVs1UExNrJbGsSCKJjnNgwuYsQtdLqCNXT9cyWiJB2il3Cqt6Wz14TYIWDWUXqYV877+QMz7PDanZ0KDZhUSIKtSG5PY7c7K5sa1XPFMye/hxqXMdVUIlsOl6Glb+coxfmyMviJppB29P9RXQmhldb/VSNmBt9wKBgQCvKC/NzRODLSToK/ajkQ1+Yzr2/lMkTLPFEMQFm3TcvR5HUh36NkFfk4+Ylf1NHxvD0aBsMr5PxIgC+fipfj7bhf90UfwGh1dUwZPMJSOwd8vfltt2saRQPndJwvJnQc7ZQ4YJcVrKh/AMaCFL/RUDZQ4i2DaauDwJHvK2RfC9CwKBgQChMTBYV96uwRqvF6r4GW1qazlMOSKErLl5967qHw2loZHwwY9v6D4a1yw2dDWhRZF2vy5ONNHxBuDAiuvY6fnhyEMENDiid/ytw5X3VLx4P5CBgOnvB7XgLfaDaKzKp6pBmitTIPfsiTT+AL726L2qQPdVHh72Yu1sPmDetFdSm}
+    public-key: ${JWT_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAspYublqbb7MHpuJ6d0SUkDTl63/92T74N+dg3Mibzrqz5U8KGZtz8v6sdzbMTaDPmxlDkBLkFaszU3Ym9PvSFoym55dIRzTZKpjLPMFyURgfd6nXfBPoAlzIb00cGYje6eQE1U1OAWoje7XffjZtTsbN3VtEOa6eNbRW2uv95IXkJDtcG/koeLiNb42BF28rhpAYmGE24iQxfARRqh7IZ3E6giWmuXIDsEaWJCKt/UlUbmKpUSAfnwriWxE78lALXHQSmFWl2WZ9ruXzUBWpQZJPEGO4RxX2898HxA7Jv5V7VqmGvEqB3ZYXs2wyaeXpFjfv/iWPC/+83PMyRi6VtQIDAQAB}
+    kid: synapse-key-2026-05
+    issuer: synapse-auth
+
+stripe:
+  api:
+    key: ${STRIPE_API_KEY:sk_test_unit}
+  webhook:
+    secret: ${STRIPE_WEBHOOK_SECRET:whsec_test}
+  plans:
+    pro:
+      price-id: ${STRIPE_PRO_PRICE_ID:price_pro_test}
+    team:
+      price-id: ${STRIPE_TEAM_PRICE_ID:price_team_test}
+    enterprise:
+      price-id: ${STRIPE_ENTERPRISE_PRICE_ID:price_enterprise_test}
+
+logging:
+  level:
+    com.synapse.platform: DEBUG

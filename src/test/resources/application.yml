@@ -46,7 +46,6 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     listener:
       missing-topics-fatal: false
-
 app:
   cors:
     allowed-origins: http://127.0.0.1:8088

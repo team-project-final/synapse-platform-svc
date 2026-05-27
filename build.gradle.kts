@@ -18,6 +18,7 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://packages.confluent.io/maven/") }
 }
 
 dependencyManagement {
@@ -54,14 +55,21 @@ dependencies {
     implementation("com.github.f4b6a3:uuid-creator:5.3.3")
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
 
+    implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.apache.avro:avro:1.11.3")
+    implementation("io.confluent:kafka-avro-serializer:7.7.0")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     testImplementation("org.testcontainers:testcontainers:1.21.4")
+    testImplementation("org.testcontainers:kafka:1.21.4")
     testRuntimeOnly("com.h2database:h2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
+
 
 tasks.withType<Test> {
     useJUnitPlatform()

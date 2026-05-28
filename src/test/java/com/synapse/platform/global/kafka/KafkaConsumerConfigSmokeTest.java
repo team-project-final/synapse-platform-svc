@@ -14,8 +14,9 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -30,6 +31,10 @@ class KafkaConsumerConfigSmokeTest {
     private ConcurrentKafkaListenerContainerFactory<?, ?> auditKafkaListenerContainerFactory;
 
     @Autowired
+    @Qualifier("notificationKafkaListenerContainerFactory")
+    private ConcurrentKafkaListenerContainerFactory<?, ?> notificationKafkaListenerContainerFactory;
+
+    @Autowired
     private ConsumerFactory<String, Object> consumerFactory;
 
     @Autowired
@@ -37,8 +42,16 @@ class KafkaConsumerConfigSmokeTest {
     private ConsumerFactory<String, GenericRecord> auditConsumerFactory;
 
     @Autowired
+    @Qualifier("notificationConsumerFactory")
+    private ConsumerFactory<String, GenericRecord> notificationConsumerFactory;
+
+    @Autowired
     @Qualifier("eventKafkaTemplate")
     private KafkaTemplate<String, GenericRecord> eventKafkaTemplate;
+
+    @Autowired
+    @Qualifier("notificationErrorHandler")
+    private DefaultErrorHandler notificationErrorHandler;
 
     @Autowired
     private KafkaTopicProperties kafkaTopicProperties;
@@ -63,6 +76,13 @@ class KafkaConsumerConfigSmokeTest {
     }
 
     @Test
+    void notificationKafkaListenerContainerFactory_isConfiguredWithRecordAckMode() {
+        assertThat(notificationKafkaListenerContainerFactory).isNotNull();
+        assertThat(notificationKafkaListenerContainerFactory.getContainerProperties().getAckMode())
+                .isEqualTo(ContainerProperties.AckMode.RECORD);
+    }
+
+    @Test
     void eventKafkaTemplate_isAvailableForAvroEvents() {
         assertThat(eventKafkaTemplate).isNotNull();
     }
@@ -73,6 +93,17 @@ class KafkaConsumerConfigSmokeTest {
     }
 
     @Test
+    void kafkaTopicProperties_hasDefaultNotificationSendTopic() {
+        assertThat(kafkaTopicProperties.getNotificationSend())
+                .isEqualTo("platform.notification.notification-send-v1");
+    }
+
+    @Test
+    void notificationErrorHandler_isAvailable() {
+        assertThat(notificationErrorHandler).isNotNull();
+    }
+
+    @Test
     void consumerFactory_wrapsAvroDeserializerWithErrorHandlingDeserializer() {
         assertErrorHandlingDeserializerConfiguration(consumerFactory);
     }
@@ -80,6 +111,11 @@ class KafkaConsumerConfigSmokeTest {
     @Test
     void auditConsumerFactory_wrapsAvroDeserializerWithErrorHandlingDeserializer() {
         assertErrorHandlingDeserializerConfiguration(auditConsumerFactory);
+    }
+
+    @Test
+    void notificationConsumerFactory_wrapsAvroDeserializerWithErrorHandlingDeserializer() {
+        assertErrorHandlingDeserializerConfiguration(notificationConsumerFactory);
     }
 
     private void assertErrorHandlingDeserializerConfiguration(ConsumerFactory<?, ?> factory) {

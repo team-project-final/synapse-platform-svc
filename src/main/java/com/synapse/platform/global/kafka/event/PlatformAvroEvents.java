@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -16,6 +18,7 @@ import org.apache.avro.io.EncoderFactory;
 public final class PlatformAvroEvents {
 
     public static final String USER_REGISTERED_TYPE = "com.synapse.event.platform.UserRegistered";
+    public static final String NOTIFICATION_SEND_TYPE = "com.synapse.event.platform.NotificationSend";
 
     private static final Schema CLOUD_EVENT_SCHEMA = new Schema.Parser().parse("""
             {
@@ -47,6 +50,25 @@ public final class PlatformAvroEvents {
                 {"name": "email", "type": "string", "default": ""},
                 {"name": "displayName", "type": "string", "default": ""},
                 {"name": "registeredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}, "default": 0}
+              ]
+            }
+            """);
+
+    private static final Schema NOTIFICATION_SEND_SCHEMA = new Schema.Parser().parse("""
+            {
+              "type": "record",
+              "name": "NotificationSend",
+              "namespace": "com.synapse.event.platform",
+              "fields": [
+                {"name": "userId", "type": "string", "default": ""},
+                {"name": "tenantId", "type": "string", "default": ""},
+                {"name": "notificationType", "type": "string", "default": ""},
+                {"name": "channels", "type": {"type": "array", "items": "string"}, "default": []},
+                {"name": "title", "type": "string", "default": ""},
+                {"name": "body", "type": "string", "default": ""},
+                {"name": "emailSubject", "type": ["null", "string"], "default": null},
+                {"name": "emailHtmlBody", "type": ["null", "string"], "default": null},
+                {"name": "data", "type": {"type": "map", "values": "string"}, "default": {}}
               ]
             }
             """);
@@ -102,6 +124,48 @@ public final class PlatformAvroEvents {
             throw new IllegalArgumentException("CloudEvent data must be bytes");
         }
         return decode(toByteArray(buffer), USER_REGISTERED_SCHEMA);
+    }
+
+    public static GenericRecord notificationSendEnvelope(
+            UUID userId,
+            UUID tenantId,
+            String notificationType,
+            List<String> channels,
+            String title,
+            String body,
+            String emailSubject,
+            String emailHtmlBody) {
+        long now = Instant.now().toEpochMilli();
+        GenericRecord payload = new GenericData.Record(NOTIFICATION_SEND_SCHEMA);
+        payload.put("userId", userId.toString());
+        payload.put("tenantId", tenantId.toString());
+        payload.put("notificationType", notificationType);
+        payload.put("channels", channels);
+        payload.put("title", title);
+        payload.put("body", body);
+        payload.put("emailSubject", emailSubject);
+        payload.put("emailHtmlBody", emailHtmlBody);
+        payload.put("data", new HashMap<String, String>());
+
+        GenericRecord envelope = new GenericData.Record(CLOUD_EVENT_SCHEMA);
+        envelope.put("specversion", "1.0");
+        envelope.put("id", UUID.randomUUID().toString());
+        envelope.put("source", "learning-service");
+        envelope.put("type", NOTIFICATION_SEND_TYPE);
+        envelope.put("time", now);
+        envelope.put("tenantid", tenantId.toString());
+        envelope.put("datacontenttype", "application/json");
+        envelope.put("traceparent", null);
+        envelope.put("data", ByteBuffer.wrap(encode(payload, NOTIFICATION_SEND_SCHEMA)));
+        return envelope;
+    }
+
+    public static GenericRecord decodeNotificationSend(GenericRecord envelope) {
+        Object data = envelope.get("data");
+        if (!(data instanceof ByteBuffer buffer)) {
+            throw new IllegalArgumentException("CloudEvent data must be bytes");
+        }
+        return decode(toByteArray(buffer), NOTIFICATION_SEND_SCHEMA);
     }
 
     private static byte[] encode(GenericRecord record, Schema schema) {

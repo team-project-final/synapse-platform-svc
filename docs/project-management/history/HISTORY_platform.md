@@ -42,7 +42,7 @@
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | Step 6 | Kafka Audit Log | Done | 2026-05-28 | 2026-05-28 | Avro+Schema Registry, outbox pattern, PUBLISHING lease, EmbeddedKafka 통합 테스트 통과 |
-| Step 7 | FCM 푸시/SES 이메일 알림 | Not Started | — | — | |
+| Step 7 | FCM 푸시/SES 이메일 알림 | In Progress | 2026-05-28 | — | HANDOFF 작성 완료 |
 | Step 8 | 관리자 테넌트/사용자 관리 | Not Started | — | — | |
 
 **W3 진행률**: 1/3 Steps 완료
@@ -230,6 +230,11 @@
 #### 2026-05-28 (목)
 - **완료**:
   - **Step 6 완료**: Kafka 이벤트 기반 Audit Log 자동 기록
+  - **Step 7 시작**: FCM 푸시/SES 이메일 알림 발송 — Director 설계 완료, HANDOFF.md 작성 완료
+    - 코드베이스 분석: notification 모듈 현황 파악, Kafka 인프라 패턴 확인, Flyway 최신 V30 확인
+    - 확정된 설계: `platform.notification.notification-send-v1` 토픽, ExponentialBackOff(1s/2s/4s), UNIQUE(event_id, channel) 멱등성 키
+    - Firebase Admin SDK 9.4.1 + AWS SES SDK v2 (sesv2:2.26.29) 추가 예정
+    - V31 마이그레이션(notifications 테이블) + 14개 신규 파일 + 6개 파일 수정 명세 완료
     - Flyway V29 (audit_logs), V30 (outbox_events) 마이그레이션 추가
     - `PlatformAvroEvents` (CloudEventEnvelope + UserRegistered Avro schema 단일 정의, synapse-shared 대체)
     - `UserEventPublisher` (outbox 저장), `OutboxEventPublisher` (PUBLISHING lease + async 실패 기록)

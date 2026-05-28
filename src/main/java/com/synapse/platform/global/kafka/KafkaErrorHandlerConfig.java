@@ -18,6 +18,7 @@ import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.util.backoff.ExponentialBackOff;
 import org.springframework.util.backoff.FixedBackOff;
 
 @Configuration
@@ -66,5 +67,21 @@ public class KafkaErrorHandlerConfig {
         var recoverer = new DeadLetterPublishingRecoverer(templates,
             (record, ex) -> new TopicPartition(record.topic() + topicProperties.getDlqSuffix(), record.partition()));
         return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3L));
+    }
+
+    @Bean("notificationErrorHandler")
+    public DefaultErrorHandler notificationErrorHandler(
+            @Qualifier("dltKafkaTemplate") KafkaTemplate<String, GenericRecord> dltKafkaTemplate,
+            @Qualifier("dltBytesKafkaTemplate") KafkaTemplate<String, byte[]> dltBytesKafkaTemplate) {
+        Map<Class<?>, KafkaOperations<? extends Object, ? extends Object>> templates = new LinkedHashMap<>();
+        templates.put(byte[].class, dltBytesKafkaTemplate);
+        templates.put(Void.class, dltBytesKafkaTemplate);
+        templates.put(GenericRecord.class, dltKafkaTemplate);
+        templates.put(Object.class, dltKafkaTemplate);
+        var recoverer = new DeadLetterPublishingRecoverer(templates,
+            (record, ex) -> new TopicPartition(record.topic() + topicProperties.getDlqSuffix(), record.partition()));
+        var backOff = new ExponentialBackOff(1_000L, 2.0);
+        backOff.setMaxElapsedTime(7_000L);
+        return new DefaultErrorHandler(recoverer, backOff);
     }
 }

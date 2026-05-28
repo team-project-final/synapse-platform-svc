@@ -39,14 +39,19 @@ spring:
   kafka:
     bootstrap-servers: localhost:19092
     properties:
-      schema.registry.url: http://localhost:18086
+      schema.registry.url: mock://platform-test
+      specific.avro.reader: false
     consumer:
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
     producer:
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
     listener:
       missing-topics-fatal: false
 app:
+  kafka:
+    outbox:
+      enabled: false
   cors:
     allowed-origins: http://127.0.0.1:8088
   cookie:

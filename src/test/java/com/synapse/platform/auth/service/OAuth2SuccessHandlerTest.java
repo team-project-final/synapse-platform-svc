@@ -5,9 +5,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.synapse.platform.auth.service.JwtTokenProvider;
-import com.synapse.platform.auth.service.RefreshTokenService;
-import com.synapse.platform.auth.service.OAuth2SuccessHandler;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -59,5 +56,42 @@ class OAuth2SuccessHandlerTest {
                 .contains("HttpOnly")
                 .contains("SameSite=Lax");
         verify(refreshTokenService).save(userId, "refresh-token", "device-1", "127.0.0.1");
+    }
+
+    @Test
+    void onAuthenticationSuccess_newOAuthUser_shouldOnlyIssueTokensAndRedirect() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        OAuth2User user = new DefaultOAuth2User(
+                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                Map.of(
+                        "sub", "google-123",
+                        "userId", userId.toString(),
+                        "isNewUser", true,
+                        "synapseEmail", "new@example.com",
+                        "synapseDisplayName", "New User",
+                        "synapseTenantId", tenantId.toString()),
+                "sub");
+        TestingAuthenticationToken authentication = new TestingAuthenticationToken(user, null);
+        JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
+        RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
+        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("access-token");
+        given(jwtTokenProvider.createRefreshToken(userId)).willReturn("refresh-token");
+        OAuth2SuccessHandler handler = new OAuth2SuccessHandler(
+                jwtTokenProvider,
+                refreshTokenService,
+                "http://localhost:3000/auth/callback",
+                "Lax",
+                false);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // When
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        // Then
+        verify(refreshTokenService).save(userId, "refresh-token", null, "127.0.0.1");
+        assertThat(response.getRedirectedUrl()).contains("access_token=access-token");
     }
 }

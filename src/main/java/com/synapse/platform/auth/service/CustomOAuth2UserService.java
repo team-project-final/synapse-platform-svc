@@ -1,13 +1,13 @@
 package com.synapse.platform.auth.service;
 
 import com.synapse.platform.auth.dto.OAuthAttributes;
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.repository.OAuthIdentityRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
 import com.synapse.platform.global.crypto.FieldEncryptor;
 import com.synapse.platform.user.api.UserApi;
-import com.synapse.platform.user.api.UserInfo;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +45,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             TenantMemberRepository tenantMemberRepository,
             SlugGenerator slugGenerator,
             FieldEncryptor fieldEncryptor,
+            UserEventPublisher userEventPublisher,
             OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate) {
         this.oAuthUserResolver = new OAuthUserResolver(
                 userApi,
@@ -52,7 +53,8 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 tenantRepository,
                 tenantMemberRepository,
                 slugGenerator,
-                fieldEncryptor);
+                fieldEncryptor,
+                userEventPublisher);
         this.delegate = delegate;
     }
 
@@ -62,10 +64,17 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         OAuth2User oAuth2User = delegate.loadUser(request);
         String registrationId = request.getClientRegistration().getRegistrationId();
         OAuthAttributes attributes = OAuthAttributes.of(registrationId, oAuth2User.getAttributes());
-        UserInfo user = oAuthUserResolver.resolveUser(attributes, accessToken(request));
+        OAuthResolvedUser resolved = oAuthUserResolver.resolveUser(attributes, accessToken(request));
+        var user = resolved.user();
 
         Map<String, Object> enrichedAttributes = new HashMap<>(oAuth2User.getAttributes());
         enrichedAttributes.put("userId", user.id().toString());
+        enrichedAttributes.put("isNewUser", resolved.newUser());
+        enrichedAttributes.put("synapseEmail", user.email() != null ? user.email() : "");
+        enrichedAttributes.put("synapseDisplayName", user.displayName() != null ? user.displayName() : "");
+        enrichedAttributes.put(
+                "synapseTenantId",
+                user.defaultTenantId() != null ? user.defaultTenantId().toString() : "");
         return new DefaultOAuth2User(
                 oAuth2User.getAuthorities(),
                 enrichedAttributes,

@@ -12,4 +12,12 @@
         <Class name="com.synapse.platform.billing.service.BillingService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+    <Match>
+        <Class name="~com\.synapse\.platform\.audit\.(controller\.AuditLogController|consumer\.AuditKafkaConsumer|service\.AuditLogService)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~com\.synapse\.platform\.(auth\.event\.(UserEventPublisher|OutboxEventPublisher)|global\.kafka\.KafkaErrorHandlerConfig)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
 </FindBugsFilter>

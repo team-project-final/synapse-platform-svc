@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
 import com.synapse.platform.auth.exception.AccountLockedException;
@@ -59,6 +60,9 @@ class EmailPasswordAuthServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private UserEventPublisher userEventPublisher;
+
     @InjectMocks
     private EmailPasswordAuthService emailPasswordAuthService;
 
@@ -100,6 +104,7 @@ class EmailPasswordAuthServiceTest {
         assertThat(commandCaptor.getValue().passwordHash()).isEqualTo("$2a$10$hash");
         assertThat(commandCaptor.getValue().defaultTenantId()).isEqualTo(tenantId);
         verify(tenantMemberRepository).save(any(TenantMember.class));
+        verify(userEventPublisher).publishUserRegistered(userId, "user@example.com", "user", tenantId);
     }
 
     @Test

@@ -41,11 +41,11 @@
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 6 | Kafka Audit Log | Not Started | — | — | |
+| Step 6 | Kafka Audit Log | Done | 2026-05-28 | 2026-05-28 | Avro+Schema Registry, outbox pattern, PUBLISHING lease, EmbeddedKafka 통합 테스트 통과 |
 | Step 7 | FCM 푸시/SES 이메일 알림 | Not Started | — | — | |
 | Step 8 | 관리자 테넌트/사용자 관리 | Not Started | — | — | |
 
-**W3 진행률**: 0/3 Steps 완료
+**W3 진행률**: 1/3 Steps 완료
 
 ### W4 (2026-06-01 ~ 06-05)
 
@@ -229,9 +229,21 @@
 
 #### 2026-05-28 (목)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - **Step 6 완료**: Kafka 이벤트 기반 Audit Log 자동 기록
+    - Flyway V29 (audit_logs), V30 (outbox_events) 마이그레이션 추가
+    - `PlatformAvroEvents` (CloudEventEnvelope + UserRegistered Avro schema 단일 정의, synapse-shared 대체)
+    - `UserEventPublisher` (outbox 저장), `OutboxEventPublisher` (PUBLISHING lease + async 실패 기록)
+    - `AuditKafkaConsumer` + `AuditLogService` (DataIntegrityViolationException 멱등)
+    - `GET /api/v1/admin/audit-logs` @PreAuthorize("hasRole('ADMIN')")
+    - 90일 보존 @Scheduled(cron = "0 0 3 * * *")
+    - `OAuthResolvedUser` record, OAuthUserResolver 반환 타입 변경
+    - `KafkaProducerConfig` (eventKafkaTemplate Avro), ErrorHandlingDeserializer 적용
+    - `AuditKafkaIntegrationTest` (EmbeddedKafka + mock://platform-test Schema Registry)
+    - `./gradlew test`, `./gradlew check` 전체 통과
+    - docs/ai/current/ → archive/20260528-step6/ 이동 + 초기화
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: Step 7 (FCM 푸시/SES 이메일 알림) 또는 Step 8 (관리자 API) 착수
 
 #### 2026-05-29 (금)
 - **완료**:

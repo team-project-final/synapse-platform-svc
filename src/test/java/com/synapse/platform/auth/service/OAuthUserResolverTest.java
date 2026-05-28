@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.synapse.platform.auth.dto.OAuthAttributes;
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.OAuthIdentity;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
@@ -60,6 +61,9 @@ class OAuthUserResolverTest {
     @Mock
     private SlugGenerator slugGenerator;
 
+    @Mock
+    private UserEventPublisher userEventPublisher;
+
     private final FieldEncryptor fieldEncryptor = new FieldEncryptor(AES_KEY);
 
     @Test
@@ -90,18 +94,20 @@ class OAuthUserResolverTest {
         OAuthUserResolver resolver = resolver();
 
         // When
-        UserInfo result = resolver.resolveUser(attributes, "token");
+        OAuthResolvedUser result = resolver.resolveUser(attributes, "token");
 
         // Then
         ArgumentCaptor<Tenant> tenantCaptor = ArgumentCaptor.forClass(Tenant.class);
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         ArgumentCaptor<OAuthIdentity> identityCaptor = ArgumentCaptor.forClass(OAuthIdentity.class);
-        assertThat(result.id()).isEqualTo(userId);
+        assertThat(result.user().id()).isEqualTo(userId);
+        assertThat(result.newUser()).isTrue();
         verify(tenantRepository).save(tenantCaptor.capture());
         verify(userRepository).save(userCaptor.capture());
         verify(oauthIdentityRepository).save(identityCaptor.capture());
         verify(tenantMemberRepository).save(any(TenantMember.class));
         verify(userSettingsRepository).save(any(UserSettings.class));
+        verify(userEventPublisher).publishUserRegistered(userId, "apple@example.com", "apple", tenantId);
         assertThat(tenantCaptor.getValue().getName()).isEqualTo("apple");
         assertThat(userCaptor.getValue().getDisplayName()).isEqualTo("apple");
         assertThat(userCaptor.getValue().getEmail()).isEqualTo("apple@example.com");
@@ -117,7 +123,8 @@ class OAuthUserResolverTest {
                 tenantRepository,
                 tenantMemberRepository,
                 slugGenerator,
-                fieldEncryptor);
+                fieldEncryptor,
+                userEventPublisher);
     }
 
     private UserApi userApi() {

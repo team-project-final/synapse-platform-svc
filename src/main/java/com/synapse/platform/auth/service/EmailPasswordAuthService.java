@@ -1,6 +1,7 @@
 package com.synapse.platform.auth.service;
 
 import com.synapse.platform.auth.AuthRoles;
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
 import com.synapse.platform.auth.exception.AccountLockedException;
@@ -38,6 +39,7 @@ public class EmailPasswordAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final UserEventPublisher userEventPublisher;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public EmailPasswordAuthService(
@@ -47,7 +49,8 @@ public class EmailPasswordAuthService {
             SlugGenerator slugGenerator,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            UserEventPublisher userEventPublisher) {
         this.userApi = userApi;
         this.tenantRepository = tenantRepository;
         this.tenantMemberRepository = tenantMemberRepository;
@@ -55,6 +58,7 @@ public class EmailPasswordAuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.refreshTokenService = refreshTokenService;
+        this.userEventPublisher = userEventPublisher;
     }
 
     @Transactional
@@ -73,6 +77,7 @@ public class EmailPasswordAuthService {
                     passwordHash,
                     tenant.getId()));
             tenantMemberRepository.save(TenantMember.ofOwner(tenant.getId(), user.id()));
+            userEventPublisher.publishUserRegistered(user.id(), email, user.displayName(), tenant.getId());
             return new SignupResult(user.id());
         } catch (DataIntegrityViolationException exception) {
             throw new EmailAlreadyExistsException();

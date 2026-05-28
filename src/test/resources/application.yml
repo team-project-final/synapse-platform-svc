@@ -52,6 +52,10 @@ app:
   kafka:
     outbox:
       enabled: false
+  fcm:
+    enabled: false
+  ses:
+    enabled: false
   cors:
     allowed-origins: http://127.0.0.1:8088
   cookie:

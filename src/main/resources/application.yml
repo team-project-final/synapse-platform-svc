@@ -77,6 +77,15 @@ app:
   kafka:
     topics:
       user-registered: platform.auth.user-registered-v1
+      notification-send: ${KAFKA_TOPIC_NOTIFICATION_SEND:platform.notification.notification-send-v1}
+  fcm:
+    enabled: ${FCM_ENABLED:false}
+    service-account-path: ${FCM_SERVICE_ACCOUNT_PATH:}
+    project-id: ${FCM_PROJECT_ID:}
+  ses:
+    enabled: ${SES_ENABLED:false}
+    region: ${SES_REGION:ap-northeast-2}
+    from-email: ${SES_FROM_EMAIL:noreply@synapse.app}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://127.0.0.1:8088}
   cookie:

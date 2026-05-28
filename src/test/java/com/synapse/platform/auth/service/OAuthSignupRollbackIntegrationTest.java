@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
 
 import com.synapse.platform.auth.entity.OAuthIdentity;
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.repository.OAuthIdentityRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
@@ -115,6 +116,7 @@ class OAuthSignupRollbackIntegrationTest {
                 TenantMemberRepository tenantMemberRepository,
                 SlugGenerator slugGenerator,
                 FieldEncryptor fieldEncryptor,
+                UserEventPublisher userEventPublisher,
                 OAuth2UserService<OAuth2UserRequest, OAuth2User> rollbackDelegate) {
             return new CustomOAuth2UserService(
                     userApi,
@@ -123,6 +125,7 @@ class OAuthSignupRollbackIntegrationTest {
                     tenantMemberRepository,
                     slugGenerator,
                     fieldEncryptor,
+                    userEventPublisher,
                     rollbackDelegate);
         }
 

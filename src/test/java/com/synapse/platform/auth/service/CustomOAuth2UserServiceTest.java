@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import com.synapse.platform.auth.entity.OAuthIdentity;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.repository.OAuthIdentityRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
@@ -73,6 +74,9 @@ class CustomOAuth2UserServiceTest {
     private SlugGenerator slugGenerator;
 
     @Mock
+    private UserEventPublisher userEventPublisher;
+
+    @Mock
     private OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate;
 
     private final FieldEncryptor fieldEncryptor = new FieldEncryptor(AES_KEY);
@@ -94,6 +98,7 @@ class CustomOAuth2UserServiceTest {
 
         // Then
         assertThat(result.getAttributes()).containsEntry("userId", userId.toString());
+        assertThat(result.getAttributes()).containsEntry("isNewUser", false);
         verify(userRepository, never()).findByEmail(any());
         verify(tenantRepository, never()).save(any());
     }
@@ -115,6 +120,7 @@ class CustomOAuth2UserServiceTest {
         // Then
         ArgumentCaptor<OAuthIdentity> identityCaptor = ArgumentCaptor.forClass(OAuthIdentity.class);
         assertThat(result.getAttributes()).containsEntry("userId", userId.toString());
+        assertThat(result.getAttributes()).containsEntry("isNewUser", false);
         verify(oauthIdentityRepository).save(identityCaptor.capture());
         assertThat(fieldEncryptor.decrypt(identityCaptor.getValue().getAccessTokenEnc())).isEqualTo("token");
         verify(tenantRepository, never()).save(any());
@@ -150,6 +156,10 @@ class CustomOAuth2UserServiceTest {
         // Then
         ArgumentCaptor<OAuthIdentity> identityCaptor = ArgumentCaptor.forClass(OAuthIdentity.class);
         assertThat(result.getAttributes()).containsEntry("userId", userId.toString());
+        assertThat(result.getAttributes()).containsEntry("isNewUser", true);
+        assertThat(result.getAttributes()).containsEntry("synapseEmail", "user@example.com");
+        assertThat(result.getAttributes()).containsEntry("synapseDisplayName", "Test User");
+        assertThat(result.getAttributes()).containsEntry("synapseTenantId", tenantId.toString());
         verify(tenantRepository).save(any(Tenant.class));
         verify(userRepository).save(any(User.class));
         verify(oauthIdentityRepository).save(identityCaptor.capture());
@@ -186,6 +196,10 @@ class CustomOAuth2UserServiceTest {
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         ArgumentCaptor<OAuthIdentity> identityCaptor = ArgumentCaptor.forClass(OAuthIdentity.class);
         assertThat(result.getAttributes()).containsEntry("userId", userId.toString());
+        assertThat(result.getAttributes()).containsEntry("isNewUser", true);
+        assertThat(result.getAttributes()).containsEntry("synapseEmail", "octocat@github.placeholder");
+        assertThat(result.getAttributes()).containsEntry("synapseDisplayName", "octocat");
+        assertThat(result.getAttributes()).containsEntry("synapseTenantId", tenantId.toString());
         verify(userRepository).save(userCaptor.capture());
         verify(oauthIdentityRepository).save(identityCaptor.capture());
         assertThat(userCaptor.getValue().getEmail()).isEqualTo("octocat@github.placeholder");
@@ -226,6 +240,7 @@ class CustomOAuth2UserServiceTest {
                 tenantMemberRepository,
                 slugGenerator,
                 fieldEncryptor,
+                userEventPublisher,
                 delegate);
     }
 

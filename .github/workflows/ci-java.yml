@@ -2,9 +2,9 @@ name: CI — Java (Gradle)
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 permissions:
   contents: read
@@ -28,3 +28,38 @@ jobs:
 
       - name: Modulith verify
         run: ./gradlew test --tests '*ModuleStructureTest' --no-daemon
+
+  dev-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Start dev services
+        run: docker compose -f docker-compose.ci.yml up -d --wait
+      - name: Boot app (dev) and verify health
+        run: |
+          ./gradlew bootRun --args='--spring.profiles.active=dev' > app.log 2>&1 &
+          APP_PID=$!
+          HEALTHY=0
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:8081/actuator/health" | grep -q '"status":"UP"'; then
+              HEALTHY=1; echo "actuator health UP"; break
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then echo "app process exited early"; break; fi
+            sleep 3
+          done
+          if [ "$HEALTHY" != "1" ]; then
+            echo "===== app.log ====="; cat app.log
+            kill "$APP_PID" 2>/dev/null || true
+            exit 1
+          fi
+          kill "$APP_PID" 2>/dev/null || true
+      - name: Stop services
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v

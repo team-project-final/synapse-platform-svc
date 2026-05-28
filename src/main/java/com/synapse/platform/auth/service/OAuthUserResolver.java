@@ -1,6 +1,7 @@
 package com.synapse.platform.auth.service;
 
 import com.synapse.platform.auth.dto.OAuthAttributes;
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.OAuthIdentity;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
@@ -24,6 +25,7 @@ public class OAuthUserResolver {
     private final TenantMemberRepository tenantMemberRepository;
     private final SlugGenerator slugGenerator;
     private final FieldEncryptor fieldEncryptor;
+    private final UserEventPublisher userEventPublisher;
 
     public OAuthUserResolver(
             UserApi userApi,
@@ -31,16 +33,18 @@ public class OAuthUserResolver {
             TenantRepository tenantRepository,
             TenantMemberRepository tenantMemberRepository,
             SlugGenerator slugGenerator,
-            FieldEncryptor fieldEncryptor) {
+            FieldEncryptor fieldEncryptor,
+            UserEventPublisher userEventPublisher) {
         this.userApi = userApi;
         this.oauthIdentityRepository = oauthIdentityRepository;
         this.tenantRepository = tenantRepository;
         this.tenantMemberRepository = tenantMemberRepository;
         this.slugGenerator = slugGenerator;
         this.fieldEncryptor = fieldEncryptor;
+        this.userEventPublisher = userEventPublisher;
     }
 
-    public UserInfo resolveUser(OAuthAttributes attributes, String accessToken) {
+    public OAuthResolvedUser resolveUser(OAuthAttributes attributes, String accessToken) {
         String accessTokenEnc = encryptedAccessToken(accessToken);
         Optional<OAuthIdentity> identity = oauthIdentityRepository.findByProviderAndProviderUserId(
                 attributes.provider(),
@@ -49,8 +53,9 @@ public class OAuthUserResolver {
             OAuthIdentity existing = identity.get();
             existing.updateAccessTokenEnc(accessTokenEnc);
             oauthIdentityRepository.save(existing);
-            return userApi.findById(existing.getUserId())
+            UserInfo user = userApi.findById(existing.getUserId())
                     .orElseThrow(() -> new IllegalStateException("User not found"));
+            return new OAuthResolvedUser(user, false);
         }
 
         if (attributes.email() != null) {
@@ -63,11 +68,11 @@ public class OAuthUserResolver {
                         attributes.providerId(),
                         attributes.email(),
                         accessTokenEnc));
-                return user;
+                return new OAuthResolvedUser(user, false);
             }
         }
 
-        return signUp(attributes, accessTokenEnc);
+        return new OAuthResolvedUser(signUp(attributes, accessTokenEnc), true);
     }
 
     private UserInfo signUp(OAuthAttributes attributes, String accessTokenEnc) {
@@ -91,6 +96,11 @@ public class OAuthUserResolver {
                 attributes.email(),
                 accessTokenEnc));
         tenantMemberRepository.save(TenantMember.ofOwner(tenant.getId(), savedUser.id()));
+        userEventPublisher.publishUserRegistered(
+                savedUser.id(),
+                savedUser.email(),
+                savedUser.displayName(),
+                tenant.getId());
 
         return savedUser;
     }

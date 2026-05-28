@@ -1,6 +1,7 @@
 package com.synapse.platform.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -116,6 +118,32 @@ class OAuthUserResolverTest {
         assertThat(fieldEncryptor.decrypt(identityCaptor.getValue().getAccessTokenEnc())).isEqualTo("token");
     }
 
+    @Test
+    void resolveUser_existingIdentityWithDeletedUser_shouldThrowDisabledBeforeLoadingUser() {
+        UUID userId = UUID.randomUUID();
+        OAuthAttributes attributes = new OAuthAttributes(
+                "google",
+                "google-123",
+                "deleted@example.com",
+                "Deleted User",
+                null);
+        OAuthIdentity identity = OAuthIdentity.of(userId, "google", "google-123", "deleted@example.com");
+        given(oauthIdentityRepository.findByProviderAndProviderUserId("google", "google-123"))
+                .willReturn(Optional.of(identity));
+
+        OAuthUserResolver resolver = new OAuthUserResolver(
+                userApi(false),
+                oauthIdentityRepository,
+                tenantRepository,
+                tenantMemberRepository,
+                slugGenerator,
+                fieldEncryptor,
+                userEventPublisher);
+
+        assertThatThrownBy(() -> resolver.resolveUser(attributes, "token"))
+                .isInstanceOf(DisabledException.class);
+    }
+
     private OAuthUserResolver resolver() {
         return new OAuthUserResolver(
                 userApi(),
@@ -128,6 +156,10 @@ class OAuthUserResolverTest {
     }
 
     private UserApi userApi() {
+        return userApi(true);
+    }
+
+    private UserApi userApi(boolean loginAllowed) {
         return new UserApi() {
             @Override
             public Optional<UserInfo> findById(UUID userId) {
@@ -142,6 +174,11 @@ class OAuthUserResolverTest {
             @Override
             public Optional<UserLoginCredential> findLoginCredentialByEmail(String email) {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public boolean isLoginAllowed(UUID userId) {
+                return loginAllowed;
             }
 
             @Override

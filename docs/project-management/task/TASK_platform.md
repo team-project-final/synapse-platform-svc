@@ -346,8 +346,9 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: [ ] Not Started / [x] In Progress / [ ] Done
+**Status**: [ ] Not Started / [ ] In Progress / [x] Done
 **시작일**: 2026-05-28
+**완료일**: 2026-05-28
 
 ---
 
@@ -394,7 +395,9 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Status**: [ ] Not Started / [ ] In Progress / [x] Done
+**시작일**: 2026-05-28
+**완료일**: 2026-05-28
 
 ---
 

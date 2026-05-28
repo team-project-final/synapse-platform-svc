@@ -9,6 +9,10 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
+        <Class name="~com\.synapse\.platform\.(auth\.service\.UserSessionRevocationListener|user\.controller\.AdminUserController|billing\.(controller\.AdminTenantController|service\.AdminTenantService)|auth\.service\.TenantAdminService)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="com.synapse.platform.billing.service.BillingService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>

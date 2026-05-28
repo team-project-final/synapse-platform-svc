@@ -88,8 +88,22 @@ public class Tenant {
         return status;
     }
 
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
     public void activatePlan(String planCode) {
         this.plan = planCode;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void suspend() {
+        this.status = "suspended";
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void activate() {
+        this.status = "active";
         this.updatedAt = OffsetDateTime.now();
     }
 }

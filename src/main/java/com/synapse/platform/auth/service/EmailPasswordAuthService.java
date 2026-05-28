@@ -5,6 +5,7 @@ import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
 import com.synapse.platform.auth.exception.AccountLockedException;
+import com.synapse.platform.auth.exception.AccountDisabledException;
 import com.synapse.platform.auth.exception.EmailAlreadyExistsException;
 import com.synapse.platform.auth.exception.InvalidEmailPasswordLoginException;
 import com.synapse.platform.auth.exception.OAuthAccountPasswordLoginException;
@@ -92,6 +93,9 @@ public class EmailPasswordAuthService {
         OffsetDateTime now = OffsetDateTime.now();
         UserLoginCredential credential = userApi.findLoginCredentialByEmail(email)
                 .orElseThrow(InvalidEmailPasswordLoginException::new);
+        if (!"active".equals(credential.status())) {
+            throw new AccountDisabledException(credential.status());
+        }
         if (credential.lockedUntil() != null && credential.lockedUntil().isAfter(now)) {
             throw new AccountLockedException();
         }

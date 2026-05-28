@@ -11,6 +11,8 @@ public interface UserApi {
 
     Optional<UserLoginCredential> findLoginCredentialByEmail(String email);
 
+    boolean isLoginAllowed(UUID userId);
+
     boolean existsByEmail(String email);
 
     boolean existsByUsername(String username);

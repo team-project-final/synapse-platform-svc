@@ -57,6 +57,13 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.code").value("PLAT-999"));
     }
 
+    @Test
+    void handleIllegalArgumentException_shouldReturnInternalServerError() throws Exception {
+        mockMvc.perform(get("/illegal-argument-error"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("PLAT-999"));
+    }
+
     @Controller
     static class TestController {
 
@@ -73,6 +80,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/unexpected-error")
         void unexpectedError() {
             throw new IllegalStateException("unexpected");
+        }
+
+        @GetMapping("/illegal-argument-error")
+        void illegalArgumentError() {
+            throw new IllegalArgumentException("bad internal argument");
         }
     }
 

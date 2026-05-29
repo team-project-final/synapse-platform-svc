@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
+import com.synapse.platform.auth.exception.AccountDisabledException;
 import com.synapse.platform.auth.exception.AccountLockedException;
 import com.synapse.platform.auth.exception.EmailAlreadyExistsException;
 import com.synapse.platform.auth.exception.InvalidEmailPasswordLoginException;
@@ -143,7 +144,7 @@ class EmailPasswordAuthServiceTest {
     void login_oAuthOnlyAccount_shouldThrowOAuthConflictMessage() {
         UUID userId = UUID.randomUUID();
         given(userApi.findLoginCredentialByEmail("user@example.com"))
-                .willReturn(Optional.of(new UserLoginCredential(userId, "user@example.com", null, 0, null)));
+                .willReturn(Optional.of(new UserLoginCredential(userId, "user@example.com", null, "active", 0, null)));
 
         assertThatThrownBy(() -> emailPasswordAuthService.login("user@example.com", "P@ssw0rd!"))
                 .isInstanceOf(OAuthAccountPasswordLoginException.class);
@@ -156,7 +157,13 @@ class EmailPasswordAuthServiceTest {
     void login_badPassword_shouldRecordFailureAndThrowUnauthorized() {
         UUID userId = UUID.randomUUID();
         given(userApi.findLoginCredentialByEmail("user@example.com"))
-                .willReturn(Optional.of(new UserLoginCredential(userId, "user@example.com", "$2a$10$hash", 0, null)));
+                .willReturn(Optional.of(new UserLoginCredential(
+                        userId,
+                        "user@example.com",
+                        "$2a$10$hash",
+                        "active",
+                        0,
+                        null)));
         given(passwordEncoder.matches("wrong-password", "$2a$10$hash")).willReturn(false);
         given(userApi.recordFailedLogin(any(), any())).willReturn(new LoginFailureResult(1, null));
 
@@ -172,7 +179,13 @@ class EmailPasswordAuthServiceTest {
         UUID userId = UUID.randomUUID();
         OffsetDateTime lockedUntil = OffsetDateTime.now().plusMinutes(15);
         given(userApi.findLoginCredentialByEmail("user@example.com"))
-                .willReturn(Optional.of(new UserLoginCredential(userId, "user@example.com", "$2a$10$hash", 4, null)));
+                .willReturn(Optional.of(new UserLoginCredential(
+                        userId,
+                        "user@example.com",
+                        "$2a$10$hash",
+                        "active",
+                        4,
+                        null)));
         given(passwordEncoder.matches("wrong-password", "$2a$10$hash")).willReturn(false);
         given(userApi.recordFailedLogin(any(), any())).willReturn(new LoginFailureResult(5, lockedUntil));
 
@@ -192,6 +205,7 @@ class EmailPasswordAuthServiceTest {
                         userId,
                         "user@example.com",
                         "$2a$10$hash",
+                        "active",
                         5,
                         lockedUntil)));
 
@@ -206,7 +220,13 @@ class EmailPasswordAuthServiceTest {
     void login_validPassword_shouldResetFailuresIssueTokensAndSaveRefreshToken() {
         UUID userId = UUID.randomUUID();
         given(userApi.findLoginCredentialByEmail("user@example.com"))
-                .willReturn(Optional.of(new UserLoginCredential(userId, "user@example.com", "$2a$10$hash", 1, null)));
+                .willReturn(Optional.of(new UserLoginCredential(
+                        userId,
+                        "user@example.com",
+                        "$2a$10$hash",
+                        "active",
+                        1,
+                        null)));
         given(passwordEncoder.matches("P@ssw0rd!", "$2a$10$hash")).willReturn(true);
         given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("access-token");
         given(jwtTokenProvider.createRefreshToken(userId)).willReturn("refresh-token");
@@ -217,5 +237,25 @@ class EmailPasswordAuthServiceTest {
         assertThat(result.refreshToken()).isEqualTo("refresh-token");
         verify(userApi).recordSuccessfulLogin(any(), any());
         verify(refreshTokenService).save(userId, "refresh-token");
+    }
+
+    @Test
+    void login_suspendedAccount_shouldThrowDisabledWithoutPasswordCheck() {
+        UUID userId = UUID.randomUUID();
+        given(userApi.findLoginCredentialByEmail("user@example.com"))
+                .willReturn(Optional.of(new UserLoginCredential(
+                        userId,
+                        "user@example.com",
+                        "$2a$10$hash",
+                        "suspended",
+                        0,
+                        null)));
+
+        assertThatThrownBy(() -> emailPasswordAuthService.login("user@example.com", "P@ssw0rd!"))
+                .isInstanceOf(AccountDisabledException.class)
+                .hasMessageContaining("suspended");
+
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any());
     }
 }

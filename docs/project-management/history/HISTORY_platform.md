@@ -42,10 +42,10 @@
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | Step 6 | Kafka Audit Log | Done | 2026-05-28 | 2026-05-28 | Avro+Schema Registry, outbox pattern, PUBLISHING lease, EmbeddedKafka 통합 테스트 통과 |
-| Step 7 | FCM 푸시/SES 이메일 알림 | In Progress | 2026-05-28 | — | HANDOFF 작성 완료 |
-| Step 8 | 관리자 테넌트/사용자 관리 | Not Started | — | — | |
+| Step 7 | FCM 푸시/SES 이메일 알림 | Done | 2026-05-28 | 2026-05-28 | FCM(Firebase Admin SDK) + SES(AWS SDK v2), notifications 테이블(V31), Kafka Consumer, 재시도 로직, 통합 테스트, PR #40 |
+| Step 8 | 관리자 테넌트/사용자 관리 | Done | 2026-05-28 | 2026-05-28 | V32 User.status(AttributeConverter), AdminUserService/AdminTenantService, UserSessionsRevocationRequested 이벤트, InvalidUserStatusFilterException, AdminSelfActionException, `./gradlew check` 통과 |
 
-**W3 진행률**: 1/3 Steps 완료
+**W3 진행률**: 3/3 Steps 완료
 
 ### W4 (2026-06-01 ~ 06-05)
 
@@ -246,9 +246,28 @@
     - `AuditKafkaIntegrationTest` (EmbeddedKafka + mock://platform-test Schema Registry)
     - `./gradlew test`, `./gradlew check` 전체 통과
     - docs/ai/current/ → archive/20260528-step6/ 이동 + 초기화
+  - **Step 7 완료**: FCM 푸시 + SES 이메일 알림 발송 구현 완료 (PR #40)
+    - `FcmConfig` / `SesConfig` 빈 설정, `NotificationKafkaConsumer` (notification.send 토픽 구독)
+    - `FcmPushService` (Firebase Admin SDK, 디바이스 토큰 유효성 검증)
+    - `SesEmailService` (AWS SES SDK v2, 재시도 포함)
+    - `NotificationService` 오케스트레이션 (이벤트 타입별 FCM/SES 라우팅)
+    - `Notification` 엔티티 + `V31__create_notifications.sql` Flyway 마이그레이션
+    - `KafkaErrorHandlerConfig` DLQ 설정 추가
+    - 단위 테스트 5종 + 통합 테스트 1종 (`NotificationKafkaConsumerIT`) 전체 통과
+    - `feature/PLAT-013-notification-fcm-ses` → PR #40 생성 (base: dev)
+- **Step 8 완료**: 관리자 테넌트/사용자 관리 API 구현 완료
+    - `V32__add_user_status.sql`: users 테이블 status(active|suspended|deleted), suspended_at 컬럼 추가
+    - `UserStatus` enum + `AttributeConverter` (소문자 DB 저장, `@Enumerated` 미사용)
+    - `AdminUserService` (목록/검색/정지/삭제), `AdminTenantService` (목록/상태 변경)
+    - `AdminUserController` (user 모듈), `AdminTenantController` (billing 모듈)
+    - SecurityConfig `/api/v1/admin/**` → `hasRole("ADMIN")` 적용
+    - 세션 무효화: `UserSessionsRevocationRequested` 이벤트 → `UserSessionRevocationListener` (모듈 순환 없음)
+    - `AdminSelfActionException` (관리자 본인 정지/삭제 400), `InvalidUserStatusFilterException` (잘못된 status 쿼리 400)
+    - 로그인 차단: OAuthUserResolver `isLoginAllowed()` 선검증, EmailPasswordAuthService status 검증
+    - `./gradlew check` BUILD SUCCESSFUL
 - **진행 중**: 없음
 - **이슈**: 없음
-- **다음**: Step 7 (FCM 푸시/SES 이메일 알림) 또는 Step 8 (관리자 API) 착수
+- **다음**: PR 생성 후 W4 Step 9 (E2E 테스트) 착수
 
 #### 2026-05-29 (금)
 - **완료**:

@@ -14,6 +14,7 @@ import com.synapse.platform.user.api.OAuthUserCreateCommand;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import java.util.Optional;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -53,6 +54,7 @@ public class OAuthUserResolver {
             OAuthIdentity existing = identity.get();
             existing.updateAccessTokenEnc(accessTokenEnc);
             oauthIdentityRepository.save(existing);
+            ensureLoginAllowed(existing.getUserId());
             UserInfo user = userApi.findById(existing.getUserId())
                     .orElseThrow(() -> new IllegalStateException("User not found"));
             return new OAuthResolvedUser(user, false);
@@ -62,6 +64,7 @@ public class OAuthUserResolver {
             Optional<UserInfo> existingUser = userApi.findByEmail(attributes.email());
             if (existingUser.isPresent()) {
                 UserInfo user = existingUser.get();
+                ensureLoginAllowed(user);
                 oauthIdentityRepository.save(OAuthIdentity.of(
                         user.id(),
                         attributes.provider(),
@@ -73,6 +76,16 @@ public class OAuthUserResolver {
         }
 
         return new OAuthResolvedUser(signUp(attributes, accessTokenEnc), true);
+    }
+
+    private void ensureLoginAllowed(UserInfo user) {
+        ensureLoginAllowed(user.id());
+    }
+
+    private void ensureLoginAllowed(java.util.UUID userId) {
+        if (!userApi.isLoginAllowed(userId)) {
+            throw new DisabledException("Account is disabled");
+        }
     }
 
     private UserInfo signUp(OAuthAttributes attributes, String accessTokenEnc) {

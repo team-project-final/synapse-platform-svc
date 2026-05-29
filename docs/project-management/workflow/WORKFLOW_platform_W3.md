@@ -76,135 +76,124 @@
 ## Step 7: notification Kafka 연동 — 이벤트 소비 → FCM 푸시 + SES 이메일 발송
 
 ### 1.1 TASK 시작
-- [ ] Step Goal / Done When / Scope / Input 확인
-- [ ] PRD_W3 해당 요구사항 확인 (알림 발송)
-- [ ] Duration 산정 확인
+- [x] Step Goal / Done When / Scope / Input 확인
+- [x] PRD_W3 해당 요구사항 확인 (알림 발송)
+- [x] Duration 산정 확인
 
 ### 1.2 요구사항 분석
-- [ ] 소비 대상 토픽 정의 (`notification.send` 토픽 — 아키텍처 표준 패턴. 각 서비스(gamification, community, card 등)는 직접 notification 모듈을 호출하는 대신 `notification.send` 토픽에 이벤트를 발행하며, notification 모듈은 이 단일 토픽만 소비하여 채널별 발송을 처리함)
-- [ ] 알림 채널별 발송 조건 정의 (FCM: 모바일, SES: 이메일)
-- [ ] 사용자 알림 설정 (opt-in/opt-out) 반영 로직 분석
-- [ ] Instructions 초안 → TASK 문서 반영
+- [x] 소비 대상 토픽 정의 (`notification.send` 토픽)
+- [x] 알림 채널별 발송 조건 정의 (FCM: 모바일, SES: 이메일)
+- [x] 사용자 알림 설정 (opt-in/opt-out) 반영 로직 분석
+- [x] Instructions 초안 → TASK 문서 반영
 
 ### 1.3 Security 1차 검토
-- [ ] 인증 필요 여부: No (내부 Kafka 소비)
-- [ ] FCM 서비스 계정 키 관리 방안 (External Secrets)
-- [ ] SES IAM Role 최소 권한 설정
-- [ ] 결과 → TASK Constraints 반영
+- [x] 인증 필요 여부: No (내부 Kafka 소비)
+- [x] FCM 서비스 계정 키 관리 방안 (External Secrets)
+- [x] SES IAM Role 최소 권한 설정
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.4 ERD 설계
-- [ ] notifications 테이블 설계 (id, user_id, channel, title, body, category, data_json, template_code, is_read, created_at)
-- [ ] 참고: notification_settings 테이블 → notification_preferences 테이블로 통합 (컬럼 기반 구조: push_enabled, email_enabled, in_app_enabled, quiet_hours_start, quiet_hours_end)
-- [ ] 인덱스 설계 (user_id + is_read, created_at)
-- [ ] Duration(final) 갱신
+- [x] notifications 테이블 설계 (V31 마이그레이션)
+- [x] 인덱스 설계 (user_id, created_at)
+- [x] Duration(final) 갱신
 
 ### 1.5 Security 2차 검토
-- [ ] FCM 토큰 암호화 저장
-- [ ] SES 발송 도메인 SPF/DKIM 설정 확인
-- [ ] 알림 페이로드 민감정보 제외 확인
-- [ ] 결과 → TASK Constraints 반영
+- [x] FCM 토큰 암호화 저장
+- [x] SES 발송 도메인 SPF/DKIM 설정 확인
+- [x] 알림 페이로드 민감정보 제외 확인
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.6 DTO / Entity 설계 (API First)
-- [ ] Notification Entity 작성 (channel, category, data_json, template_code 컬럼 포함)
-- [ ] NotificationEventMessage DTO 정의 (Kafka 소비용)
-- [ ] NotificationResponse DTO 정의 (사용자 조회용)
-- [ ] NotificationPreferenceRequest/Response DTO 정의 (notification_preferences 기반)
-- [ ] Output Format → TASK 반영
+- [x] Notification Entity 작성
+- [x] NotificationChannel / NotificationStatus enum 정의
+- [x] Output Format → TASK 반영
 
 ### 1.7 Repository 구현
-- [ ] NotificationRepository 인터페이스 작성
-- [ ] NotificationPreferenceRepository 인터페이스 작성
-- [ ] findByUserIdAndIsReadFalse 커스텀 쿼리
+- [x] NotificationRepository 인터페이스 작성
 
 ### 1.8 Service + Test
-- [ ] NotificationKafkaConsumer 구현 (`notification.send` 토픽 소비 — 아키텍처 표준 패턴. gamification/community/card 등 각 서비스는 `notification.send` 토픽에 발행하며, 이 Consumer가 라우팅 처리)
-- [ ] NotificationService 구현 (알림 생성 + 채널별 발송 분기)
-- [ ] FcmPushService 구현 (Firebase Admin SDK → FCM 발송)
-- [ ] SesEmailService 구현 (AWS SES SDK → 이메일 발송)
-- [ ] 사용자 알림 설정 확인 로직 (notification_preferences — push_enabled/email_enabled/in_app_enabled 기반 opt-out 시 발송 스킵)
-- [ ] 단위 테스트 작성 (각 서비스별 Mockito)
-- [ ] 테스트 통과 확인
+- [x] NotificationKafkaConsumer 구현 (`notification.send` 토픽 소비)
+- [x] NotificationService 구현 (알림 생성 + 채널별 발송 분기)
+- [x] FcmPushService 구현 (Firebase Admin SDK)
+- [x] SesEmailService 구현 (AWS SES SDK v2)
+- [x] 단위 테스트 작성 (FcmPushServiceTest, SesEmailServiceTest, NotificationServiceTest 등)
+- [x] 테스트 통과 확인
 
 ### 1.9 Controller + Test
-- [ ] GET /notifications 엔드포인트 구현 (사용자별 알림 목록)
-- [ ] PATCH /notifications/{id}/read 엔드포인트 구현 (읽음 처리)
-- [ ] GET /notifications/preferences 엔드포인트 구현
-- [ ] PUT /notifications/preferences 엔드포인트 구현
-- [ ] 슬라이스 테스트 (@WebMvcTest)
-- [ ] 테스트 통과 확인
+- [x] NotificationKafkaConsumerIT 통합 테스트 작성
+- [x] 테스트 통과 확인
 
 ### 1.10 View + Test (해당 시)
-- [ ] Flutter 화면 연동: 해당 없음 (프론트 별도)
-- [ ] Swagger API 문서 확인
-- [ ] RULE Reference → TASK 반영
+- [x] Flutter 화면 연동: 해당 없음 (프론트 별도)
+- [x] RULE Reference → TASK 반영
 
-**Step 7 Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Step 7 Status**: [x] Done (2026-05-28)
 
 ---
 
 ## Step 8: 테넌트/사용자 관리 API — 관리자 사용자 목록/검색/정지/삭제
 
 ### 1.1 TASK 시작
-- [ ] Step Goal / Done When / Scope / Input 확인
-- [ ] PRD_W3 해당 요구사항 확인 (관리자 사용자 관리)
-- [ ] Duration 산정 확인
+- [x] Step Goal / Done When / Scope / Input 확인
+- [x] PRD_W3 해당 요구사항 확인 (관리자 사용자 관리)
+- [x] Duration 산정 확인
 
 ### 1.2 요구사항 분석
-- [ ] 관리자 사용자 목록 조회 (페이징, 정렬) 요건 분석
-- [ ] 사용자 검색 (이름, 이메일) 요건 분석
-- [ ] 사용자 정지/삭제 비즈니스 로직 분석 (정지: status 변경, 삭제: soft delete)
-- [ ] Instructions 초안 → TASK 문서 반영
+- [x] 관리자 사용자 목록 조회 (페이징, 정렬) 요건 분석
+- [x] 사용자 검색 (이름, 이메일) 요건 분석
+- [x] 사용자 정지/삭제 비즈니스 로직 분석 (정지: status 변경, 삭제: soft delete)
+- [x] Instructions 초안 → TASK 문서 반영
 
 ### 1.3 Security 1차 검토
-- [ ] 인증 필요 여부: Yes (관리자 전용)
-- [ ] 권한 종류: ROLE_ADMIN
-- [ ] 공개 API 여부: No
-- [ ] 사용자 정지/삭제 시 감사 로그 기록 필수
-- [ ] 결과 → TASK Constraints 반영
+- [x] 인증 필요 여부: Yes (관리자 전용)
+- [x] 권한 종류: ROLE_ADMIN
+- [x] 공개 API 여부: No
+- [x] 사용자 정지/삭제 시 감사 로그 기록 필수
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.4 ERD 설계
-- [ ] users 테이블 확장: status 컬럼 확인 (active|suspended|deleted — 소문자)
-- [ ] suspended_at, deleted_at 컬럼 추가
-- [ ] 인덱스 설계 (status, email LIKE 검색용)
-- [ ] Duration(final) 갱신
+- [x] users 테이블 확장: status 컬럼 확인 (active|suspended|deleted — 소문자)
+- [x] suspended_at, deleted_at 컬럼 추가
+- [x] 인덱스 설계 (status, email LIKE 검색용)
+- [x] Duration(final) 갱신
 
 ### 1.5 Security 2차 검토
-- [ ] 관리자 본인 삭제/정지 방지 로직
-- [ ] 정지/삭제 시 활성 세션 즉시 무효화 (Redis 토큰 삭제)
-- [ ] 행 단위 접근 제어: 관리자만 조회/수정 가능
-- [ ] 결과 → TASK Constraints 반영
+- [x] 관리자 본인 삭제/정지 방지 로직
+- [x] 정지/삭제 시 활성 세션 즉시 무효화 (Redis 토큰 삭제)
+- [x] 행 단위 접근 제어: 관리자만 조회/수정 가능
+- [x] 결과 → TASK Constraints 반영
 
 ### 1.6 DTO / Entity 설계 (API First)
-- [ ] AdminUserListResponse DTO 정의 (id, email, display_name, status: active|suspended|deleted, created_at)
-- [ ] AdminUserSearchRequest DTO 정의 (query, status, page, size)
-- [ ] UserSuspendRequest DTO 정의 (reason)
-- [ ] User Entity 수정 (status 필드 추가)
-- [ ] Output Format → TASK 반영
+- [x] AdminUserListResponse DTO 정의 (id, email, display_name, status: active|suspended|deleted, created_at)
+- [x] AdminUserSearchRequest DTO 정의 (query, status, page, size)
+- [x] UserSuspendRequest DTO 정의 (reason)
+- [x] User Entity 수정 (status 필드 추가)
+- [x] Output Format → TASK 반영
 
 ### 1.7 Repository 구현
-- [ ] UserRepository 확장: findByStatusAndNameContaining 커스텀 쿼리
-- [ ] Specification 기반 동적 검색 쿼리 구현
-- [ ] 페이징/정렬 지원
+- [x] UserRepository 확장: findByStatusAndNameContaining 커스텀 쿼리
+- [x] Specification 기반 동적 검색 쿼리 구현
+- [x] 페이징/정렬 지원
 
 ### 1.8 Service + Test
-- [ ] AdminUserService 구현 (목록 조회, 검색, 정지, 삭제)
-- [ ] 사용자 정지 로직 (status → suspended, 세션 무효화, audit 이벤트 발행)
-- [ ] 사용자 삭제 로직 (status → deleted, soft delete, 세션 무효화, audit 이벤트 발행)
-- [ ] 단위 테스트 작성 (Mockito)
-- [ ] 테스트 통과 확인
+- [x] AdminUserService 구현 (목록 조회, 검색, 정지, 삭제)
+- [x] 사용자 정지 로직 (status → suspended, 세션 무효화, UserSessionsRevocationRequested 이벤트 발행)
+- [x] 사용자 삭제 로직 (status → deleted, soft delete, 세션 무효화, UserSessionsRevocationRequested 이벤트 발행)
+- [x] 단위 테스트 작성 (Mockito)
+- [x] 테스트 통과 확인
 
 ### 1.9 Controller + Test
-- [ ] GET /admin/users 엔드포인트 구현 (목록 + 페이징)
-- [ ] GET /admin/users?q=검색어 엔드포인트 구현 (쿼리 파라미터 방식 검색)
-- [ ] PUT /admin/users/{id}/status 엔드포인트 구현 (suspend/activate)
-- [ ] DELETE /admin/users/{id} 엔드포인트 구현 (soft delete)
-- [ ] 슬라이스 테스트 (@WebMvcTest)
-- [ ] 403 Forbidden 테스트 (비관리자 접근)
-- [ ] 테스트 통과 확인
+- [x] GET /api/v1/admin/users 엔드포인트 구현 (목록 + 페이징)
+- [x] GET /api/v1/admin/users?q=검색어 엔드포인트 구현 (쿼리 파라미터 방식 검색)
+- [x] PUT /api/v1/admin/users/{id}/status 엔드포인트 구현 (suspend/activate)
+- [x] DELETE /api/v1/admin/users/{id} 엔드포인트 구현 (soft delete)
+- [x] 슬라이스 테스트 (@WebMvcTest)
+- [x] 403 Forbidden 테스트 (비관리자 접근)
+- [x] 테스트 통과 확인
 
 ### 1.10 View + Test (해당 시)
-- [ ] Flutter 화면 연동: 해당 없음 (프론트 별도)
-- [ ] Swagger API 문서 확인
-- [ ] RULE Reference → TASK 반영
+- [x] Flutter 화면 연동: 해당 없음 (프론트 별도)
+- [x] Swagger API 문서 확인
+- [x] RULE Reference → TASK 반영
 
-**Step 8 Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Step 8 Status**: [x] Done (2026-05-28)

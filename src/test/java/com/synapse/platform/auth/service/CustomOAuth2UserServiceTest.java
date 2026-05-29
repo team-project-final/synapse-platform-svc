@@ -262,6 +262,11 @@ class CustomOAuth2UserServiceTest {
             }
 
             @Override
+            public boolean isLoginAllowed(UUID userId) {
+                return true;
+            }
+
+            @Override
             public boolean existsByEmail(String email) {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
             }

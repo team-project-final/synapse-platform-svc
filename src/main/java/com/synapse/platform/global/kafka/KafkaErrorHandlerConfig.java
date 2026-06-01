@@ -4,7 +4,7 @@ import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.specific.SpecificRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -37,12 +37,13 @@ public class KafkaErrorHandlerConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, GenericRecord> dltKafkaTemplate() {
+    public KafkaTemplate<String, Object> dltKafkaTemplate() {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
         props.put("schema.registry.url", schemaRegistryUrl);
+        props.put("auto.register.schemas", true);
         return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(props));
     }
 
@@ -57,12 +58,12 @@ public class KafkaErrorHandlerConfig {
 
     @Bean
     public DefaultErrorHandler defaultErrorHandler(
-            @Qualifier("dltKafkaTemplate") KafkaTemplate<String, GenericRecord> dltKafkaTemplate,
+            @Qualifier("dltKafkaTemplate") KafkaTemplate<String, Object> dltKafkaTemplate,
             @Qualifier("dltBytesKafkaTemplate") KafkaTemplate<String, byte[]> dltBytesKafkaTemplate) {
         Map<Class<?>, KafkaOperations<? extends Object, ? extends Object>> templates = new LinkedHashMap<>();
         templates.put(byte[].class, dltBytesKafkaTemplate);
         templates.put(Void.class, dltBytesKafkaTemplate);
-        templates.put(GenericRecord.class, dltKafkaTemplate);
+        templates.put(SpecificRecord.class, dltKafkaTemplate);
         templates.put(Object.class, dltKafkaTemplate);
         var recoverer = new DeadLetterPublishingRecoverer(templates,
             (record, ex) -> new TopicPartition(record.topic() + topicProperties.getDlqSuffix(), record.partition()));
@@ -71,12 +72,12 @@ public class KafkaErrorHandlerConfig {
 
     @Bean("notificationErrorHandler")
     public DefaultErrorHandler notificationErrorHandler(
-            @Qualifier("dltKafkaTemplate") KafkaTemplate<String, GenericRecord> dltKafkaTemplate,
+            @Qualifier("dltKafkaTemplate") KafkaTemplate<String, Object> dltKafkaTemplate,
             @Qualifier("dltBytesKafkaTemplate") KafkaTemplate<String, byte[]> dltBytesKafkaTemplate) {
         Map<Class<?>, KafkaOperations<? extends Object, ? extends Object>> templates = new LinkedHashMap<>();
         templates.put(byte[].class, dltBytesKafkaTemplate);
         templates.put(Void.class, dltBytesKafkaTemplate);
-        templates.put(GenericRecord.class, dltKafkaTemplate);
+        templates.put(SpecificRecord.class, dltKafkaTemplate);
         templates.put(Object.class, dltKafkaTemplate);
         var recoverer = new DeadLetterPublishingRecoverer(templates,
             (record, ex) -> new TopicPartition(record.topic() + topicProperties.getDlqSuffix(), record.partition()));

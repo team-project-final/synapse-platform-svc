@@ -5,6 +5,7 @@ plugins {
     id("org.springframework.boot") version "4.0.0"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.github.spotbugs") version "6.0.9"
+    id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
 }
 
 group = "com.synapse"
@@ -56,7 +57,7 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
 
     implementation("org.springframework.kafka:spring-kafka")
-    implementation("org.apache.avro:avro:1.11.3")
+    implementation("org.apache.avro:avro:1.12.0")
     implementation("io.confluent:kafka-avro-serializer:7.7.0")
 
     implementation("com.google.firebase:firebase-admin:9.4.1")
@@ -81,6 +82,13 @@ tasks.withType<Test> {
 configure<org.gradle.api.plugins.quality.CheckstyleExtension> {
     toolVersion = "10.12.5"
     configFile = rootProject.file("config/checkstyle/checkstyle.xml")
+}
+
+tasks.withType<Checkstyle>().configureEach {
+    setSource(source.filter {
+        !it.path.contains("generated-main-avro-java")
+                && !it.path.contains("generated-test-avro-java")
+    })
 }
 
 spotbugs {

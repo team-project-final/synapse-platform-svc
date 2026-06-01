@@ -1,12 +1,11 @@
 package com.synapse.platform.audit.service;
 
+import com.synapse.platform.UserRegistered;
 import com.synapse.platform.audit.dto.AuditLogResponse;
 import com.synapse.platform.audit.entity.AuditLog;
 import com.synapse.platform.audit.repository.AuditLogRepository;
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,9 +27,9 @@ public class AuditLogService {
         this.repository = repository;
     }
 
-    public void processEvent(GenericRecord envelope) {
+    public void processEvent(UserRegistered event) {
         try {
-            AuditLog auditLog = toAuditLog(envelope);
+            AuditLog auditLog = toAuditLog(event);
             repository.save(auditLog);
         } catch (DataIntegrityViolationException exception) {
             log.info("Duplicate event skipped");
@@ -54,29 +53,19 @@ public class AuditLogService {
         return repository.findAll(pageable).map(AuditLogResponse::from);
     }
 
-    private AuditLog toAuditLog(GenericRecord envelope) {
-        UUID eventId = UUID.fromString(requiredText(envelope, "id"));
-        String type = requiredText(envelope, "type");
-        GenericRecord data = PlatformAvroEvents.decodeUserRegistered(envelope);
-        UUID userId = UUID.fromString(requiredText(data, "userId"));
+    private AuditLog toAuditLog(UserRegistered event) {
+        UUID eventId = UUID.fromString(requiredText(event.getEventId(), "eventId"));
+        UUID userId = UUID.fromString(requiredText(event.getUserId(), "userId"));
         return AuditLog.of(
                 eventId,
-                actionFor(type),
+                "USER_REGISTERED",
                 userId,
                 "USER",
                 userId.toString(),
-                data.toString());
+                event.toString());
     }
 
-    private String actionFor(String type) {
-        if (PlatformAvroEvents.USER_REGISTERED_TYPE.equals(type)) {
-            return "USER_REGISTERED";
-        }
-        throw new IllegalArgumentException("Unsupported audit event type: " + type);
-    }
-
-    private String requiredText(GenericRecord record, String fieldName) {
-        Object rawValue = record.get(fieldName);
+    private String requiredText(Object rawValue, String fieldName) {
         String value = rawValue == null ? null : rawValue.toString();
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Missing audit event field: " + fieldName);

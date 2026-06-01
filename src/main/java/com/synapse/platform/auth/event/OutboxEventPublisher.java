@@ -1,10 +1,10 @@
 package com.synapse.platform.auth.event;
 
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
-import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,16 +20,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutboxEventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxEventPublisher.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final OutboxEventRepository repository;
-    private final KafkaTemplate<String, GenericRecord> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Value("${app.kafka.outbox.publish-lease-ms:60000}")
     private long publishLeaseMs = 60000L;
 
     public OutboxEventPublisher(
             OutboxEventRepository repository,
-            @Qualifier("eventKafkaTemplate") KafkaTemplate<String, GenericRecord> kafkaTemplate) {
+            @Qualifier("eventKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate) {
         this.repository = repository;
         this.kafkaTemplate = kafkaTemplate;
     }
@@ -58,8 +59,9 @@ public class OutboxEventPublisher {
 
     private void publish(OutboxEvent event) {
         try {
-            GenericRecord envelope = PlatformAvroEvents.decodeCloudEvent(event.getPayload());
-            kafkaTemplate.send(event.getTopic(), event.getEventKey(), envelope)
+            UserRegisteredOutboxPayload payload = objectMapper.readValue(
+                    event.getPayload(), UserRegisteredOutboxPayload.class);
+            kafkaTemplate.send(event.getTopic(), payload.tenantId(), payload.toRecord())
                     .whenComplete((result, exception) -> {
                         if (exception == null) {
                             event.markPublished();
@@ -70,7 +72,7 @@ public class OutboxEventPublisher {
                         repository.save(event);
                         logPublishFailure(event, exception);
                     });
-        } catch (RuntimeException exception) {
+        } catch (IOException | RuntimeException exception) {
             event.markPublishFailed(exception);
             repository.save(event);
             logPublishFailure(event, exception);

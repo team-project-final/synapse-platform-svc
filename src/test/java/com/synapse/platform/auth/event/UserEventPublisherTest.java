@@ -6,14 +6,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.synapse.platform.UserRegistered;
 import java.util.UUID;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 class UserEventPublisherTest {
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final OutboxEventRepository repository = Mockito.mock(OutboxEventRepository.class);
     private final UserEventPublisher publisher = new UserEventPublisher(
@@ -32,17 +35,17 @@ class UserEventPublisherTest {
         verify(repository).save(captor.capture());
         OutboxEvent saved = captor.getValue();
         assertThat(saved.getTopic()).isEqualTo("platform.auth.user-registered-v1");
-        assertThat(saved.getEventKey()).isEqualTo(userId.toString());
-        assertThat(saved.getEventType()).isEqualTo("com.synapse.event.platform.UserRegistered");
+        assertThat(saved.getEventKey()).isEqualTo(tenantId.toString());
+        assertThat(saved.getEventType()).isEqualTo(UserRegistered.class.getName());
         assertThat(saved.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
         assertThat(saved.getAttempts()).isZero();
-        GenericRecord envelope = PlatformAvroEvents.decodeCloudEvent(saved.getPayload());
-        GenericRecord data = PlatformAvroEvents.decodeUserRegistered(envelope);
-        assertThat(envelope.get("type").toString()).isEqualTo("com.synapse.event.platform.UserRegistered");
-        assertThat(envelope.get("tenantid").toString()).isEqualTo(tenantId.toString());
-        assertThat(data.get("userId").toString()).isEqualTo(userId.toString());
-        assertThat(data.get("tenantId").toString()).isEqualTo(tenantId.toString());
-        assertThat(data.get("email").toString()).isEqualTo("new@example.com");
+        JsonNode payload = objectMapper.readTree(saved.getPayload());
+        assertThat(payload.get("eventId").asText()).isNotBlank();
+        assertThat(payload.get("occurredAt").asLong()).isPositive();
+        assertThat(payload.get("tenantId").asText()).isEqualTo(tenantId.toString());
+        assertThat(payload.get("userId").asText()).isEqualTo(userId.toString());
+        assertThat(payload.get("email").asText()).isEqualTo("new@example.com");
+        assertThat(payload.get("displayName").asText()).isEqualTo("New User");
     }
 
     @Test

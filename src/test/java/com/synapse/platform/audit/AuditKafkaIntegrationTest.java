@@ -3,15 +3,15 @@ package com.synapse.platform.audit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.synapse.platform.UserRegistered;
 import com.synapse.platform.audit.repository.AuditLogRepository;
 import com.synapse.platform.auth.event.OutboxEventPublisher;
 import com.synapse.platform.auth.event.OutboxEventRepository;
 import com.synapse.platform.auth.event.OutboxEventStatus;
 import com.synapse.platform.auth.event.UserEventPublisher;
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import java.time.Instant;
 import java.time.Duration;
 import java.util.UUID;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -49,7 +49,7 @@ class AuditKafkaIntegrationTest {
 
     @Autowired
     @Qualifier("eventKafkaTemplate")
-    private KafkaTemplate<String, GenericRecord> kafkaTemplate;
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @BeforeEach
     void cleanUp() {
@@ -62,19 +62,20 @@ class AuditKafkaIntegrationTest {
     void userRegisteredEvent_shouldBeStoredInAuditLogs() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
-        GenericRecord event = PlatformAvroEvents.userRegisteredEnvelope(
+        UserRegistered event = userRegistered(
+                UUID.randomUUID(),
                 userId,
+                tenantId,
                 "new@example.com",
-                "New User",
-                tenantId);
+                "New User");
 
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
+        kafkaTemplate.send(TOPIC, tenantId.toString(), event);
 
         await().atMost(Duration.ofSeconds(3)).untilAsserted(() ->
                 assertThat(auditLogRepository.findAll())
                         .singleElement()
                         .satisfies(log -> {
-                            assertThat(log.getEventId()).isEqualTo(UUID.fromString(event.get("id").toString()));
+                            assertThat(log.getEventId()).isEqualTo(UUID.fromString(event.getEventId()));
                             assertThat(log.getAction()).isEqualTo("USER_REGISTERED");
                             assertThat(log.getUserId()).isEqualTo(userId);
                             assertThat(log.getResourceType()).isEqualTo("USER");
@@ -86,14 +87,15 @@ class AuditKafkaIntegrationTest {
     void duplicateUserRegisteredEvent_shouldStoreOnlyOneAuditLog() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
-        GenericRecord event = PlatformAvroEvents.userRegisteredEnvelope(
+        UserRegistered event = userRegistered(
+                UUID.randomUUID(),
                 userId,
+                tenantId,
                 "new@example.com",
-                "New User",
-                tenantId);
+                "New User");
 
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
+        kafkaTemplate.send(TOPIC, tenantId.toString(), event);
+        kafkaTemplate.send(TOPIC, tenantId.toString(), event);
 
         await().atMost(Duration.ofSeconds(3)).untilAsserted(() ->
                 assertThat(auditLogRepository.findAll()).hasSize(1));
@@ -120,5 +122,22 @@ class AuditKafkaIntegrationTest {
                     .satisfies(event ->
                             assertThat(event.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED));
         });
+    }
+
+    private static UserRegistered userRegistered(
+            UUID eventId,
+            UUID userId,
+            UUID tenantId,
+            String email,
+            String displayName) {
+        return UserRegistered.newBuilder()
+                .setEventId(eventId.toString())
+                .setTenantId(tenantId.toString())
+                .setOccurredAt(Instant.now().toEpochMilli())
+                .setTraceparent(null)
+                .setUserId(userId.toString())
+                .setEmail(email)
+                .setDisplayName(displayName)
+                .build();
     }
 }

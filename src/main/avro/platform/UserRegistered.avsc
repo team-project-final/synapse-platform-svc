@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "UserRegistered",
+  "namespace": "com.synapse.platform",
+  "doc": "Emitted when a new user completes registration.",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "tenantId", "type": "string"},
+    {"name": "occurredAt", "type": "long"},
+    {"name": "traceparent", "type": ["null", "string"], "default": null},
+    {"name": "userId", "type": "string"},
+    {"name": "email", "type": "string"},
+    {"name": "displayName", "type": "string"}
+  ]
+}

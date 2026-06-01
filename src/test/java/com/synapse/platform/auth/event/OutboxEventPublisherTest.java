@@ -7,11 +7,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import com.synapse.platform.UserRegistered;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -22,29 +23,32 @@ import org.springframework.kafka.support.SendResult;
 class OutboxEventPublisherTest {
 
     private final OutboxEventRepository repository = Mockito.mock(OutboxEventRepository.class);
-    private final KafkaTemplate<String, GenericRecord> kafkaTemplate = Mockito.mock(KafkaTemplate.class);
+    private final KafkaTemplate<String, Object> kafkaTemplate = Mockito.mock(KafkaTemplate.class);
     private final OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafkaTemplate);
 
     @Test
     void publishPendingEvents_sendSuccess_shouldMarkEventPublished() {
+        UUID tenantId = UUID.randomUUID();
         OutboxEvent event = OutboxEvent.pending(
                 "platform.auth.user-registered-v1",
-                "user-1",
-                "com.synapse.event.platform.UserRegistered",
-                payload());
+                tenantId.toString(),
+                UserRegistered.class.getName(),
+                payload(UUID.randomUUID(), tenantId));
         given(repository.findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 eq(OutboxEventStatus.PENDING),
                 any(OffsetDateTime.class)))
                 .willReturn(List.of(event));
         given(repository.claimPending(eq(event.getId()), any(OffsetDateTime.class))).willReturn(1);
-        given(kafkaTemplate.send(eq(event.getTopic()), eq(event.getEventKey()), any(GenericRecord.class)))
+        given(kafkaTemplate.send(eq(event.getTopic()), eq(tenantId.toString()), any(UserRegistered.class)))
                 .willReturn(CompletableFuture.completedFuture(Mockito.mock(SendResult.class)));
 
         publisher.publishPendingEvents();
 
         verify(repository).resetTimedOutPublishing(any(OffsetDateTime.class));
         verify(repository).claimPending(eq(event.getId()), any(OffsetDateTime.class));
-        verify(kafkaTemplate).send(eq(event.getTopic()), eq(event.getEventKey()), any(GenericRecord.class));
+        ArgumentCaptor<UserRegistered> recordCaptor = ArgumentCaptor.forClass(UserRegistered.class);
+        verify(kafkaTemplate).send(eq(event.getTopic()), eq(tenantId.toString()), recordCaptor.capture());
+        assertThat(recordCaptor.getValue().getTenantId().toString()).isEqualTo(tenantId.toString());
         assertThat(event.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
         assertThat(event.getPublishedAt()).isNotNull();
         verify(repository).save(event);
@@ -54,9 +58,9 @@ class OutboxEventPublisherTest {
     void publishPendingEvents_claimFailure_shouldNotPublishEvent() {
         OutboxEvent event = OutboxEvent.pending(
                 "platform.auth.user-registered-v1",
-                "user-1",
-                "com.synapse.event.platform.UserRegistered",
-                payload());
+                UUID.randomUUID().toString(),
+                UserRegistered.class.getName(),
+                payload(UUID.randomUUID(), UUID.randomUUID()));
         given(repository.findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 eq(OutboxEventStatus.PENDING),
                 any(OffsetDateTime.class)))
@@ -66,24 +70,25 @@ class OutboxEventPublisherTest {
         publisher.publishPendingEvents();
 
         verify(repository).claimPending(eq(event.getId()), any(OffsetDateTime.class));
-        verify(kafkaTemplate, Mockito.never()).send(any(), any(), any(GenericRecord.class));
+        verify(kafkaTemplate, Mockito.never()).send(any(), any(), any(UserRegistered.class));
     }
 
     @Test
     void publishPendingEvents_sendFailure_shouldRecordFailureForRetry() {
+        UUID tenantId = UUID.randomUUID();
         OutboxEvent event = OutboxEvent.pending(
                 "platform.auth.user-registered-v1",
-                "user-1",
-                "com.synapse.event.platform.UserRegistered",
-                payload());
-        CompletableFuture<SendResult<String, GenericRecord>> failed = new CompletableFuture<>();
+                tenantId.toString(),
+                UserRegistered.class.getName(),
+                payload(UUID.randomUUID(), tenantId));
+        CompletableFuture<SendResult<String, Object>> failed = new CompletableFuture<>();
         failed.completeExceptionally(new IllegalStateException("broker unavailable"));
         given(repository.findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 eq(OutboxEventStatus.PENDING),
                 any(OffsetDateTime.class)))
                 .willReturn(List.of(event));
         given(repository.claimPending(eq(event.getId()), any(OffsetDateTime.class))).willReturn(1);
-        given(kafkaTemplate.send(eq(event.getTopic()), eq(event.getEventKey()), any(GenericRecord.class)))
+        given(kafkaTemplate.send(eq(event.getTopic()), eq(tenantId.toString()), any(UserRegistered.class)))
                 .willReturn(failed);
 
         publisher.publishPendingEvents();
@@ -97,11 +102,12 @@ class OutboxEventPublisherTest {
 
     @Test
     void publishPendingEvents_sendThrows_shouldRecordFailureForRetry() {
+        UUID tenantId = UUID.randomUUID();
         OutboxEvent event = OutboxEvent.pending(
                 "platform.auth.user-registered-v1",
-                "user-1",
-                "com.synapse.event.platform.UserRegistered",
-                payload());
+                tenantId.toString(),
+                UserRegistered.class.getName(),
+                payload(UUID.randomUUID(), tenantId));
         given(repository.findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 eq(OutboxEventStatus.PENDING),
                 any(OffsetDateTime.class)))
@@ -109,7 +115,7 @@ class OutboxEventPublisherTest {
         given(repository.claimPending(eq(event.getId()), any(OffsetDateTime.class))).willReturn(1);
         willThrow(new IllegalStateException("serializer unavailable"))
                 .given(kafkaTemplate)
-                .send(eq(event.getTopic()), eq(event.getEventKey()), any(GenericRecord.class));
+                .send(eq(event.getTopic()), eq(tenantId.toString()), any(UserRegistered.class));
 
         publisher.publishPendingEvents();
 
@@ -139,9 +145,9 @@ class OutboxEventPublisherTest {
     void publishPendingEvents_claimShouldUseFutureLeaseDeadline() {
         OutboxEvent event = OutboxEvent.pending(
                 "platform.auth.user-registered-v1",
-                "user-1",
-                "com.synapse.event.platform.UserRegistered",
-                payload());
+                UUID.randomUUID().toString(),
+                UserRegistered.class.getName(),
+                payload(UUID.randomUUID(), UUID.randomUUID()));
         OffsetDateTime beforePublish = OffsetDateTime.now();
         given(repository.findTop50ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 eq(OutboxEventStatus.PENDING),
@@ -156,11 +162,17 @@ class OutboxEventPublisherTest {
         assertThat(leaseDeadline.getValue()).isAfter(beforePublish);
     }
 
-    private byte[] payload() {
-        return PlatformAvroEvents.userRegisteredEnvelopeBytes(
-                java.util.UUID.randomUUID(),
-                "new@example.com",
-                "New User",
-                java.util.UUID.randomUUID());
+    private byte[] payload(UUID userId, UUID tenantId) {
+        String payload = """
+                {
+                  "eventId": "%s",
+                  "tenantId": "%s",
+                  "occurredAt": 1717000000000,
+                  "userId": "%s",
+                  "email": "new@example.com",
+                  "displayName": "New User"
+                }
+                """.formatted(UUID.randomUUID(), tenantId, userId);
+        return payload.getBytes(StandardCharsets.UTF_8);
     }
 }

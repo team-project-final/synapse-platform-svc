@@ -9,7 +9,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import com.synapse.platform.NotificationSend;
 import com.synapse.platform.notification.entity.Notification;
 import com.synapse.platform.notification.entity.NotificationChannel;
 import com.synapse.platform.notification.entity.NotificationStatus;
@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -50,15 +49,15 @@ class NotificationServiceTest {
     @Test
     void processNotificationSend_fcmChannel_shouldSendPushAndMarkSent() {
         UUID userId = UUID.randomUUID();
-        GenericRecord envelope = envelope(userId, List.of("FCM"));
+        NotificationSend event = event(userId, List.of("FCM"));
         given(fcmPushServiceProvider.getIfAvailable()).willReturn(fcmPushService);
         given(notificationRepository.findByEventIdAndChannel(
-                UUID.fromString(envelope.get("id").toString()),
+                UUID.fromString(event.getEventId().toString()),
                 NotificationChannel.FCM))
                 .willReturn(Optional.empty());
         given(notificationRepository.save(any(Notification.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-        service().processNotificationSend(envelope);
+        service().processNotificationSend(event);
 
         verify(fcmPushService).sendToUser(eq(userId), eq("Review due"), eq("A card is ready."), any(Map.class));
         ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
@@ -70,16 +69,16 @@ class NotificationServiceTest {
     @Test
     void processNotificationSend_emailChannel_shouldSendEmailAndMarkSent() {
         UUID userId = UUID.randomUUID();
-        GenericRecord envelope = envelope(userId, List.of("EMAIL"));
+        NotificationSend event = event(userId, List.of("EMAIL"));
         given(sesEmailServiceProvider.getIfAvailable()).willReturn(sesEmailService);
         given(notificationRepository.findByEventIdAndChannel(
-                UUID.fromString(envelope.get("id").toString()),
+                UUID.fromString(event.getEventId().toString()),
                 NotificationChannel.EMAIL))
                 .willReturn(Optional.empty());
         given(notificationRepository.countTodayEmailByUserId(eq(userId), any(Instant.class))).willReturn(0L);
         given(notificationRepository.save(any(Notification.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-        service().processNotificationSend(envelope);
+        service().processNotificationSend(event);
 
         verify(sesEmailService).sendToUser(userId, "Review due email", "<p>A card is ready.</p>");
         ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
@@ -91,9 +90,9 @@ class NotificationServiceTest {
     @Test
     void processNotificationSend_existingSentNotification_shouldSkipSend() {
         UUID userId = UUID.randomUUID();
-        GenericRecord envelope = envelope(userId, List.of("FCM"));
+        NotificationSend event = event(userId, List.of("FCM"));
         Notification existing = notification(
-                UUID.fromString(envelope.get("id").toString()),
+                UUID.fromString(event.getEventId().toString()),
                 userId,
                 NotificationChannel.FCM);
         existing.markSent();
@@ -101,7 +100,7 @@ class NotificationServiceTest {
         given(notificationRepository.findByEventIdAndChannel(existing.getEventId(), NotificationChannel.FCM))
                 .willReturn(Optional.of(existing));
 
-        service().processNotificationSend(envelope);
+        service().processNotificationSend(event);
 
         verify(fcmPushService, never()).sendToUser(any(), any(), any(), any());
         verify(notificationRepository, never()).save(existing);
@@ -110,11 +109,11 @@ class NotificationServiceTest {
     @Test
     void processNotificationSend_fcmFailure_shouldMarkFailedAndRethrow() {
         UUID userId = UUID.randomUUID();
-        GenericRecord envelope = envelope(userId, List.of("FCM"));
+        NotificationSend event = event(userId, List.of("FCM"));
         List<Notification> saved = new ArrayList<>();
         given(fcmPushServiceProvider.getIfAvailable()).willReturn(fcmPushService);
         given(notificationRepository.findByEventIdAndChannel(
-                UUID.fromString(envelope.get("id").toString()),
+                UUID.fromString(event.getEventId().toString()),
                 NotificationChannel.FCM))
                 .willReturn(Optional.empty());
         given(notificationRepository.save(any(Notification.class))).willAnswer(invocation -> {
@@ -126,7 +125,7 @@ class NotificationServiceTest {
                 .given(fcmPushService)
                 .sendToUser(eq(userId), any(), any(), any());
 
-        assertThatThrownBy(() -> service().processNotificationSend(envelope))
+        assertThatThrownBy(() -> service().processNotificationSend(event))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("fcm down");
 
@@ -138,11 +137,11 @@ class NotificationServiceTest {
     @Test
     void processNotificationSend_emailDailyLimitExceeded_shouldSkipWithoutSavingSentRecord() {
         UUID userId = UUID.randomUUID();
-        GenericRecord envelope = envelope(userId, List.of("EMAIL"));
+        NotificationSend event = event(userId, List.of("EMAIL"));
         given(sesEmailServiceProvider.getIfAvailable()).willReturn(sesEmailService);
         given(notificationRepository.countTodayEmailByUserId(eq(userId), any(Instant.class))).willReturn(10L);
 
-        service().processNotificationSend(envelope);
+        service().processNotificationSend(event);
 
         verify(sesEmailService, never()).sendToUser(any(), any(), any());
         verify(notificationRepository, never()).save(any(Notification.class));
@@ -151,10 +150,10 @@ class NotificationServiceTest {
     @Test
     void processNotificationSend_disabledFcmChannel_shouldSkipWithoutSavingRecord() {
         UUID userId = UUID.randomUUID();
-        GenericRecord envelope = envelope(userId, List.of("FCM"));
+        NotificationSend event = event(userId, List.of("FCM"));
         given(fcmPushServiceProvider.getIfAvailable()).willReturn(null);
 
-        service().processNotificationSend(envelope);
+        service().processNotificationSend(event);
 
         verify(fcmPushService, never()).sendToUser(any(), any(), any(), any());
         verify(notificationRepository, never()).save(any(Notification.class));
@@ -164,16 +163,21 @@ class NotificationServiceTest {
         return new NotificationService(notificationRepository, fcmPushServiceProvider, sesEmailServiceProvider);
     }
 
-    private static GenericRecord envelope(UUID userId, List<String> channels) {
-        return PlatformAvroEvents.notificationSendEnvelope(
-                userId,
-                UUID.randomUUID(),
-                "CARD_REVIEW_DUE",
-                channels,
-                "Review due",
-                "A card is ready.",
-                "Review due email",
-                "<p>A card is ready.</p>");
+    private static NotificationSend event(UUID userId, List<String> channels) {
+        return NotificationSend.newBuilder()
+                .setEventId(UUID.randomUUID().toString())
+                .setTenantId(UUID.randomUUID().toString())
+                .setOccurredAt(1717000000000L)
+                .setTraceparent(null)
+                .setUserId(userId.toString())
+                .setNotificationType("AI_CARDS_READY")
+                .setChannels(channels)
+                .setTitle("Review due")
+                .setBody("A card is ready.")
+                .setEmailSubject("Review due email")
+                .setEmailHtmlBody("<p>A card is ready.</p>")
+                .setData(Map.of("deckId", "deck-1"))
+                .build();
     }
 
     private static Notification notification(UUID eventId, UUID userId, NotificationChannel channel) {
@@ -181,7 +185,7 @@ class NotificationServiceTest {
                 eventId,
                 userId,
                 UUID.randomUUID(),
-                "CARD_REVIEW_DUE",
+                "AI_CARDS_READY",
                 channel,
                 "Review due",
                 "A card is ready.");

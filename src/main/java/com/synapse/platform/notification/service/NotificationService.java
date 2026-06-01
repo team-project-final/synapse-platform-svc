@@ -1,6 +1,6 @@
 package com.synapse.platform.notification.service;
 
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import com.synapse.platform.NotificationSend;
 import com.synapse.platform.notification.entity.Notification;
 import com.synapse.platform.notification.entity.NotificationChannel;
 import com.synapse.platform.notification.repository.NotificationRepository;
@@ -10,7 +10,6 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -37,20 +36,19 @@ public class NotificationService {
     }
 
     @Transactional(noRollbackFor = RuntimeException.class)
-    public void processNotificationSend(GenericRecord envelope) {
-        UUID eventId = UUID.fromString(envelope.get("id").toString());
-        UUID tenantId = UUID.fromString(envelope.get("tenantid").toString());
-        GenericRecord payload = PlatformAvroEvents.decodeNotificationSend(envelope);
-        UUID userId = UUID.fromString(payload.get("userId").toString());
-        String notificationType = payload.get("notificationType").toString();
-        String title = payload.get("title").toString();
-        String body = payload.get("body").toString();
-        String emailSubject = getOptionalString(payload, "emailSubject");
-        String emailHtmlBody = getOptionalString(payload, "emailHtmlBody");
+    public void processNotificationSend(NotificationSend event) {
+        UUID eventId = UUID.fromString(event.getEventId());
+        UUID tenantId = UUID.fromString(event.getTenantId());
+        UUID userId = UUID.fromString(event.getUserId());
+        String notificationType = event.getNotificationType();
+        String title = event.getTitle();
+        String body = event.getBody();
+        String emailSubject = event.getEmailSubject();
+        String emailHtmlBody = event.getEmailHtmlBody();
+        Map<String, String> data = data(event.getData());
 
-        Iterable<?> channels = (Iterable<?>) payload.get("channels");
-        for (Object rawChannel : channels) {
-            NotificationChannel channel = NotificationChannel.valueOf(rawChannel.toString());
+        for (String rawChannel : event.getChannels()) {
+            NotificationChannel channel = NotificationChannel.valueOf(rawChannel);
             sendToChannel(
                     eventId,
                     userId,
@@ -61,7 +59,7 @@ public class NotificationService {
                     body,
                     emailSubject,
                     emailHtmlBody,
-                    payload);
+                    data);
         }
     }
 
@@ -75,7 +73,7 @@ public class NotificationService {
             String body,
             String emailSubject,
             String emailHtmlBody,
-            GenericRecord payload) {
+            Map<String, String> data) {
         FcmPushService fcmPushService = fcmPushServiceProvider.getIfAvailable();
         SesEmailService sesEmailService = sesEmailServiceProvider.getIfAvailable();
         if (channel == NotificationChannel.FCM && fcmPushService == null) {
@@ -113,7 +111,7 @@ public class NotificationService {
 
         try {
             if (channel == NotificationChannel.FCM) {
-                dispatchFcm(fcmPushService, userId, title, body, payload);
+                dispatchFcm(fcmPushService, userId, title, body, data);
             } else if (channel == NotificationChannel.EMAIL) {
                 dispatchEmail(sesEmailService, userId, emailSubject, emailHtmlBody);
             }
@@ -136,8 +134,8 @@ public class NotificationService {
             UUID userId,
             String title,
             String body,
-            GenericRecord payload) {
-        fcmPushService.sendToUser(userId, title, body, data(payload));
+            Map<String, String> data) {
+        fcmPushService.sendToUser(userId, title, body, data);
     }
 
     private void dispatchEmail(
@@ -151,17 +149,11 @@ public class NotificationService {
                 htmlBody != null ? htmlBody : "");
     }
 
-    private Map<String, String> data(GenericRecord payload) {
+    private Map<String, String> data(Map<String, String> payloadData) {
         Map<String, String> data = new HashMap<>();
-        Object rawData = payload.get("data");
-        if (rawData instanceof Map<?, ?> map) {
-            map.forEach((key, value) -> data.put(key.toString(), value.toString()));
+        if (payloadData != null) {
+            payloadData.forEach((key, value) -> data.put(key, value));
         }
         return data;
-    }
-
-    private String getOptionalString(GenericRecord record, String field) {
-        Object value = record.get(field);
-        return value != null ? value.toString() : null;
     }
 }

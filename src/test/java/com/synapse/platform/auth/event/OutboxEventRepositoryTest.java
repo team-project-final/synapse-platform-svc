@@ -2,8 +2,9 @@ package com.synapse.platform.auth.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import com.synapse.platform.UserRegistered;
 import jakarta.persistence.EntityManager;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -46,11 +47,7 @@ class OutboxEventRepositoryTest {
         return OutboxEvent.pending(
                 "platform.auth.user-registered-v1",
                 UUID.randomUUID().toString(),
-                "com.synapse.event.platform.UserRegistered",
-                PlatformAvroEvents.userRegisteredEnvelopeBytes(
-                        UUID.randomUUID(),
-                        "new@example.com",
-                        "New User",
-                        UUID.randomUUID()));
+                UserRegistered.class.getName(),
+                "{}".getBytes(StandardCharsets.UTF_8));
     }
 }

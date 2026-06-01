@@ -1,11 +1,13 @@
 package com.synapse.platform.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.synapse.platform.auth.dto.OAuthAttributes;
+import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.OAuthIdentity;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
@@ -34,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,6 +62,9 @@ class OAuthUserResolverTest {
 
     @Mock
     private SlugGenerator slugGenerator;
+
+    @Mock
+    private UserEventPublisher userEventPublisher;
 
     private final FieldEncryptor fieldEncryptor = new FieldEncryptor(AES_KEY);
 
@@ -90,24 +96,52 @@ class OAuthUserResolverTest {
         OAuthUserResolver resolver = resolver();
 
         // When
-        UserInfo result = resolver.resolveUser(attributes, "token");
+        OAuthResolvedUser result = resolver.resolveUser(attributes, "token");
 
         // Then
         ArgumentCaptor<Tenant> tenantCaptor = ArgumentCaptor.forClass(Tenant.class);
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         ArgumentCaptor<OAuthIdentity> identityCaptor = ArgumentCaptor.forClass(OAuthIdentity.class);
-        assertThat(result.id()).isEqualTo(userId);
+        assertThat(result.user().id()).isEqualTo(userId);
+        assertThat(result.newUser()).isTrue();
         verify(tenantRepository).save(tenantCaptor.capture());
         verify(userRepository).save(userCaptor.capture());
         verify(oauthIdentityRepository).save(identityCaptor.capture());
         verify(tenantMemberRepository).save(any(TenantMember.class));
         verify(userSettingsRepository).save(any(UserSettings.class));
+        verify(userEventPublisher).publishUserRegistered(userId, "apple@example.com", "apple", tenantId);
         assertThat(tenantCaptor.getValue().getName()).isEqualTo("apple");
         assertThat(userCaptor.getValue().getDisplayName()).isEqualTo("apple");
         assertThat(userCaptor.getValue().getEmail()).isEqualTo("apple@example.com");
         assertThat(identityCaptor.getValue().getProvider()).isEqualTo("apple");
         assertThat(identityCaptor.getValue().getEmail()).isEqualTo("apple@example.com");
         assertThat(fieldEncryptor.decrypt(identityCaptor.getValue().getAccessTokenEnc())).isEqualTo("token");
+    }
+
+    @Test
+    void resolveUser_existingIdentityWithDeletedUser_shouldThrowDisabledBeforeLoadingUser() {
+        UUID userId = UUID.randomUUID();
+        OAuthAttributes attributes = new OAuthAttributes(
+                "google",
+                "google-123",
+                "deleted@example.com",
+                "Deleted User",
+                null);
+        OAuthIdentity identity = OAuthIdentity.of(userId, "google", "google-123", "deleted@example.com");
+        given(oauthIdentityRepository.findByProviderAndProviderUserId("google", "google-123"))
+                .willReturn(Optional.of(identity));
+
+        OAuthUserResolver resolver = new OAuthUserResolver(
+                userApi(false),
+                oauthIdentityRepository,
+                tenantRepository,
+                tenantMemberRepository,
+                slugGenerator,
+                fieldEncryptor,
+                userEventPublisher);
+
+        assertThatThrownBy(() -> resolver.resolveUser(attributes, "token"))
+                .isInstanceOf(DisabledException.class);
     }
 
     private OAuthUserResolver resolver() {
@@ -117,10 +151,15 @@ class OAuthUserResolverTest {
                 tenantRepository,
                 tenantMemberRepository,
                 slugGenerator,
-                fieldEncryptor);
+                fieldEncryptor,
+                userEventPublisher);
     }
 
     private UserApi userApi() {
+        return userApi(true);
+    }
+
+    private UserApi userApi(boolean loginAllowed) {
         return new UserApi() {
             @Override
             public Optional<UserInfo> findById(UUID userId) {
@@ -135,6 +174,11 @@ class OAuthUserResolverTest {
             @Override
             public Optional<UserLoginCredential> findLoginCredentialByEmail(String email) {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public boolean isLoginAllowed(UUID userId) {
+                return loginAllowed;
             }
 
             @Override

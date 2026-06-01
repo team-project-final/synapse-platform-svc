@@ -5,6 +5,7 @@ plugins {
     id("org.springframework.boot") version "4.0.0"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.github.spotbugs") version "6.0.9"
+    id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
 }
 
 group = "com.synapse"
@@ -18,6 +19,7 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://packages.confluent.io/maven/") }
 }
 
 dependencyManagement {
@@ -54,14 +56,24 @@ dependencies {
     implementation("com.github.f4b6a3:uuid-creator:5.3.3")
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
 
+    implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.apache.avro:avro:1.12.0")
+    implementation("io.confluent:kafka-avro-serializer:7.7.0")
+
+    implementation("com.google.firebase:firebase-admin:9.4.1")
+    implementation("software.amazon.awssdk:sesv2:2.26.29")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     testImplementation("org.testcontainers:testcontainers:1.21.4")
+    testImplementation("org.testcontainers:kafka:1.21.4")
     testRuntimeOnly("com.h2database:h2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
+
 
 tasks.withType<Test> {
     useJUnitPlatform()
@@ -70,6 +82,13 @@ tasks.withType<Test> {
 configure<org.gradle.api.plugins.quality.CheckstyleExtension> {
     toolVersion = "10.12.5"
     configFile = rootProject.file("config/checkstyle/checkstyle.xml")
+}
+
+tasks.withType<Checkstyle>().configureEach {
+    setSource(source.filter {
+        !it.path.contains("generated-main-avro-java")
+                && !it.path.contains("generated-test-avro-java")
+    })
 }
 
 spotbugs {

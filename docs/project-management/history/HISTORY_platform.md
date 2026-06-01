@@ -41,17 +41,18 @@
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 6 | Kafka Audit Log | Not Started | — | — | |
-| Step 7 | FCM 푸시/SES 이메일 알림 | Not Started | — | — | |
-| Step 8 | 관리자 테넌트/사용자 관리 | Not Started | — | — | |
+| Step 6 | Kafka Audit Log | Done | 2026-05-28 | 2026-05-28 | Avro+Schema Registry, outbox pattern, PUBLISHING lease, EmbeddedKafka 통합 테스트 통과 |
+| Step 7 | FCM 푸시/SES 이메일 알림 | Done | 2026-05-28 | 2026-05-28 | FCM(Firebase Admin SDK) + SES(AWS SDK v2), notifications 테이블(V31), Kafka Consumer, 재시도 로직, 통합 테스트, PR #40 |
+| Step 8 | 관리자 테넌트/사용자 관리 | Done | 2026-05-28 | 2026-05-29 | PR #42 dev 머지(`50f92d7`). V32 User.status(AttributeConverter), AdminUserService/AdminTenantService, UserSessionsRevocationRequested 이벤트, InvalidUserStatusFilterException, AdminSelfActionException, `./gradlew check` 통과 |
 
-**W3 진행률**: 0/3 Steps 완료
+**W3 진행률**: 3/3 Steps 완료
 
 ### W4 (2026-06-01 ~ 06-05)
 
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
-| Step 9 | 인증/결제 전체 E2E 테스트 | Not Started | — | — | |
+| Kafka 계약 표준 | Avro+Schema Registry 전환 (선행, 이슈 #43/#30) | In Progress | 2026-05-29 | — | D-029/D-030. feature/PLAT-015-kafka-avro-registry. Worker 구현/검증 완료, Director 리뷰 및 PR 대기. 기한 06-02 |
+| Step 9 | 인증/결제 전체 E2E 테스트 | Not Started | — | — | Kafka 계약 표준 적용 후 |
 | Step 10 | P0 버그 수정 및 알림 안정화 | Not Started | — | — | |
 
 **W4 진행률**: 0/2 Steps 완료
@@ -229,23 +230,71 @@
 
 #### 2026-05-28 (목)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **다음**:
+  - **Step 6 완료**: Kafka 이벤트 기반 Audit Log 자동 기록
+  - **Step 7 시작**: FCM 푸시/SES 이메일 알림 발송 — Director 설계 완료, HANDOFF.md 작성 완료
+    - 코드베이스 분석: notification 모듈 현황 파악, Kafka 인프라 패턴 확인, Flyway 최신 V30 확인
+    - 확정된 설계: `platform.notification.notification-send-v1` 토픽, ExponentialBackOff(1s/2s/4s), UNIQUE(event_id, channel) 멱등성 키
+    - Firebase Admin SDK 9.4.1 + AWS SES SDK v2 (sesv2:2.26.29) 추가 예정
+    - V31 마이그레이션(notifications 테이블) + 14개 신규 파일 + 6개 파일 수정 명세 완료
+    - Flyway V29 (audit_logs), V30 (outbox_events) 마이그레이션 추가
+    - `PlatformAvroEvents` (CloudEventEnvelope + UserRegistered Avro schema 단일 정의, synapse-shared 대체)
+    - `UserEventPublisher` (outbox 저장), `OutboxEventPublisher` (PUBLISHING lease + async 실패 기록)
+    - `AuditKafkaConsumer` + `AuditLogService` (DataIntegrityViolationException 멱등)
+    - `GET /api/v1/admin/audit-logs` @PreAuthorize("hasRole('ADMIN')")
+    - 90일 보존 @Scheduled(cron = "0 0 3 * * *")
+    - `OAuthResolvedUser` record, OAuthUserResolver 반환 타입 변경
+    - `KafkaProducerConfig` (eventKafkaTemplate Avro), ErrorHandlingDeserializer 적용
+    - `AuditKafkaIntegrationTest` (EmbeddedKafka + mock://platform-test Schema Registry)
+    - `./gradlew test`, `./gradlew check` 전체 통과
+    - docs/ai/current/ → archive/20260528-step6/ 이동 + 초기화
+  - **Step 7 완료**: FCM 푸시 + SES 이메일 알림 발송 구현 완료 (PR #40)
+    - `FcmConfig` / `SesConfig` 빈 설정, `NotificationKafkaConsumer` (notification.send 토픽 구독)
+    - `FcmPushService` (Firebase Admin SDK, 디바이스 토큰 유효성 검증)
+    - `SesEmailService` (AWS SES SDK v2, 재시도 포함)
+    - `NotificationService` 오케스트레이션 (이벤트 타입별 FCM/SES 라우팅)
+    - `Notification` 엔티티 + `V31__create_notifications.sql` Flyway 마이그레이션
+    - `KafkaErrorHandlerConfig` DLQ 설정 추가
+    - 단위 테스트 5종 + 통합 테스트 1종 (`NotificationKafkaConsumerIT`) 전체 통과
+    - `feature/PLAT-013-notification-fcm-ses` → PR #40 생성 (base: dev)
+- **Step 8 완료**: 관리자 테넌트/사용자 관리 API 구현 완료
+    - `V32__add_user_status.sql`: users 테이블 status(active|suspended|deleted), suspended_at 컬럼 추가
+    - `UserStatus` enum + `AttributeConverter` (소문자 DB 저장, `@Enumerated` 미사용)
+    - `AdminUserService` (목록/검색/정지/삭제), `AdminTenantService` (목록/상태 변경)
+    - `AdminUserController` (user 모듈), `AdminTenantController` (billing 모듈)
+    - SecurityConfig `/api/v1/admin/**` → `hasRole("ADMIN")` 적용
+    - 세션 무효화: `UserSessionsRevocationRequested` 이벤트 → `UserSessionRevocationListener` (모듈 순환 없음)
+    - `AdminSelfActionException` (관리자 본인 정지/삭제 400), `InvalidUserStatusFilterException` (잘못된 status 쿼리 400)
+    - 로그인 차단: OAuthUserResolver `isLoginAllowed()` 선검증, EmailPasswordAuthService status 검증
+    - `./gradlew check` BUILD SUCCESSFUL
+- **진행 중**: 없음
+- **이슈**: 없음
+- **다음**: PR 생성 후 W4 Step 9 (E2E 테스트) 착수
 
 #### 2026-05-29 (금)
 - **완료**:
-- **진행 중**:
-- **이슈**:
-- **주간 요약**:
+  - **Step 8 종료**: PR #42 (PLAT-014 관리자 테넌트/사용자 관리 API) → dev 머지 완료 (merge commit `50f92d7`)
+  - W3 전체 마무리 — Step 6·7·8 모두 Done, 8/10 Step 완료
+- **진행 중**: 없음
+- **이슈**: 없음
+  - **W4 선행 착수**: Kafka 이벤트 계약 표준(Avro+Schema Registry, D-002 Option 1) 적용 작업 — team-lead work-order #43/#30 기준 방향 전환(이전 JSON CloudEvent 검토안 폐기). Director 설계 완료: D-029/D-030 결정, current/ TASK·CONTEXT·HANDOFF 작성, feature/PLAT-015-kafka-avro-registry 브랜치 생성. shared `.avsc`가 표준 미정합(displayName/eventId/occurredAt 누락, NotificationSend namespace 구버전) 발견 → 벤더링 보정 + 병행 shared PR 전략 확정.
+- **다음**: Worker(Codex) HANDOFF 구현 → Director 리뷰 → PR(base: dev). 이후 Step 9(E2E)
+- **주간 요약**: W3 Step 6(Kafka→audit_logs, PR #39) / Step 7(FCM 푸시+SES 이메일, PR #40) / Step 8(관리자 테넌트·사용자 관리, PR #42) 3개 Step 전부 완료. W4 선행으로 Kafka 계약 표준(Avro+Registry) 전환 착수. Avro+Schema Registry 기반 outbox 패턴, notifications 테이블(V31), User.status(V32) + 세션 무효화 이벤트까지 구현. 모든 PR dev 머지 완료. W1~W3 책임 범위 전부 종료, 남은 작업은 W4 Step 9·10(E2E·안정화).
 
 ### W4 (2026-06-01 ~ 06-05)
 
 #### 2026-06-01 (월)
 - **완료**:
-- **진행 중**:
+  - PLAT-015 Kafka 계약 표준 전환 Worker 잔업 처리.
+  - `PlatformAvroEvents` 제거, `UserRegistered`/`NotificationSend` SpecificRecord 기반 producer/consumer/outbox/audit/notification 경로 정렬 상태 점검.
+  - 운영 `application.yml`에 커스텀 Kafka 빈이 읽는 공통 `spring.kafka.properties` 복구, Kafka smoke test가 Schema Registry URL을 검증하도록 보강.
+  - 검증 통과: `.\gradlew.bat generateAvroJava`, `.\gradlew.bat test --tests '*ModuleStructureTest'`, `.\gradlew.bat check`.
+  - synapse-shared Kafka/Schema Registry 로컬 기동 후 `kafka-e2e-test.sh --scenarios` PASS 5 / FAIL 0.
+  - `kafka-avro-console-producer/consumer`로 `platform.auth.user-registered-v1` Avro value 수신 확인.
+- **진행 중**: Director 리뷰 및 PR(base: dev) 준비
 - **이슈**:
-- **다음**:
+  - synapse-shared 로컬 `scripts/kafka-e2e-test.sh`는 CRLF로 직접 실행 실패. 파일 수정 없이 실행 시 `tr -d '\r'` 정규화로 수행.
+  - synapse-shared 현재 `platform/*.avsc`는 아직 보정 전 원본이라 병행 shared PR 및 team-lead 비준 필요.
+- **다음**: Director 리뷰 → 사용자 커밋 승인 → PR 생성
 
 #### 2026-06-02 (화)
 - **완료**:

@@ -1,21 +1,20 @@
 # synapse-platform-svc
 
-> 작성일시: 2026-05-19 18:25 KST
+> 최종 수정: 2026-06-01 KST
 
-Synapse 플랫폼 핵심 서비스입니다. 인증, 사용자, 결제, 알림, 관리자 기능을 Spring Boot 단일 애플리케이션 안에서 Spring Modulith 모듈 경계로 관리합니다.
+Synapse 플랫폼 핵심 서비스입니다. 인증, 사용자, 결제, 알림, 감사 로그, 관리자 기능을 Spring Boot 단일 애플리케이션 안에서 Spring Modulith 모듈 경계로 관리합니다. MSA의 **인증 허브** 역할을 담당하며 전 서비스의 JWT 검증 의존 기점입니다.
 
 ## Modules
 
 | Module | 설명 | 현재 구현 상태 |
 |---|---|---|
-| `auth` | JWT RS256, Refresh Token, Google/GitHub/Apple OAuth2, MFA TOTP | 구현 |
-| `user` | 사용자 프로필, 사용자 설정, 모듈 간 사용자 조회 API | 구현 |
-| `billing` | Stripe Checkout, 구독 조회, Stripe Webhook, 결제 이력 | 구현 |
-| `notification` | FCM 디바이스 토큰 등록/해제 | 구현 |
-| `admin` | 관리자 기능, Audit Log, Kafka Consumer | 골격 |
-| `global` | 공통 예외 처리, 필드 암호화 등 공통 인프라 | 구현 |
-
-> 실제 FCM 푸시 발송과 `firebase-admin` 연동은 아직 포함하지 않습니다. 현재 notification 모듈은 디바이스 토큰 저장과 해제만 담당합니다.
+| `auth` | JWT RS256, Refresh Token(멀티 디바이스·HttpOnly Cookie), Google/GitHub/Apple OAuth2, MFA TOTP, 이메일/비밀번호 가입·로그인 | 구현 |
+| `user` | 사용자 프로필(골격), 관리자 사용자 관리 API(상태 변경·삭제) | 일부 구현 |
+| `billing` | Stripe Checkout, 구독 조회, Stripe Webhook, 결제 이력, 관리자 테넌트 관리 | 구현 |
+| `notification` | FCM 디바이스 토큰 등록/해제, FCM 푸시·SES 이메일 발송(Kafka 이벤트 소비) | 구현 |
+| `audit` | `UserRegistered` Kafka 소비 → `audit_logs` 자동 기록, 감사 로그 조회 API | 구현 |
+| `admin` | 관리자 공통 영역(placeholder). 실제 관리 API는 `user`/`billing`/`audit` 모듈에 위치 | 골격 |
+| `global` | 공통 예외 처리, 필드 암호화, Kafka 직렬화/에러 핸들링 등 공통 인프라 | 구현 |
 
 ## Tech Stack
 
@@ -26,10 +25,13 @@ Synapse 플랫폼 핵심 서비스입니다. 인증, 사용자, 결제, 알림, 
 - Redis 7
 - Flyway
 - JPA
-- Spring Security
+- Spring Security (OAuth2 Client)
 - jjwt 0.12.6
+- Apache Kafka (spring-kafka) + Avro 1.12.0 + Confluent Schema Registry (`kafka-avro-serializer` 7.7.0)
+- Firebase Admin SDK 9.4.1 (FCM)
+- AWS SDK for Java v2 — SES (`sesv2` 2.26.29)
 - Stripe Java 32.1.0
-- Testcontainers
+- Testcontainers 1.21.4 (PostgreSQL, Kafka)
 - Checkstyle
 - SpotBugs
 - JaCoCo
@@ -58,6 +60,8 @@ docker compose up -d postgres redis
 | User | `synapse` |
 | Password | `synapse` |
 | Port | `5432` |
+
+> Kafka 발행/소비를 로컬에서 끝단까지 검증하려면 Kafka + Schema Registry가 필요합니다(기본 `KAFKA_BOOTSTRAP_SERVERS=localhost:9092`, `SCHEMA_REGISTRY_URL=http://localhost:8086`). 통합 테스트는 EmbeddedKafka + mock Schema Registry(`mock://...`)를 사용하므로 별도 기동이 필요 없습니다.
 
 ### 로컬 애플리케이션 실행
 
@@ -99,6 +103,9 @@ docker compose up -d --build
 # 전체 빌드, 테스트, 정적 분석, JaCoCo 검증
 ./gradlew clean build
 
+# Avro 스키마(.avsc) → SpecificRecord 코드 생성
+./gradlew generateAvroJava
+
 # 테스트 전체 실행
 ./gradlew test
 
@@ -118,14 +125,7 @@ Windows + Testcontainers에서 Docker pipe를 명시해야 하는 경우:
 $env:DOCKER_HOST='npipe:////./pipe/dockerDesktopLinuxEngine'
 ```
 
-최근 검증 결과:
-
-```text
-.\gradlew.bat clean build --no-daemon
-BUILD SUCCESSFUL
-
-JaCoCo LINE coverage: 92.38% (covered 921, missed 76)
-```
+> Avro 생성 소스(`generated-main-avro-java`, `generated-test-avro-java`)는 Checkstyle 대상에서 제외됩니다.
 
 ---
 
@@ -135,7 +135,9 @@ JaCoCo LINE coverage: 92.38% (covered 921, missed 76)
 
 | Method | Path | 설명 | 인증 |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/refresh` | Refresh Token으로 Access Token 갱신 | 불필요 |
+| `POST` | `/api/v1/auth/signup` | 이메일/비밀번호 회원가입 | 불필요 |
+| `POST` | `/api/v1/auth/login` | 이메일/비밀번호 로그인 | 불필요 |
+| `POST` | `/api/v1/auth/refresh` | Refresh Token(HttpOnly Cookie)으로 Access Token 갱신 | 불필요 |
 | `POST` | `/api/v1/auth/mfa/setup` | TOTP 시크릿 생성 및 QR URL 반환 | 필요 |
 | `POST` | `/api/v1/auth/mfa/verify` | TOTP 코드 검증 | 필요 |
 | `GET` | `/api/v1/auth/callback` | OAuth 성공 후 프론트 콜백 보조 엔드포인트 | 불필요 |
@@ -143,7 +145,7 @@ JaCoCo LINE coverage: 92.38% (covered 921, missed 76)
 | `GET` | `/oauth2/authorization/github` | GitHub OAuth 로그인 시작 | 불필요 |
 | `GET` | `/oauth2/authorization/apple` | Apple OAuth 로그인 시작 | 불필요 |
 
-OAuth 로그인 성공 시 `?access_token={jwt}&refresh_token={token}` 쿼리 파라미터와 함께 `app.oauth2.redirect-uri`로 리디렉트됩니다.
+OAuth 로그인 성공 시 Access Token은 `?access_token={jwt}` 쿼리 파라미터로, **Refresh Token은 HttpOnly Cookie**로 내려가며 `app.oauth2.redirect-uri`로 리디렉트됩니다(D-028). `/api/v1/auth/refresh`는 요청 Cookie의 Refresh Token을 사용하고 Origin 검증을 수행합니다.
 
 ### Billing
 
@@ -151,7 +153,7 @@ OAuth 로그인 성공 시 `?access_token={jwt}&refresh_token={token}` 쿼리 �
 |---|---|---|---|
 | `POST` | `/api/v1/billing/checkout` | Stripe Checkout Session 생성 | 필요 |
 | `GET` | `/api/v1/billing/subscription` | 현재 사용자의 구독 정보 조회 | 필요 |
-| `POST` | `/api/v1/billing/webhooks` | Stripe Webhook 수신 | 불필요 |
+| `POST` | `/api/v1/billing/webhooks` | Stripe Webhook 수신(서명 검증) | 불필요 |
 
 Checkout 요청 예시:
 
@@ -183,6 +185,35 @@ Checkout 요청 예시:
 
 지원 platform 값은 `ios`, `android`, `web`입니다. 사용자당 신규 디바이스 토큰은 최대 5개까지 등록할 수 있으며, 동일 토큰 재등록은 UPSERT로 기존 row의 `tenant_id`, `user_id`, `updated_at`을 갱신합니다.
 
+> 실제 푸시/이메일 **발송**은 REST가 아니라 `platform.notification.notification-send-v1` Kafka 이벤트(`NotificationSend`) 소비로 처리됩니다(아래 Kafka Events 참고).
+
+### Admin (`ROLE_ADMIN`)
+
+| Method | Path | 설명 | 인증 |
+|---|---|---|---|
+| `GET` | `/api/v1/admin/audit-logs` | 감사 로그 조회(action·userId 필터, 페이지네이션) | ADMIN |
+| `PUT` | `/api/v1/admin/users/{id}/status` | 사용자 상태 변경(active/suspended/deleted) | ADMIN |
+| `DELETE` | `/api/v1/admin/users/{id}` | 사용자 삭제 | ADMIN |
+| `PUT` | `/api/v1/admin/tenants/{id}/status` | 테넌트 상태 변경 | ADMIN |
+
+관리자 본인 정지/삭제는 `400`(`AdminSelfActionException`), 잘못된 status 쿼리는 `400`(`InvalidUserStatusFilterException`)으로 응답합니다. 사용자 정지/삭제 시 `UserSessionsRevocationRequested` 이벤트로 기존 세션을 무효화합니다(모듈 순환 의존 회피).
+
+---
+
+## Kafka Events
+
+Confluent **Avro + Schema Registry** 기반 bare typed record(`SpecificRecord`)로 직렬화합니다. 메시지 key는 `tenantId`, subject는 `<topic>-value`, 호환성은 BACKWARD입니다. 멱등성 키는 레코드의 `eventId`입니다. 스키마(`.avsc`)의 단일 출처는 synapse-shared이며 `src/main/avro/platform/`에 벤더링합니다.
+
+| 방향 | 토픽 | 레코드 | 처리 |
+|---|---|---|---|
+| 발행 | `platform.auth.user-registered-v1` | `UserRegistered` | 회원가입 시 Outbox 저장 후 발행(`UserEventPublisher`/`OutboxEventPublisher`) |
+| 소비 | `platform.auth.user-registered-v1` | `UserRegistered` | `audit_logs` 자동 기록(`AuditKafkaConsumer`, `eventId` 멱등) |
+| 소비 | `platform.notification.notification-send-v1` | `NotificationSend` | FCM 푸시 / SES 이메일 발송(`NotificationKafkaConsumer`) |
+
+- **Outbox 패턴**: 발행 트랜잭션과 메시지 발행의 원자성을 보장하고(유실 방지), PUBLISHING lease + async 실패 기록으로 재시도합니다.
+- **at-least-once + 멱등성**: audit은 `eventId` PK, notification은 `UNIQUE(event_id, channel)`로 중복 처리를 방지합니다.
+- **에러 처리**: `ErrorHandlingDeserializer`로 역직렬화 실패를 격리하고, `DefaultErrorHandler` + DLQ(`<topic>` + DLQ suffix)로 재시도/skip합니다. consumer group은 `platform-svc-group`으로 통일합니다.
+
 ---
 
 ## Environment Variables
@@ -194,6 +225,15 @@ Checkout 요청 예시:
 | `SPRING_DATASOURCE_PASSWORD` | PostgreSQL 비밀번호 | `synapse` |
 | `SPRING_DATA_REDIS_HOST` | Redis 호스트 | `localhost` |
 | `SPRING_DATA_REDIS_PORT` | Redis 포트 | `6379` |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka 부트스트랩 서버 | `localhost:9092` |
+| `SCHEMA_REGISTRY_URL` | Confluent Schema Registry URL | `http://localhost:8086` |
+| `KAFKA_TOPIC_NOTIFICATION_SEND` | 알림 발송 소비 토픽 | `platform.notification.notification-send-v1` |
+| `FCM_ENABLED` | FCM 발송 활성화 | `false` |
+| `FCM_SERVICE_ACCOUNT_PATH` | Firebase 서비스 계정 키 경로 | |
+| `FCM_PROJECT_ID` | Firebase 프로젝트 ID | |
+| `SES_ENABLED` | AWS SES 발송 활성화 | `false` |
+| `SES_REGION` | AWS SES 리전 | `ap-northeast-2` |
+| `SES_FROM_EMAIL` | 발신 이메일 주소 | `noreply@synapse.app` |
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID | `xxx.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | |
 | `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | |
@@ -237,16 +277,22 @@ Flyway로 관리합니다. 마이그레이션 파일은 `src/main/resources/db/m
 | V25 | payment_history 생성 |
 | V26 | processed_events 생성 |
 | V27 | device_tokens 생성 |
+| V28 | refresh_tokens 멀티 디바이스 허용 (user_id unique 제거, FIFO 다중 세션) |
+| V29 | audit_logs 생성 |
+| V30 | outbox_events 생성 |
+| V31 | notifications 생성 |
+| V32 | users.status / suspended_at 추가 (계정 상태 관리) |
 
 ---
 
 ## Architecture Notes
 
 - 패키지 루트는 `com.synapse.platform`입니다.
-- Spring Modulith 검증을 통해 모듈 간 직접 import를 제한합니다.
-- 모듈 간 공유가 필요한 기능은 공개 API 패키지 또는 공통 인프라 타입을 통해 접근합니다.
-- Refresh Token 원문은 저장하지 않고 SHA-256 hash만 DB에 저장합니다.
+- Spring Modulith 검증을 통해 모듈 간 직접 import를 제한합니다(`ApplicationModules.verify()` CI 자동 검증).
+- 모듈 간 공유가 필요한 기능은 공개 API 패키지 또는 공통 인프라 타입을 통해 접근하고, 부수효과(세션 무효화 등)는 직접 호출 대신 이벤트로 전달합니다.
+- Refresh Token 원문은 저장하지 않고 SHA-256 hash만 DB에 저장하며, 사용자당 최대 5개 멀티 디바이스 세션을 FIFO로 관리합니다(HttpOnly Cookie 전달).
 - JWT 서명 알고리즘은 RS256을 사용합니다.
+- Kafka 직렬화는 Confluent Avro + Schema Registry(bare typed record)로 통일하고, 유실 방지는 Outbox 패턴, 중복 방지는 `eventId` 기반 멱등으로 보장합니다.
 - `notification` 모듈은 `auth` 내부 구현 타입을 직접 import하지 않고, 보안 필터는 `jakarta.servlet.Filter` bean으로 주입받습니다.
 
 ## Related Docs
@@ -254,6 +300,5 @@ Flyway로 관리합니다. 마이그레이션 파일은 `src/main/resources/db/m
 - `AGENTS.md`
 - `docs/ai/current/HANDOFF.md`
 - `docs/ai/current/TASK.md`
-- `docs/ai/current/WORKER_REPORT.md`
 - `docs/project-management/README.md`
 - `docs/synapse-platform-svc_ARCHITECTURE.md`

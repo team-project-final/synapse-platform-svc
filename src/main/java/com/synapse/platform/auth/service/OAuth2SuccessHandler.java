@@ -1,8 +1,6 @@
 package com.synapse.platform.auth.service;
 
 import com.synapse.platform.auth.AuthRoles;
-import com.synapse.platform.auth.service.JwtTokenProvider;
-import com.synapse.platform.auth.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;

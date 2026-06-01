@@ -7,6 +7,7 @@ import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.api.UserLoginCredential;
 import com.synapse.platform.user.entity.User;
+import com.synapse.platform.user.entity.UserStatus;
 import com.synapse.platform.user.entity.UserSettings;
 import com.synapse.platform.user.repository.UserRepository;
 import com.synapse.platform.user.repository.UserSettingsRepository;
@@ -41,6 +42,13 @@ public class UserService implements UserApi {
     @Override
     public Optional<UserLoginCredential> findLoginCredentialByEmail(String email) {
         return userRepository.findByEmail(email).map(this::toLoginCredential);
+    }
+
+    @Override
+    public boolean isLoginAllowed(UUID userId) {
+        return userRepository.findById(userId)
+                .map(user -> user.getStatus() == UserStatus.ACTIVE)
+                .orElse(false);
     }
 
     @Override
@@ -104,6 +112,7 @@ public class UserService implements UserApi {
                 user.getId(),
                 user.getEmail(),
                 user.getPasswordHash(),
+                user.getStatus().toDbValue(),
                 user.getFailedLoginCount(),
                 user.getLockedUntil());
     }

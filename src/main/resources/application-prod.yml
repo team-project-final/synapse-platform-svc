@@ -4,8 +4,15 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
   jpa:
     show-sql: false
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD}
   security:
     oauth2:
       client:
@@ -26,8 +33,13 @@ app:
     same-site: None
     secure: true
 
-jwt:
-  private-key: ${JWT_PRIVATE_KEY}
-  public-key: ${JWT_PUBLIC_KEY}
-  kid: ${JWT_KID:synapse-key-2026-05}
-  issuer: ${JWT_ISSUER:synapse-auth}
+synapse:
+  jwt:
+    private-key: ${JWT_PRIVATE_KEY}
+    public-key: ${JWT_PUBLIC_KEY}
+    kid: ${JWT_KID:synapse-key-2026-05}
+    issuer: ${JWT_ISSUER:synapse-auth}
+
+logging:
+  level:
+    root: INFO

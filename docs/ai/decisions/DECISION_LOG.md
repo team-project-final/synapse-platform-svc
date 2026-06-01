@@ -254,6 +254,24 @@
 
 ---
 
+## [D-029] 2026-05-29 — Kafka 직렬화: 수동 Avro 바이트 → Confluent Avro + Schema Registry 전환 (D-002 Option 1)
+
+**결정**: platform-svc의 Kafka 메시지 형식을 `PlatformAvroEvents` 기반 **수동 Avro 인코딩(CloudEvent 봉투 + data:bytes 중첩)** 에서 **Confluent `KafkaAvroSerializer/Deserializer` + Schema Registry**(토픽당 단일 bare typed record)로 전환한다. 네임스페이스 `com.synapse.event.platform` → `com.synapse.platform`. 스키마 단일 출처는 synapse-shared `src/main/avro/`. subject=`<topic>-value`, 호환 BACKWARD, 메시지 key=tenantId. 공통 메타(eventId/tenantId/occurredAt)를 모든 레코드에 포함, 멱등성 키=eventId.
+**근거**: synapse-shared 팀 표준이 D-002 Option 1(Avro+Registry 사수)로 확정 전환됨(EVENT_CONTRACT_STANDARD.md v2, 2026-05-29 갱신). 현재 5개 서비스가 4가지 비호환 직렬화를 써서 어떤 크로스서비스 체인도 wire 호환이 안 됨. platform의 수동 bytes 봉투는 Registry가 페이로드를 검증·진화관리하지 못하는 비표준 — bare typed record로 교체해야 전 서비스 통합 + BACKWARD 자동 보장.
+**기각된 대안**: ① JSON CloudEvent(Option 2) — 표준이 Avro로 재확정되어 폐기(이전 세션 검토안). ② 현행 수동 Avro 유지 — Registry 미사용, 크로스서비스 호환 불성립. ③ 봉투(CloudEventEnvelope) 유지 — 표준 §1이 data:bytes 중첩 봉투를 명시적으로 금지.
+**결정자**: Director (team-lead 표준 문서 기준)
+
+---
+
+## [D-030] 2026-05-29 — shared .avsc 임시 보정 + 병행 PR (선행 블로커 해소)
+
+**결정**: synapse-shared의 `platform/UserRegistered.avsc`·`platform/NotificationSend.avsc`가 갱신 표준과 미정합(UserRegistered: displayName/eventId/occurredAt 누락 / NotificationSend: namespace가 구 `com.synapse.event.platform`, eventId/occurredAt 누락, DRAFT)인 상태다. platform `src/main/avro/`에 **보정본을 벤더링하여 구현을 진행**하고, **동일 내용을 synapse-shared PR로 병행 제출**한다. 보정 내용: UserRegistered에 displayName + 공통메타(eventId/occurredAt) 추가·registeredAt(string)→occurredAt(long) 대체, NotificationSend namespace를 `com.synapse.platform`로 정정 + 공통메타 추가. 머지 즉시 벤더링본과 shared 원본을 동기화한다.
+**근거**: 표준이 "벤더링본은 shared 원본과 동일·수정 금지(변경은 shared PR)"를 요구하나 원본 자체가 표준 요구 필드를 안 가져 그대로는 displayName 발행·eventId 멱등성이 불가. 표준 §8.3도 "공통 메타가 기존 .avsc에 누락, shared PR 필요"를 인정. 마감(06-02) 내 platform 구현과 shared 정합을 동시 진행하려면 병행이 현실적. drift는 "머지 즉시 동기화"로 통제.
+**기각된 대안**: ① 벤더링 원본 그대로 사용 — displayName 발행 불가·멱등성 불가(작업 지시 위반). ② shared PR 머지까지 platform 착수 대기 — 마감 리스크 과대, 승인 대기에 종속. ③ 벤더링본만 영구 수정 — shared와 영구 drift(이 작업이 없애려는 문제 재발).
+**결정자**: Director (사용자 승인: "벤더링 후 platform 임시 보정 + 병행 PR")
+
+---
+
 <!-- 결정 발생 시 아래 템플릿 복사 후 추가 -->
 
 <!--

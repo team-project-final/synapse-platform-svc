@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "NotificationSend",
+  "namespace": "com.synapse.platform",
+  "doc": "Notification dispatch request consumed by platform-svc (FCM/email).",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "tenantId", "type": "string"},
+    {"name": "occurredAt", "type": "long"},
+    {"name": "traceparent", "type": ["null", "string"], "default": null},
+    {"name": "userId", "type": "string"},
+    {"name": "notificationType", "type": "string"},
+    {"name": "channels", "type": {"type": "array", "items": "string"}, "default": []},
+    {"name": "title", "type": "string"},
+    {"name": "body", "type": "string"},
+    {"name": "emailSubject", "type": ["null", "string"], "default": null},
+    {"name": "emailHtmlBody", "type": ["null", "string"], "default": null},
+    {"name": "data", "type": {"type": "map", "values": "string"}, "default": {}}
+  ]
+}

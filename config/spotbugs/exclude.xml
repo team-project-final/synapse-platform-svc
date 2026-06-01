@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter>
     <Match>
+        <Class name="~com\.synapse\.platform\.(UserRegistered|NotificationSend)(\$.*)?"/>
+    </Match>
+    <Match>
         <Class name="~com\.synapse\.platform\.auth\.config\.(OAuth2AuthorizationRequestDto|HttpCookieOAuth2AuthorizationRequestRepository|SecurityConfig)"/>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
     </Match>
@@ -9,7 +12,23 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
+        <Class name="~com\.synapse\.platform\.(auth\.service\.UserSessionRevocationListener|user\.controller\.AdminUserController|billing\.(controller\.AdminTenantController|service\.AdminTenantService)|auth\.service\.TenantAdminService)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="com.synapse.platform.billing.service.BillingService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~com\.synapse\.platform\.audit\.(controller\.AuditLogController|consumer\.AuditKafkaConsumer|service\.AuditLogService)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~com\.synapse\.platform\.(auth\.event\.(UserEventPublisher|OutboxEventPublisher)|global\.kafka\.KafkaErrorHandlerConfig)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="com.synapse.platform.notification.service.SesEmailService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

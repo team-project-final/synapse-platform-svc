@@ -41,7 +41,8 @@ class CustomOidcUserServiceTest {
         UUID userId = UUID.randomUUID();
         UserInfo user = new UserInfo(userId, "apple@example.com", "Apple User", UUID.randomUUID());
         given(delegate.loadUser(any())).willReturn(appleOidcUser());
-        given(oAuthUserResolver.resolveUser(any(OAuthAttributes.class), any())).willReturn(user);
+        given(oAuthUserResolver.resolveUser(any(OAuthAttributes.class), any()))
+                .willReturn(new OAuthResolvedUser(user, true));
         CustomOidcUserService service = new CustomOidcUserService(oAuthUserResolver, delegate);
 
         // When
@@ -53,6 +54,10 @@ class CustomOidcUserServiceTest {
         assertThat(attributesCaptor.getValue().provider()).isEqualTo("apple");
         assertThat(attributesCaptor.getValue().name()).isNull();
         assertThat(result.getAttributes()).containsEntry("userId", userId.toString());
+        assertThat(result.getAttributes()).containsEntry("isNewUser", true);
+        assertThat(result.getAttributes()).containsEntry("synapseEmail", "apple@example.com");
+        assertThat(result.getAttributes()).containsEntry("synapseDisplayName", "Apple User");
+        assertThat(result.getAttributes()).containsEntry("synapseTenantId", user.defaultTenantId().toString());
         assertThat(result.getName()).isEqualTo("apple-123");
     }
 

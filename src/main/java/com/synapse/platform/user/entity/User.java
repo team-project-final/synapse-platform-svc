@@ -54,6 +54,12 @@ public class User {
     @Column(name = "locked_until")
     private OffsetDateTime lockedUntil;
 
+    @Column(nullable = false)
+    private UserStatus status = UserStatus.ACTIVE;
+
+    @Column(name = "suspended_at")
+    private OffsetDateTime suspendedAt;
+
     @Column(name = "default_tenant_id")
     private UUID defaultTenantId;
 
@@ -128,6 +134,30 @@ public class User {
         updatedAt = now;
     }
 
+    public void suspend() {
+        status = UserStatus.SUSPENDED;
+        suspendedAt = OffsetDateTime.now();
+        updatedAt = suspendedAt;
+    }
+
+    public void activate() {
+        status = UserStatus.ACTIVE;
+        suspendedAt = null;
+        updatedAt = OffsetDateTime.now();
+    }
+
+    public void softDelete() {
+        status = UserStatus.DELETED;
+        OffsetDateTime now = OffsetDateTime.now();
+        suspendedAt = null;
+        deletedAt = now;
+        anonymizedAt = now;
+        email = "deleted_" + id + "@deleted.invalid";
+        username = "deleted_" + id;
+        displayName = "Deleted User";
+        updatedAt = now;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -166,5 +196,21 @@ public class User {
 
     public UUID getDefaultTenantId() {
         return defaultTenantId;
+    }
+
+    public UserStatus getStatus() {
+        return status;
+    }
+
+    public OffsetDateTime getSuspendedAt() {
+        return suspendedAt;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
     }
 }

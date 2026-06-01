@@ -47,21 +47,26 @@ spring:
           #   authorization-uri: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}     # compose 내부: kafka:29092
     properties:
       schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086}
-      specific.avro.reader: false
-    consumer:
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      specific.avro.reader: true
+      auto.register.schemas: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
-    listener:
-      ack-mode: record
-      missing-topics-fatal: false
+      acks: all
+      properties:
+        schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086}   # compose 내부: http://schema-registry:8081
+        auto.register.schemas: true
+    consumer:
+      group-id: platform-svc-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      auto-offset-reset: earliest
+      properties:
+        schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086}
+        specific.avro.reader: true
 
 management:
   endpoints:

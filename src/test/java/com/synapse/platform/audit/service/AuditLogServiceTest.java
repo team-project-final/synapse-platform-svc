@@ -6,13 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import com.synapse.platform.UserRegistered;
 import com.synapse.platform.audit.entity.AuditLog;
 import com.synapse.platform.audit.repository.AuditLogRepository;
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,14 +28,15 @@ class AuditLogServiceTest {
     private AuditLogRepository repository;
 
     @Test
-    void processEvent_userRegisteredCloudEvent_shouldStoreAuditLog() {
+    void processEvent_userRegisteredSpecificRecord_shouldStoreAuditLog() {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
-        GenericRecord event = PlatformAvroEvents.userRegisteredEnvelope(
+        UserRegistered event = userRegistered(
+                UUID.randomUUID(),
                 userId,
+                tenantId,
                 "new@example.com",
-                "New User",
-                tenantId);
+                "New User");
         AuditLogService service = service();
 
         service.processEvent(event);
@@ -44,7 +44,7 @@ class AuditLogServiceTest {
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
         verify(repository).save(captor.capture());
         AuditLog saved = captor.getValue();
-        assertThat(saved.getEventId()).isEqualTo(UUID.fromString(event.get("id").toString()));
+        assertThat(saved.getEventId()).isEqualTo(UUID.fromString(event.getEventId().toString()));
         assertThat(saved.getAction()).isEqualTo("USER_REGISTERED");
         assertThat(saved.getUserId()).isEqualTo(userId);
         assertThat(saved.getResourceType()).isEqualTo("USER");
@@ -56,11 +56,12 @@ class AuditLogServiceTest {
     void processEvent_duplicateEvent_shouldSkipWithoutThrowing() {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
-        GenericRecord event = PlatformAvroEvents.userRegisteredEnvelope(
+        UserRegistered event = userRegistered(
+                UUID.randomUUID(),
                 userId,
+                tenantId,
                 "new@example.com",
-                "New User",
-                tenantId);
+                "New User");
         given(repository.save(any(AuditLog.class)))
                 .willThrow(new DataIntegrityViolationException("uq_audit_logs_event_id"));
         AuditLogService service = service();
@@ -106,5 +107,22 @@ class AuditLogServiceTest {
 
     private AuditLogService service() {
         return new AuditLogService(repository);
+    }
+
+    private static UserRegistered userRegistered(
+            UUID eventId,
+            UUID userId,
+            UUID tenantId,
+            String email,
+            String displayName) {
+        return UserRegistered.newBuilder()
+                .setEventId(eventId.toString())
+                .setTenantId(tenantId.toString())
+                .setOccurredAt(1717000000000L)
+                .setTraceparent(null)
+                .setUserId(userId.toString())
+                .setEmail(email)
+                .setDisplayName(displayName)
+                .build();
     }
 }

@@ -2,9 +2,11 @@ package com.synapse.platform.global.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.synapse.platform.audit.consumer.AuditKafkaConsumer;
+import com.synapse.platform.notification.consumer.NotificationKafkaConsumer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,9 +15,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -39,15 +43,19 @@ class KafkaConsumerConfigSmokeTest {
 
     @Autowired
     @Qualifier("auditConsumerFactory")
-    private ConsumerFactory<String, GenericRecord> auditConsumerFactory;
+    private ConsumerFactory<String, Object> auditConsumerFactory;
 
     @Autowired
     @Qualifier("notificationConsumerFactory")
-    private ConsumerFactory<String, GenericRecord> notificationConsumerFactory;
+    private ConsumerFactory<String, Object> notificationConsumerFactory;
 
     @Autowired
     @Qualifier("eventKafkaTemplate")
-    private KafkaTemplate<String, GenericRecord> eventKafkaTemplate;
+    private KafkaTemplate<String, Object> eventKafkaTemplate;
+
+    @Autowired
+    @Qualifier("dltKafkaTemplate")
+    private KafkaTemplate<String, Object> dltKafkaTemplate;
 
     @Autowired
     @Qualifier("notificationErrorHandler")
@@ -88,6 +96,25 @@ class KafkaConsumerConfigSmokeTest {
     }
 
     @Test
+    void eventKafkaTemplate_shouldAutoRegisterSchemasAndRequireAllAcks() {
+        var producerFactory = (DefaultKafkaProducerFactory<?, ?>) eventKafkaTemplate.getProducerFactory();
+
+        assertThat(producerFactory.getConfigurationProperties())
+                .containsEntry("auto.register.schemas", true)
+                .containsEntry("schema.registry.url", "mock://platform-test")
+                .containsEntry(ProducerConfig.ACKS_CONFIG, "all");
+    }
+
+    @Test
+    void dltKafkaTemplate_acceptsSpecificRecords() {
+        var producerFactory = (DefaultKafkaProducerFactory<?, ?>) dltKafkaTemplate.getProducerFactory();
+
+        assertThat(producerFactory.getConfigurationProperties())
+                .containsEntry("auto.register.schemas", true)
+                .containsEntry("schema.registry.url", "mock://platform-test");
+    }
+
+    @Test
     void kafkaTopicProperties_hasDefaultUserRegisteredTopic() {
         assertThat(kafkaTopicProperties.getUserRegistered()).isEqualTo("platform.auth.user-registered-v1");
     }
@@ -106,26 +133,59 @@ class KafkaConsumerConfigSmokeTest {
     @Test
     void consumerFactory_wrapsAvroDeserializerWithErrorHandlingDeserializer() {
         assertErrorHandlingDeserializerConfiguration(consumerFactory);
+        assertThat(configuration(consumerFactory))
+                .containsEntry(ConsumerConfig.GROUP_ID_CONFIG, "platform-svc-group")
+                .containsEntry("schema.registry.url", "mock://platform-test")
+                .containsEntry("specific.avro.reader", true);
     }
 
     @Test
     void auditConsumerFactory_wrapsAvroDeserializerWithErrorHandlingDeserializer() {
         assertErrorHandlingDeserializerConfiguration(auditConsumerFactory);
+        assertThat(configuration(auditConsumerFactory))
+                .containsEntry(ConsumerConfig.GROUP_ID_CONFIG, "platform-svc-group")
+                .containsEntry("schema.registry.url", "mock://platform-test")
+                .containsEntry("specific.avro.reader", true);
     }
 
     @Test
     void notificationConsumerFactory_wrapsAvroDeserializerWithErrorHandlingDeserializer() {
         assertErrorHandlingDeserializerConfiguration(notificationConsumerFactory);
+        assertThat(configuration(notificationConsumerFactory))
+                .containsEntry(ConsumerConfig.GROUP_ID_CONFIG, "platform-svc-group")
+                .containsEntry("schema.registry.url", "mock://platform-test")
+                .containsEntry("specific.avro.reader", true);
+    }
+
+    @Test
+    void kafkaListeners_usePlatformSvcGroup() throws NoSuchMethodException {
+        assertThat(listenerGroup(AuditKafkaConsumer.class, "consume"))
+                .isEqualTo("platform-svc-group");
+        assertThat(listenerGroup(NotificationKafkaConsumer.class, "consume"))
+                .isEqualTo("platform-svc-group");
     }
 
     private void assertErrorHandlingDeserializerConfiguration(ConsumerFactory<?, ?> factory) {
-        assertThat(factory).isInstanceOf(DefaultKafkaConsumerFactory.class);
-        DefaultKafkaConsumerFactory<?, ?> defaultFactory = (DefaultKafkaConsumerFactory<?, ?>) factory;
-
-        assertThat(defaultFactory.getConfigurationProperties())
+        assertThat(configuration(factory))
                 .containsEntry(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class)
                 .containsEntry(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class)
                 .containsEntry(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class)
                 .containsEntry(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, KafkaAvroDeserializer.class);
+    }
+
+    private java.util.Map<String, Object> configuration(ConsumerFactory<?, ?> factory) {
+        assertThat(factory).isInstanceOf(DefaultKafkaConsumerFactory.class);
+        DefaultKafkaConsumerFactory<?, ?> defaultFactory = (DefaultKafkaConsumerFactory<?, ?>) factory;
+        return defaultFactory.getConfigurationProperties();
+    }
+
+    private String listenerGroup(Class<?> consumerClass, String methodName) {
+        KafkaListener listener = java.util.Arrays.stream(consumerClass.getMethods())
+                .filter(method -> method.getName().equals(methodName))
+                .filter(method -> method.getParameterCount() == 1)
+                .findFirst()
+                .orElseThrow()
+                .getAnnotation(KafkaListener.class);
+        return listener.groupId();
     }
 }

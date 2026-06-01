@@ -9,16 +9,17 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.synapse.platform.global.kafka.event.PlatformAvroEvents;
+import com.synapse.platform.NotificationSend;
 import com.synapse.platform.notification.entity.NotificationChannel;
 import com.synapse.platform.notification.entity.NotificationStatus;
 import com.synapse.platform.notification.repository.NotificationRepository;
 import com.synapse.platform.notification.service.FcmPushService;
 import com.synapse.platform.notification.service.SesEmailService;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +45,7 @@ class NotificationKafkaConsumerIT {
 
     @Autowired
     @Qualifier("eventKafkaTemplate")
-    private KafkaTemplate<String, GenericRecord> kafkaTemplate;
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @MockitoBean
     private FcmPushService fcmPushService;
@@ -61,9 +62,9 @@ class NotificationKafkaConsumerIT {
     @Test
     void notificationSendWithFcmChannel_shouldSendPushAndStoreSentNotification() {
         UUID userId = UUID.randomUUID();
-        GenericRecord event = event(userId, List.of("FCM"));
+        NotificationSend event = event(userId, List.of("FCM"));
 
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
+        kafkaTemplate.send(TOPIC, event.getTenantId(), event);
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             verify(fcmPushService).sendToUser(eq(userId), eq("Review due"), eq("A card is ready."), any());
@@ -80,9 +81,9 @@ class NotificationKafkaConsumerIT {
     @Test
     void notificationSendWithEmailChannel_shouldSendEmailAndStoreSentNotification() {
         UUID userId = UUID.randomUUID();
-        GenericRecord event = event(userId, List.of("EMAIL"));
+        NotificationSend event = event(userId, List.of("EMAIL"));
 
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
+        kafkaTemplate.send(TOPIC, event.getTenantId(), event);
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             verify(sesEmailService).sendToUser(userId, "Review due email", "<p>A card is ready.</p>");
@@ -97,11 +98,11 @@ class NotificationKafkaConsumerIT {
     }
 
     @Test
-    void cardReviewDueNotificationSendWithBothChannels_shouldSendPushAndEmail() {
+    void aiCardsReadyNotificationSendWithBothChannels_shouldSendPushAndEmail() {
         UUID userId = UUID.randomUUID();
-        GenericRecord event = event(userId, List.of("FCM", "EMAIL"));
+        NotificationSend event = event(userId, List.of("FCM", "EMAIL"));
 
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
+        kafkaTemplate.send(TOPIC, event.getTenantId(), event);
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             verify(fcmPushService).sendToUser(eq(userId), eq("Review due"), eq("A card is ready."), any());
@@ -109,7 +110,7 @@ class NotificationKafkaConsumerIT {
             assertThat(notificationRepository.findAll())
                     .hasSize(2)
                     .allSatisfy(notification -> {
-                        assertThat(notification.getNotificationType()).isEqualTo("CARD_REVIEW_DUE");
+                        assertThat(notification.getNotificationType()).isEqualTo("AI_CARDS_READY");
                         assertThat(notification.getStatus()).isEqualTo(NotificationStatus.SENT);
                     });
         });
@@ -118,10 +119,10 @@ class NotificationKafkaConsumerIT {
     @Test
     void duplicateNotificationSendEvent_shouldDispatchOnlyOnce() {
         UUID userId = UUID.randomUUID();
-        GenericRecord event = event(userId, List.of("FCM"));
+        NotificationSend event = event(userId, List.of("FCM"));
 
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
-        kafkaTemplate.send(TOPIC, userId.toString(), event);
+        kafkaTemplate.send(TOPIC, event.getTenantId(), event);
+        kafkaTemplate.send(TOPIC, event.getTenantId(), event);
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             verify(fcmPushService, times(1))
@@ -130,15 +131,20 @@ class NotificationKafkaConsumerIT {
         });
     }
 
-    private static GenericRecord event(UUID userId, List<String> channels) {
-        return PlatformAvroEvents.notificationSendEnvelope(
-                userId,
-                UUID.randomUUID(),
-                "CARD_REVIEW_DUE",
-                channels,
-                "Review due",
-                "A card is ready.",
-                "Review due email",
-                "<p>A card is ready.</p>");
+    private static NotificationSend event(UUID userId, List<String> channels) {
+        return NotificationSend.newBuilder()
+                .setEventId(UUID.randomUUID().toString())
+                .setTenantId(UUID.randomUUID().toString())
+                .setOccurredAt(Instant.now().toEpochMilli())
+                .setTraceparent(null)
+                .setUserId(userId.toString())
+                .setNotificationType("AI_CARDS_READY")
+                .setChannels(channels)
+                .setTitle("Review due")
+                .setBody("A card is ready.")
+                .setEmailSubject("Review due email")
+                .setEmailHtmlBody("<p>A card is ready.</p>")
+                .setData(Map.of("deckId", "deck-1"))
+                .build();
     }
 }

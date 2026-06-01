@@ -40,11 +40,14 @@ spring:
     bootstrap-servers: localhost:19092
     properties:
       schema.registry.url: mock://platform-test
-      specific.avro.reader: false
+      specific.avro.reader: true
+      auto.register.schemas: true
     consumer:
+      group-id: platform-svc-group
       key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
     producer:
+      acks: all
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
     listener:
       missing-topics-fatal: false

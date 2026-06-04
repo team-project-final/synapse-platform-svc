@@ -20,6 +20,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.ActiveProfiles;
@@ -51,11 +52,11 @@ import org.springframework.test.context.ActiveProfiles;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class AuditConsumerIntegrationTest {
 
-    private static final String TOPIC_NOTE_CREATED  = "knowledge.note.note-created-v1";
-    private static final String TOPIC_NOTE_UPDATED  = "knowledge.note.note-updated-v1";
-    private static final String TOPIC_REVIEW        = "learning.card.review-completed-v1";
-    private static final String TOPIC_BADGE         = "engagement.gamification.badge-earned-v1";
-    private static final String TOPIC_LEVEL_UP      = "engagement.gamification.level-up-v1";
+    private static final String TOPIC_NOTE_CREATED = "knowledge.note.note-created-v1";
+    private static final String TOPIC_NOTE_UPDATED = "knowledge.note.note-updated-v1";
+    private static final String TOPIC_REVIEW = "learning.card.review-completed-v1";
+    private static final String TOPIC_BADGE = "engagement.gamification.badge-earned-v1";
+    private static final String TOPIC_LEVEL_UP = "engagement.gamification.level-up-v1";
 
     @Autowired
     private AuditLogRepository auditLogRepository;
@@ -75,8 +76,8 @@ class AuditConsumerIntegrationTest {
     @Order(1)
     void noteCreatedEvent_shouldBeStoredAsNoteCreatedAuditLog() {
         String eventId = UUID.randomUUID().toString();
-        String noteId  = UUID.randomUUID().toString();
-        String userId  = UUID.randomUUID().toString();
+        String noteId = UUID.randomUUID().toString();
+        String userId = UUID.randomUUID().toString();
 
         NoteCreated event = NoteCreated.newBuilder()
                 .setEventId(eventId)
@@ -91,7 +92,7 @@ class AuditConsumerIntegrationTest {
         kafkaTemplate.send(TOPIC_NOTE_CREATED, userId, event);
 
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
-                assertThat(auditLogRepository.findByAction("NOTE_CREATED", org.springframework.data.domain.Pageable.unpaged())
+                assertThat(auditLogRepository.findByAction("NOTE_CREATED", Pageable.unpaged())
                         .getContent())
                         .singleElement()
                         .satisfies(log -> {
@@ -109,8 +110,8 @@ class AuditConsumerIntegrationTest {
     @Order(2)
     void noteUpdatedEvent_shouldBeStoredAsNoteUpdatedAuditLog() {
         String eventId = UUID.randomUUID().toString();
-        String noteId  = UUID.randomUUID().toString();
-        String userId  = UUID.randomUUID().toString();
+        String noteId = UUID.randomUUID().toString();
+        String userId = UUID.randomUUID().toString();
 
         NoteUpdated event = NoteUpdated.newBuilder()
                 .setEventId(eventId)
@@ -125,7 +126,7 @@ class AuditConsumerIntegrationTest {
         kafkaTemplate.send(TOPIC_NOTE_UPDATED, userId, event);
 
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
-                assertThat(auditLogRepository.findByAction("NOTE_UPDATED", org.springframework.data.domain.Pageable.unpaged())
+                assertThat(auditLogRepository.findByAction("NOTE_UPDATED", Pageable.unpaged())
                         .getContent())
                         .singleElement()
                         .satisfies(log -> {
@@ -143,8 +144,8 @@ class AuditConsumerIntegrationTest {
     @Order(3)
     void reviewCompletedEvent_shouldBeStoredAsReviewCompletedAuditLog() {
         String eventId = UUID.randomUUID().toString();
-        String cardId  = UUID.randomUUID().toString();
-        String userId  = UUID.randomUUID().toString();
+        String cardId = UUID.randomUUID().toString();
+        String userId = UUID.randomUUID().toString();
 
         ReviewCompleted event = ReviewCompleted.newBuilder()
                 .setEventId(eventId)
@@ -160,7 +161,7 @@ class AuditConsumerIntegrationTest {
         kafkaTemplate.send(TOPIC_REVIEW, userId, event);
 
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
-                assertThat(auditLogRepository.findByAction("REVIEW_COMPLETED", org.springframework.data.domain.Pageable.unpaged())
+                assertThat(auditLogRepository.findByAction("REVIEW_COMPLETED", Pageable.unpaged())
                         .getContent())
                         .singleElement()
                         .satisfies(log -> {
@@ -179,7 +180,7 @@ class AuditConsumerIntegrationTest {
     void badgeEarnedEvent_nonUuidUserId_shouldHaveNullUserIdInAuditLog() {
         String eventId = UUID.randomUUID().toString();
         String badgeId = UUID.randomUUID().toString();
-        String userId  = "12345";   // Long-stringified — NOT a UUID
+        String userId = "12345";   // Long-stringified — NOT a UUID
 
         BadgeEarned event = BadgeEarned.newBuilder()
                 .setEventId(eventId)
@@ -193,7 +194,7 @@ class AuditConsumerIntegrationTest {
         kafkaTemplate.send(TOPIC_BADGE, userId, event);
 
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
-                assertThat(auditLogRepository.findByAction("BADGE_EARNED", org.springframework.data.domain.Pageable.unpaged())
+                assertThat(auditLogRepository.findByAction("BADGE_EARNED", Pageable.unpaged())
                         .getContent())
                         .singleElement()
                         .satisfies(log -> {
@@ -211,7 +212,7 @@ class AuditConsumerIntegrationTest {
     @Order(5)
     void levelUpEvent_nonUuidUserId_shouldHaveNullUserIdAndUserIdAsResourceId() {
         String eventId = UUID.randomUUID().toString();
-        String userId  = "99";   // Long-stringified — NOT a UUID
+        String userId = "99";   // Long-stringified — NOT a UUID
 
         LevelUp event = LevelUp.newBuilder()
                 .setEventId(eventId)
@@ -226,7 +227,7 @@ class AuditConsumerIntegrationTest {
         kafkaTemplate.send(TOPIC_LEVEL_UP, userId, event);
 
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
-                assertThat(auditLogRepository.findByAction("LEVEL_UP", org.springframework.data.domain.Pageable.unpaged())
+                assertThat(auditLogRepository.findByAction("LEVEL_UP", Pageable.unpaged())
                         .getContent())
                         .singleElement()
                         .satisfies(log -> {
@@ -244,8 +245,8 @@ class AuditConsumerIntegrationTest {
     @Order(6)
     void duplicateNoteCreatedEvent_shouldStoreOnlyOneAuditLog() {
         String eventId = UUID.randomUUID().toString();
-        String noteId  = UUID.randomUUID().toString();
-        String userId  = UUID.randomUUID().toString();
+        String noteId = UUID.randomUUID().toString();
+        String userId = UUID.randomUUID().toString();
 
         NoteCreated event = NoteCreated.newBuilder()
                 .setEventId(eventId)

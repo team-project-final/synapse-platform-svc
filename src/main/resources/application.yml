@@ -48,6 +48,9 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}     # compose 내부: kafka:29092
+    # MSK TLS-only(9094) 대비. 기본 PLAINTEXT → dev/로컬 무영향. SSL 주입 시 팩토리 props에 반영(#51).
+    security:
+      protocol: ${SPRING_KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
     properties:
       schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086}
       specific.avro.reader: true

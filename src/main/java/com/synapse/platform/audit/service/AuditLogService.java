@@ -1,5 +1,10 @@
 package com.synapse.platform.audit.service;
 
+import com.synapse.engagement.BadgeEarned;
+import com.synapse.engagement.LevelUp;
+import com.synapse.knowledge.NoteCreated;
+import com.synapse.knowledge.NoteUpdated;
+import com.synapse.learning.ReviewCompleted;
 import com.synapse.platform.UserRegistered;
 import com.synapse.platform.audit.dto.AuditLogResponse;
 import com.synapse.platform.audit.entity.AuditLog;
@@ -28,12 +33,59 @@ public class AuditLogService {
     }
 
     public void processEvent(UserRegistered event) {
-        try {
-            AuditLog auditLog = toAuditLog(event);
-            repository.save(auditLog);
-        } catch (DataIntegrityViolationException exception) {
-            log.info("Duplicate event skipped");
-        }
+        UUID eventId = UUID.fromString(requiredText(event.getEventId(), "eventId"));
+        UUID userId = UUID.fromString(requiredText(event.getUserId(), "userId"));
+        save(AuditLog.of(eventId, "USER_REGISTERED", userId, "USER", userId.toString(), event.toString()));
+    }
+
+    public void processEvent(NoteCreated event) {
+        save(AuditLog.of(
+                UUID.fromString(event.getEventId().toString()),
+                "NOTE_CREATED",
+                parseUuidOrNull(event.getUserId()),
+                "NOTE",
+                event.getNoteId().toString(),
+                event.toString()));
+    }
+
+    public void processEvent(NoteUpdated event) {
+        save(AuditLog.of(
+                UUID.fromString(event.getEventId().toString()),
+                "NOTE_UPDATED",
+                parseUuidOrNull(event.getUserId()),
+                "NOTE",
+                event.getNoteId().toString(),
+                event.toString()));
+    }
+
+    public void processEvent(ReviewCompleted event) {
+        save(AuditLog.of(
+                UUID.fromString(event.getEventId().toString()),
+                "REVIEW_COMPLETED",
+                parseUuidOrNull(event.getUserId()),
+                "CARD",
+                event.getCardId().toString(),
+                event.toString()));
+    }
+
+    public void processEvent(BadgeEarned event) {
+        save(AuditLog.of(
+                UUID.fromString(event.getEventId().toString()),
+                "BADGE_EARNED",
+                parseUuidOrNull(event.getUserId()),
+                "BADGE",
+                event.getBadgeId().toString(),
+                event.toString()));
+    }
+
+    public void processEvent(LevelUp event) {
+        save(AuditLog.of(
+                UUID.fromString(event.getEventId().toString()),
+                "LEVEL_UP",
+                parseUuidOrNull(event.getUserId()),
+                "USER",
+                event.getUserId().toString(),
+                event.toString()));
     }
 
     @Scheduled(cron = "0 0 3 * * *")
@@ -53,16 +105,27 @@ public class AuditLogService {
         return repository.findAll(pageable).map(AuditLogResponse::from);
     }
 
-    private AuditLog toAuditLog(UserRegistered event) {
-        UUID eventId = UUID.fromString(requiredText(event.getEventId(), "eventId"));
-        UUID userId = UUID.fromString(requiredText(event.getUserId(), "userId"));
-        return AuditLog.of(
-                eventId,
-                "USER_REGISTERED",
-                userId,
-                "USER",
-                userId.toString(),
-                event.toString());
+    private void save(AuditLog auditLog) {
+        try {
+            repository.save(auditLog);
+        } catch (DataIntegrityViolationException ex) {
+            log.info("Duplicate event skipped");
+        }
+    }
+
+    /**
+     * Parses a UUID from the given raw value. Returns null if the value is null,
+     * blank, or not a valid UUID (e.g. engagement userId is a Long-stringified value).
+     */
+    private UUID parseUuidOrNull(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(raw.toString());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private String requiredText(Object rawValue, String fieldName) {

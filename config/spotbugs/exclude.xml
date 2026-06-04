@@ -31,4 +31,9 @@
         <Class name="com.synapse.platform.notification.service.SesEmailService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+    <!-- 벤더링한 생성 Avro 클래스(타 서비스 이벤트 계약). 해당 네임스페이스엔 수기 코드 없음 —
+         SpotBugs 전체 제외. 기존 platform Avro(UserRegistered/NotificationSend)와 동일 취지. -->
+    <Match>
+        <Class name="~com\.synapse\.(knowledge|engagement|learning)\..*"/>
+    </Match>
 </FindBugsFilter>

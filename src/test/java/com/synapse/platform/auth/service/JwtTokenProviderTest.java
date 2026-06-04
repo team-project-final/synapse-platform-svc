@@ -89,7 +89,15 @@ class JwtTokenProviderTest {
     void validateToken_tamperedToken_shouldReturnFalse() {
         // Given
         String token = tokenProvider.createRefreshToken(UUID.randomUUID());
-        String tamperedToken = token.substring(0, token.length() - 2) + "aa";
+        // 서명(마지막 세그먼트)의 첫 글자를 반드시 다른 값으로 치환해 변조를 보장한다.
+        // 기존엔 마지막 2글자를 고정값 "aa"로 바꿨는데, 원본 서명 끝이 우연히 같으면(~1/256) 변조본==원본이 돼
+        // 검증이 통과하는 flaky 테스트였다. 또 base64url 마지막 글자는 2비트만 유효해 치환해도 동일 바이트가
+        // 될 수 있다. 6비트를 온전히 담는 '서명 첫 글자'를 원본과 다른 값으로 바꾸면 항상 서명 바이트가 달라진다.
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char original = token.charAt(signatureStart);
+        char replacement = (original == 'A') ? 'B' : 'A';
+        String tamperedToken =
+                token.substring(0, signatureStart) + replacement + token.substring(signatureStart + 1);
 
         // When
         boolean valid = tokenProvider.validateToken(tamperedToken);

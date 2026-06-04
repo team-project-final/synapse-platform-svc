@@ -58,6 +58,12 @@ app:
   kafka:
     outbox:
       enabled: false
+    topics:
+      note-created: knowledge.note.note-created-v1
+      note-updated: knowledge.note.note-updated-v1
+      review-completed: learning.card.review-completed-v1
+      badge-earned: engagement.gamification.badge-earned-v1
+      level-up: engagement.gamification.level-up-v1
   fcm:
     enabled: false
   ses:

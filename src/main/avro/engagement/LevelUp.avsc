@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "LevelUp",
+  "namespace": "com.synapse.engagement",
+  "doc": "DRAFT 초안 — 사용자 레벨 상승 이벤트 (PRD FR-EG-202: XP 임계값 도달 → 레벨업). 토픽: engagement.gamification.level-up-v1. ⚠️ 도메인 필드(newLevel/previousLevel/totalXp)는 제안값 — engagement owner 확정 필요. 공통 메타(eventId/tenantId/occurredAt)는 EVENT_CONTRACT_STANDARD §1 고정.",
+  "fields": [
+    {"name": "eventId", "type": "string", "default": "", "doc": "이벤트 고유 ID(UUID) — 멱등성 키 (공통 메타)"},
+    {"name": "tenantId", "type": "string", "default": "", "doc": "테넌트 ID (공통 메타)"},
+    {"name": "userId", "type": "string", "default": "", "doc": "레벨업한 사용자 UUID (파티션 키)"},
+    {"name": "newLevel", "type": "int", "default": 0, "doc": "[제안] 도달한 새 레벨"},
+    {"name": "previousLevel", "type": "int", "default": 0, "doc": "[제안] 이전 레벨"},
+    {"name": "totalXp", "type": "long", "default": 0, "doc": "[제안] 누적 XP"},
+    {"name": "occurredAt", "type": "long", "default": 0, "doc": "이벤트 발행 시각 (epoch millis, 공통 메타)"}
+  ]
+}

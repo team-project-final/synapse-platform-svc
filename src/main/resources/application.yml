@@ -83,6 +83,11 @@ app:
     topics:
       user-registered: platform.auth.user-registered-v1
       notification-send: ${KAFKA_TOPIC_NOTIFICATION_SEND:platform.notification.notification-send-v1}
+      note-created: ${KAFKA_TOPIC_NOTE_CREATED:knowledge.note.note-created-v1}
+      note-updated: ${KAFKA_TOPIC_NOTE_UPDATED:knowledge.note.note-updated-v1}
+      review-completed: ${KAFKA_TOPIC_REVIEW_COMPLETED:learning.card.review-completed-v1}
+      badge-earned: ${KAFKA_TOPIC_BADGE_EARNED:engagement.gamification.badge-earned-v1}
+      level-up: ${KAFKA_TOPIC_LEVEL_UP:engagement.gamification.level-up-v1}
   fcm:
     enabled: ${FCM_ENABLED:false}
     service-account-path: ${FCM_SERVICE_ACCOUNT_PATH:}

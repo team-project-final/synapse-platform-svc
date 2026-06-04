@@ -310,9 +310,14 @@
 
 #### 2026-06-04 (목)
 - **완료**:
-- **진행 중**:
+  - 브랜치 정리: 로컬 `main` → `origin/main` fast-forward, 병합 완료된 orphan 브랜치 `docs/PLAT-016-readme-update` 삭제 (원격 `gone` 확인)
+  - **PLAT-017 (이슈 #47, CI Docker Hub rate-limit)**: `dev-smoke` 잡 `Start dev services` 앞에 `docker/login-action@v3` 로그인 스텝 추가. 시크릿 선행조건(`DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`) 팀장 등록 확인. PR #49 (Closes #47) → **머지 완료**
+  - **PLAT-018 (flaky 테스트 수정)**: #49 CI `build` 잡이 `AuditKafkaIntegrationTest`에서 반복 실패 → 코드 변경 0(워크플로 1줄)인데 실패해 flaky로 진단. 근본 원인 = 테스트 `application.yml` 컨슈머에 `auto-offset-reset` 누락 → Kafka 기본값 `latest` → 컨슈머 할당이 발행보다 늦으면 메시지 유실. 운영과 동일하게 `earliest` 고정 + audit await 3→10초. 로컬 BUILD SUCCESSFUL. PR #50 → **머지 완료**
+  - 전 PR 머지 후 로컬 dev 동기화(fast-forward) + 머지된 feature 브랜치 정리
+- **진행 중**: 없음
 - **이슈**:
-- **다음**:
+  - **두 번째 flaky 발견 (미해결 → PLAT-019)**: `JwtTokenProviderTest.validateToken_tamperedToken_shouldReturnFalse` — 서명 마지막 2글자를 고정값 "aa"로 변조하는데, 원본 서명 마지막 바이트가 우연히 같으면(~1/256) 변조본==원본 → 검증 통과 → 실패. #49 재실행으로 우회해 머지했으나 결정적 변조로 교체 필요.
+- **다음**: PLAT-019(JWT flaky 결정적 수정) / minikube 로컬 개발 환경 구축(인프라+platform) / Step 9(E2E 테스트) 착수
 
 #### 2026-06-05 (금)
 - **완료**:
@@ -326,6 +331,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-04 | 이슈 #47 대응 — `dev-smoke` CI에 Docker Hub 로그인 스텝 추가(`ci(infra)`, PLAT-017, PR #49, 머지). EmbeddedKafka 통합 테스트 flaky 수정(consumer `auto-offset-reset: earliest`, PLAT-018, PR #50, 머지). JWT 변조 테스트 flaky 발견(PLAT-019 예정). 브랜치 정리(main fast-forward, orphan docs/PLAT-016 삭제) |
 | 2026-05-19 | 멀티모듈 아키텍처 마이그레이션 결정 (D-013~D-015). PLAT-007 폐기. Step 번호 전면 재정비(4~10 → 5~11, 신규 Step 4 삽입). feature/PLAT-000-multi-module-migration 브랜치 시작 |
 | 2026-05-18 | Step 3 재점검 완료 — RS256 JWT, DB+Redis Refresh Token, TOTP MFA 신규 문서 기준 전면 충족 확인. 코드 변경 없음. WORKFLOW/TASK 체크박스 업데이트 |
 | 2026-05-18 | Step 2 재점검 완료 — Apple OAuth OIDC 구현(OAuthUserResolver 추출, CustomOidcUserService), Microsoft TODO 문서화 |

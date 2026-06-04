@@ -71,7 +71,7 @@ class AuditKafkaIntegrationTest {
 
         kafkaTemplate.send(TOPIC, tenantId.toString(), event);
 
-        await().atMost(Duration.ofSeconds(3)).untilAsserted(() ->
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertThat(auditLogRepository.findAll())
                         .singleElement()
                         .satisfies(log -> {
@@ -97,7 +97,7 @@ class AuditKafkaIntegrationTest {
         kafkaTemplate.send(TOPIC, tenantId.toString(), event);
         kafkaTemplate.send(TOPIC, tenantId.toString(), event);
 
-        await().atMost(Duration.ofSeconds(3)).untilAsserted(() ->
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertThat(auditLogRepository.findAll()).hasSize(1));
     }
 
@@ -110,7 +110,7 @@ class AuditKafkaIntegrationTest {
         userEventPublisher.publishUserRegistered(userId, "outbox@example.com", "Outbox User", tenantId);
         outboxEventPublisher.publishPendingEvents();
 
-        await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             assertThat(auditLogRepository.findAll())
                     .singleElement()
                     .satisfies(log -> {

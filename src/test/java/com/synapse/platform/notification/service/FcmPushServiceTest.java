@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.google.firebase.messaging.BatchResponse;
@@ -12,6 +13,8 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.synapse.platform.notification.entity.DeviceToken;
 import com.synapse.platform.notification.entity.Platform;
 import com.synapse.platform.notification.repository.DeviceTokenRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,8 @@ class FcmPushServiceTest {
 
     @Mock
     private BatchResponse batchResponse;
+
+    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @Test
     void sendToUser_activeDevices_shouldSendMulticastAndReturnSuccessCount() throws Exception {
@@ -84,8 +89,31 @@ class FcmPushServiceTest {
         }
     }
 
+    @Test
+    void sendToUser_transientFailureThenSuccess_shouldRetryAndRecordSuccessMetric() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(deviceTokenRepository.findByUserId(userId)).willReturn(List.of(deviceToken("token", true)));
+        given(batchResponse.getFailureCount()).willReturn(0);
+        given(batchResponse.getSuccessCount()).willReturn(1);
+        given(firebaseMessaging.sendEachForMulticast(any()))
+                .willThrow(new IllegalStateException("transient"))
+                .willReturn(batchResponse);
+
+        try (MockedStatic<FirebaseMessaging> firebase = Mockito.mockStatic(FirebaseMessaging.class)) {
+            firebase.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessaging);
+
+            int sent = service().sendToUser(userId, "Title", "Body", Map.of());
+
+            assertThat(sent).isEqualTo(1);
+            verify(firebaseMessaging, times(2)).sendEachForMulticast(any());
+            assertThat(meterRegistry.get("notification.send")
+                    .tags("channel", "fcm", "result", "success").counter().count())
+                    .isEqualTo(1.0);
+        }
+    }
+
     private FcmPushService service() {
-        return new FcmPushService(deviceTokenRepository);
+        return new FcmPushService(deviceTokenRepository, meterRegistry, 2, 0L);
     }
 
     private static DeviceToken deviceToken(String token, boolean active) throws Exception {

@@ -8,61 +8,65 @@
 
 ## Step 9: 인증/결제 E2E 테스트
 
+> 완료: PLAT-023 (PR #57). E2E `AuthBillingE2ETest` — @SpringBootTest+MockMvc, Testcontainers PG. 발견 gap → 이슈 #56.
+
 ### 9.1 E2E 시나리오 정의
-- [ ] 인증 플로우 시나리오 작성 (회원가입→로그인→JWT→MFA→로그아웃)
-- [ ] 결제 플로우 시나리오 작성 (Stripe 연동)
-- [ ] 테스트 데이터 준비
+- [x] 인증 플로우 시나리오 작성 (회원가입→로그인→JWT→MFA→토큰갱신) *(로그아웃 전용 엔드포인트 없음 → 토큰 갱신/무효화로 대체)*
+- [x] 결제 플로우 시나리오 작성 (Stripe Checkout→Webhook→구독 활성화)
+- [x] 테스트 데이터 준비 (유저별 unique email, 테스트 간 TRUNCATE 격리)
 
 ### 9.2 E2E 테스트 실행
-- [ ] 인증 플로우 E2E 테스트 실행
-- [ ] 결제 플로우 E2E 테스트 실행
-- [ ] 실패 항목 기록
+- [x] 인증 플로우 E2E 테스트 실행
+- [x] 결제 플로우 E2E 테스트 실행
+- [x] 실패 항목 기록 (billing `ON CONFLICT`가 H2에서 미검증 → 이슈 #56)
 
 ### 9.3 버그 트리아지
-- [ ] P0/P1/P2 분류
-- [ ] P0 즉시 수정 대상 확정
+- [x] P0/P1/P2 분류 (flaky 테스트 2건=P0, billing H2 gap=P2/tech-debt)
+- [x] P0 즉시 수정 대상 확정 (Audit Kafka flaky, JWT 변조 flaky)
 
 ### 9.4 버그 수정
-- [ ] P0 버그 수정
-- [ ] 수정 코드 리뷰 + 테스트
+- [x] P0 버그 수정 (PLAT-018 consumer earliest, PLAT-021 JWT 결정적 변조)
+- [x] 수정 코드 리뷰 + 테스트 (PR #50, #55)
 
 ### 9.5 회귀 테스트
-- [ ] 수정 후 전체 테스트 재실행
-- [ ] 커버리지 80% 이상 확인
+- [x] 수정 후 전체 테스트 재실행 (`./gradlew clean build` green)
+- [x] 커버리지 80% 이상 확인 (JaCoCo 게이트 통과)
 
 ### 9.6 문서 업데이트
-- [ ] API 문서 최신화
-- [ ] HISTORY 완료 기록
+- [x] API 문서 최신화 (Step 9는 API 변경 없음 — 해당 없음)
+- [x] HISTORY 완료 기록 (PR #58, TASK Step 9 Done)
 
-**Step 9 Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Step 9 Status**: [ ] Not Started / [ ] In Progress / [x] Done
 
 ---
 
 ## Step 10: 버그 수정 + 알림 안정화
 
-### 10.1 E2E 시나리오 정의
-- [ ] 알림 안정화 시나리오 목록 작성
-- [ ] 테스트 데이터 준비
+> TASK_platform Step 10 정의에 맞춰 정렬(기존 E2E 템플릿 → P0 버그 + 알림 retry/metrics).
+> 완료: PLAT-028 (PR #64). FCM/SES 재시도 + Micrometer 메트릭.
 
-### 10.2 E2E 테스트 실행
-- [ ] 알림 플로우 E2E 테스트 실행
-- [ ] 실패 항목 기록
+### 10.1 P0 버그 트리아지
+- [x] GitHub Issues P0/bug 필터 — P0 버그 목록 확인 (`P0` 라벨 0건, `bug`=#47 완료)
+- [x] P0/P1/P2 분류 + P0 즉시 수정 대상 확정 (**P0 0건** — Step 9 발견 flaky 2건은 PLAT-018/021로 기수정)
 
-### 10.3 버그 트리아지
-- [ ] P0/P1/P2 분류
-- [ ] P0 즉시 수정 대상 확정
+### 10.2 P0 버그 수정
+- [x] 각 P0 재현 → 원인 분석 → 수정 (신규 P0 없음)
+- [x] 수정 후 재현 테스트 작성 및 통과 (PLAT-018/021 회귀 테스트 포함)
 
-### 10.4 버그 수정
-- [ ] P0 버그 수정
-- [ ] 알림 안정화 관련 수정
-- [ ] 수정 코드 리뷰 + 테스트
+### 10.3 알림 발송 안정화 (재시도 로직)
+- [x] FCM 발송 실패 원인 분석 + 재시도 로직 보강 (설정형 max-attempts/backoff)
+- [x] SES 발송 실패 원인 분석 + 안정화
+
+### 10.4 알림 모니터링 메트릭
+- [x] 발송 성공/실패/지연 메트릭 추가 (Micrometer `notification.send`·`notification.send.latency`)
+- [x] 성공률 > 99% / SLA(FCM < 10s, SES < 30s) 기준 반영·관찰 (재시도+메트릭으로 충족·관측)
 
 ### 10.5 회귀 테스트
-- [ ] 수정 후 전체 테스트 재실행
-- [ ] 커버리지 80% 이상 확인
+- [x] 수정 후 전체 테스트 재실행 (`clean build` green)
+- [x] 커버리지 80% 이상 확인 (JaCoCo 게이트 통과)
 
 ### 10.6 문서 업데이트
-- [ ] API 문서 최신화
-- [ ] HISTORY 완료 기록
+- [x] 안정화 리포트 작성 (PR #64 본문 + HISTORY)
+- [x] HISTORY 완료 기록
 
-**Step 10 Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Step 10 Status**: [ ] Not Started / [ ] In Progress / [x] Done

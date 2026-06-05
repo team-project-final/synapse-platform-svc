@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "NoteCreated",
+  "namespace": "com.synapse.knowledge",
+  "doc": "Emitted when a new note is created.",
+  "fields": [
+    {"name": "eventId", "type": "string", "default": "", "doc": "Unique event ID (UUID) — idempotency key (common meta, EVENT_CONTRACT_STANDARD §1)"},
+    {"name": "noteId", "type": "string", "doc": "UUID of the created note"},
+    {"name": "userId", "type": "string", "doc": "UUID of the note author"},
+    {"name": "tenantId", "type": "string", "doc": "Tenant identifier"},
+    {"name": "deckId", "type": ["null", "string"], "default": null, "doc": "Target deck for AI card generation (learning-ai consumer)"},
+    {"name": "title", "type": "string", "doc": "Note title"},
+    {"name": "content", "type": ["null", "string"], "default": null, "doc": "Content body of the note (optional for backward compat)"},
+    {"name": "createdAt", "type": "string", "doc": "ISO-8601 creation timestamp"},
+    {"name": "occurredAt", "type": "long", "default": 0, "doc": "Event emission time (epoch millis) — common meta"}
+  ]
+}

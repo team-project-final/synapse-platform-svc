@@ -3,10 +3,12 @@ package com.synapse.platform.global.kafka;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -19,6 +21,7 @@ import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 
 @EnableKafka
 @Configuration
+@ConditionalOnProperty(prefix = "synapse.kafka", name = "enabled", havingValue = "true")
 public class KafkaConsumerConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
@@ -32,6 +35,9 @@ public class KafkaConsumerConfig {
 
     @Value("${spring.kafka.consumer.group-id:platform-svc-group}")
     private String groupId;
+
+    @Value("${spring.kafka.security.protocol:PLAINTEXT}")
+    private String securityProtocol;
 
     @Bean
     public ConsumerFactory<String, Object> consumerFactory() {
@@ -85,7 +91,7 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
-    private Map<String, Object> consumerProperties() {
+    Map<String, Object> consumerProperties() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -97,6 +103,10 @@ public class KafkaConsumerConfig {
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, KafkaAvroDeserializer.class);
         props.put("schema.registry.url", schemaRegistryUrl);
         props.put("specific.avro.reader", true);
+        // MSK TLS-only(9094) 대비: SSL 등 비-PLAINTEXT일 때만 주입. 기본 PLAINTEXT는 dev/로컬 무영향. (#51)
+        if (!"PLAINTEXT".equalsIgnoreCase(securityProtocol)) {
+            props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
+        }
         return props;
     }
 }

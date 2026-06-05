@@ -1,0 +1,9 @@
+name: Flyway Guard
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+jobs:
+  guard:
+    uses: team-project-final/synapse-shared/.github/workflows/flyway-guard.yml@main

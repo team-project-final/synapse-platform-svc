@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "NoteUpdated",
+  "namespace": "com.synapse.knowledge",
+  "doc": "Emitted when a note is updated.",
+  "fields": [
+    {"name": "eventId", "type": "string", "default": "", "doc": "Unique event ID (UUID) — idempotency key (common meta, EVENT_CONTRACT_STANDARD §1)"},
+    {"name": "noteId", "type": "string", "doc": "UUID of the updated note"},
+    {"name": "userId", "type": "string", "doc": "UUID of the note author"},
+    {"name": "tenantId", "type": "string", "doc": "Tenant identifier"},
+    {"name": "title", "type": "string", "doc": "Note title"},
+    {"name": "updatedAt", "type": "string", "doc": "ISO-8601 update timestamp"},
+    {"name": "occurredAt", "type": "long", "default": 0, "doc": "Event emission time (epoch millis) — common meta"}
+  ]
+}

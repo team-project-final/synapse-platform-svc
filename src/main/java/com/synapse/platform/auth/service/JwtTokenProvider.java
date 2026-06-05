@@ -4,6 +4,8 @@ import com.synapse.platform.auth.config.JwtProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
@@ -25,9 +27,15 @@ public class JwtTokenProvider {
     private static final String TYPE_CLAIM = "type";
 
     private final JwtProperties properties;
+    private final RSAPrivateKey privateKey;
+    private final RSAPublicKey publicKey;
 
     public JwtTokenProvider(JwtProperties properties) {
         this.properties = properties;
+        // 키를 기동 시 1회 파싱 — 잘못된/누락 키면 빈 생성에서 즉시 실패(fail-fast).
+        // 매 토큰 연산마다 재파싱하던 것을 제거(성능) + 런타임 500 대신 부팅 단계에서 발각.
+        this.privateKey = properties.rsaPrivateKey();
+        this.publicKey = properties.rsaPublicKey();
     }
 
     public String createAccessToken(UUID userId, List<String> roles) {
@@ -42,7 +50,7 @@ public class JwtTokenProvider {
                 .expiration(Date.from(now.plusSeconds(ACCESS_TOKEN_TTL_SECONDS)))
                 .claim("roles", roles)
                 .claim(TYPE_CLAIM, ACCESS_TOKEN_TYPE)
-                .signWith(properties.rsaPrivateKey(), Jwts.SIG.RS256)
+                .signWith(privateKey, Jwts.SIG.RS256)
                 .compact();
     }
 
@@ -57,7 +65,7 @@ public class JwtTokenProvider {
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(REFRESH_TOKEN_TTL_SECONDS)))
                 .claim(TYPE_CLAIM, REFRESH_TOKEN_TYPE)
-                .signWith(properties.rsaPrivateKey(), Jwts.SIG.RS256)
+                .signWith(privateKey, Jwts.SIG.RS256)
                 .compact();
     }
 
@@ -91,7 +99,7 @@ public class JwtTokenProvider {
 
     private Claims parseClaims(String token) {
         return Jwts.parser()
-                .verifyWith(properties.rsaPublicKey())
+                .verifyWith(publicKey)
                 .requireIssuer(properties.issuer())
                 .build()
                 .parseSignedClaims(token)

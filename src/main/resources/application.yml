@@ -71,6 +71,12 @@ spring:
         schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086}
         specific.avro.reader: true
 
+synapse:
+  kafka:
+    # Kafka 게이트. 기본 false → 환경별 KAFKA_ENABLED로 on/off (gitops env 정합, #59).
+    # off면 producer/consumer/error-handler 팩토리·리스너·outbox publisher 빈이 생성되지 않음.
+    enabled: ${KAFKA_ENABLED:false}
+
 management:
   endpoints:
     web:

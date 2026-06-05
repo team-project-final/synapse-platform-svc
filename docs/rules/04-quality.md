@@ -199,3 +199,43 @@ class AuthE2ETest {
 ```
 
 > **이유**: 테스트 피라미드 구조를 지켜야 해. Unit 많이, Integration 적당히, E2E 핵심만. 비율이 뒤집히면 CI가 느려지고 유지보수 지옥이야.
+
+---
+
+## 4.6 DB 벤더 종속 SQL은 Postgres 통합테스트로 검증 [MUST]
+
+운영 DB는 PostgreSQL이다. **native query / DB 벤더 전용 구문**(`ON CONFLICT`, `RETURNING`, JSONB 연산자, partial/expression index, `gen_random_uuid()` 등)은 기본 테스트 프로파일인 **H2(`MODE=PostgreSQL`)에서 동작이 보장되지 않는다**.
+
+- 이런 SQL을 사용하는 Repository는 **반드시 Testcontainers PostgreSQL 통합테스트로 실제 실행 경로를 검증**한다.
+- 단위/슬라이스 테스트에서 해당 Repository를 **모킹만** 하면 native SQL이 한 번도 실행되지 않아, 단위테스트가 전부 green이어도 실제 DB에서 깨지는 회귀를 못 잡는다.
+- H2 기본 프로파일 통과만으로는 부족하다 — native SQL 경로는 **PG 통합테스트 green이 추가 게이트**다.
+
+### ✅ Good
+
+```java
+@SpringBootTest
+@Testcontainers
+@TestPropertySource(properties = "spring.flyway.enabled=true")
+class ProcessedEventRepositoryIT {
+    @Container static GenericContainer<?> pg = new GenericContainer<>(
+            DockerImageName.parse("pgvector/pgvector:pg16")); // 운영과 동일 엔진
+
+    @Test
+    void insertIfAbsent_중복eventId_should두번째는0반환() { // ON CONFLICT 실제 실행 검증
+        assertThat(repo.insertIfAbsent("evt-1", "checkout.session.completed")).isOne();
+        assertThat(repo.insertIfAbsent("evt-1", "checkout.session.completed")).isZero();
+    }
+}
+```
+
+### ❌ Bad
+
+```java
+@ExtendWith(MockitoExtension.class)
+class BillingServiceTest {
+    @Mock ProcessedEventRepository repo;  // native ON CONFLICT 쿼리가 영원히 실행 안 됨
+    // → 단위테스트 green이어도 H2/운영에서 깨짐 (실제 사례: #56)
+}
+```
+
+> **이유**: 실제로 billing 웹훅 멱등성(`ON CONFLICT (event_id) DO NOTHING`)이 모든 단위테스트에서 repo 모킹으로 가려져, H2 기반 E2E에서 500으로 처음 드러났다(이슈 #56). 운영과 같은 엔진으로 native SQL을 한 번은 실제 실행해야 한다.

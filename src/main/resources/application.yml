@@ -80,6 +80,13 @@ synapse:
     # Kafka 게이트. 기본 false → 환경별 KAFKA_ENABLED로 on/off (gitops env 정합, #59).
     # off면 producer/consumer/error-handler 팩토리·리스너·outbox publisher 빈이 생성되지 않음.
     enabled: ${KAFKA_ENABLED:false}
+  jwt:
+    # 매핑만 base에 둠 — 모든 프로파일(default 포함)이 env/secret에서 키를 읽도록. 개인키 하드코딩 없음(#62).
+    # 키 미주입 시 기동 fail-fast. dev/staging은 로컬 편의용 기본값을 자체 yml에 보유.
+    private-key: ${JWT_PRIVATE_KEY}
+    public-key: ${JWT_PUBLIC_KEY}
+    kid: ${JWT_KID:synapse-key-2026-05}
+    issuer: ${JWT_ISSUER:synapse-auth}
 
 management:
   endpoints:

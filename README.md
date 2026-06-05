@@ -1,20 +1,29 @@
 # synapse-platform-svc
 
-> 최종 수정: 2026-06-01 KST
+> 마지막 갱신: 2026-06-05 KST
+> 기준 브랜치: `dev` (`18a2741`, JWT key fail-fast 포함)
 
-Synapse 플랫폼 핵심 서비스입니다. 인증, 사용자, 결제, 알림, 감사 로그, 관리자 기능을 Spring Boot 단일 애플리케이션 안에서 Spring Modulith 모듈 경계로 관리합니다. MSA의 **인증 허브** 역할을 담당하며 전 서비스의 JWT 검증 의존 기점입니다.
+Synapse MSA의 platform 서비스입니다. 인증, 사용자, 결제, 알림, 감사 로그, 관리자 기능을 Spring Boot 단일 애플리케이션 안에서 Spring Modulith 모듈 경계로 관리합니다. 다른 서비스가 신뢰하는 JWT 발급/검증의 기준점이며, Kafka 이벤트 계약의 platform 영역을 담당합니다.
+
+## 현재 상태
+
+- W3/W4 platform 기능은 `dev` 기준 완료: auth, billing, notification, audit, admin, Kafka Avro 계약, Step 9 E2E, Step 10 알림 안정화.
+- Kafka는 Confluent Avro + Schema Registry bare typed record 방식입니다.
+- Kafka 인프라는 `KAFKA_ENABLED=false`가 기본이며, GitOps/dev/staging/prod에서 필요할 때 `true`로 켭니다.
+- JWT key는 기본 프로파일/prod에서 누락 또는 파싱 실패 시 기동 단계에서 fail-fast 합니다. dev/staging은 로컬 편의용 non-prod 기본 키를 갖습니다.
+- 남은 GitHub 이슈는 staging live health 검증(#37), W5 라이브 E2E 실행(#62)입니다.
 
 ## Modules
 
-| Module | 설명 | 현재 구현 상태 |
+| Module | 역할 | 상태 |
 |---|---|---|
-| `auth` | JWT RS256, Refresh Token(멀티 디바이스·HttpOnly Cookie), Google/GitHub/Apple OAuth2, MFA TOTP, 이메일/비밀번호 가입·로그인 | 구현 |
-| `user` | 사용자 프로필(골격), 관리자 사용자 관리 API(상태 변경·삭제) | 일부 구현 |
+| `auth` | 이메일/비밀번호 가입/로그인, Google/GitHub/Apple OAuth2, JWT RS256, Refresh Token, MFA TOTP | 구현 |
+| `user` | 사용자 도메인, 관리자 사용자 조회/상태 변경/삭제 | 구현 |
 | `billing` | Stripe Checkout, 구독 조회, Stripe Webhook, 결제 이력, 관리자 테넌트 관리 | 구현 |
-| `notification` | FCM 디바이스 토큰 등록/해제, FCM 푸시·SES 이메일 발송(Kafka 이벤트 소비) | 구현 |
-| `audit` | `UserRegistered` Kafka 소비 → `audit_logs` 자동 기록, 감사 로그 조회 API | 구현 |
-| `admin` | 관리자 공통 영역(placeholder). 실제 관리 API는 `user`/`billing`/`audit` 모듈에 위치 | 골격 |
-| `global` | 공통 예외 처리, 필드 암호화, Kafka 직렬화/에러 핸들링 등 공통 인프라 | 구현 |
+| `notification` | FCM 디바이스 토큰 등록/해제, `NotificationSend` 이벤트 기반 FCM/SES 발송 | 구현 |
+| `audit` | 주요 도메인 Kafka 이벤트를 `audit_logs`에 적재, 관리자 감사 로그 조회 | 구현 |
+| `admin` | 관리자 공통 영역 placeholder. 실제 API는 `user`, `billing`, `audit` 모듈에 위치 | 골격 |
+| `global` | 공통 예외, crypto, Kafka config/error handler | 구현 |
 
 ## Tech Stack
 
@@ -24,110 +33,106 @@ Synapse 플랫폼 핵심 서비스입니다. 인증, 사용자, 결제, 알림, 
 - PostgreSQL 16
 - Redis 7
 - Flyway
-- JPA
-- Spring Security (OAuth2 Client)
+- Spring Data JPA
+- Spring Security OAuth2 Client
 - jjwt 0.12.6
-- Apache Kafka (spring-kafka) + Avro 1.12.0 + Confluent Schema Registry (`kafka-avro-serializer` 7.7.0)
-- Firebase Admin SDK 9.4.1 (FCM)
-- AWS SDK for Java v2 — SES (`sesv2` 2.26.29)
+- Apache Kafka + Avro 1.12.0 + Confluent Schema Registry 7.7.0
+- Firebase Admin SDK 9.4.1
+- AWS SDK for Java v2 SES v2 2.26.29
 - Stripe Java 32.1.0
-- Testcontainers 1.21.4 (PostgreSQL, Kafka)
-- Checkstyle
-- SpotBugs
-- JaCoCo
+- Micrometer / Actuator
+- Testcontainers 1.21.4
+- Checkstyle, SpotBugs, JaCoCo
 
----
+## Profiles And Ports
 
-## Getting Started
+| Profile | 용도 | 주요 설정 |
+|---|---|---|
+| `dev` | 로컬/CI 기본값 | DB `localhost:5432/synapse`, Redis password `redis_local_pw`, non-prod JWT key 기본값 |
+| `staging` | EKS staging | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `SPRING_DATA_REDIS_*` 사용, cookie secure |
+| `prod` | 운영 | 필수 secret/env 누락 시 fail-fast |
 
-### 사전 요구사항
+- 기본 앱 포트는 `8081`입니다.
+- Kubernetes/GitOps 배포에서는 `SERVER_PORT=8080`으로 덮어써서 컨테이너 포트/probe와 맞춥니다.
+- Actuator health: `/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`
 
-- JDK 21
-- Docker Desktop
-- PowerShell 또는 Bash
+## Local Run
 
-### 인프라 컨테이너 실행
-
-```bash
-docker compose up -d postgres redis
-```
-
-`docker-compose.yml` 기준 PostgreSQL 기본값은 다음과 같습니다.
-
-| 항목 | 값 |
-|---|---|
-| DB | `synapse_platform` |
-| User | `synapse` |
-| Password | `synapse` |
-| Port | `5432` |
-
-> Kafka 발행/소비를 로컬에서 끝단까지 검증하려면 Kafka + Schema Registry가 필요합니다(기본 `KAFKA_BOOTSTRAP_SERVERS=localhost:9092`, `SCHEMA_REGISTRY_URL=http://localhost:8086`). 통합 테스트는 EmbeddedKafka + mock Schema Registry(`mock://...`)를 사용하므로 별도 기동이 필요 없습니다.
-
-### 로컬 애플리케이션 실행
-
-`application-local.yml`은 로컬 DB 설정을 별도로 가지고 있습니다. Docker Compose의 PostgreSQL을 그대로 사용할 경우 datasource 환경 변수를 함께 지정합니다.
-
-PowerShell:
+가장 덜 꼬이는 로컬 실행은 `docker-compose.ci.yml`로 PostgreSQL/Redis만 띄우고 앱은 `bootRun`으로 실행하는 방식입니다. 이 compose 값이 `dev` 프로필 기본값과 맞습니다.
 
 ```powershell
-$env:SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/synapse_platform'
-$env:SPRING_DATASOURCE_USERNAME='synapse'
-$env:SPRING_DATASOURCE_PASSWORD='synapse'
-$env:SPRING_PROFILES_ACTIVE='local'
-.\gradlew.bat bootRun
+docker compose -f docker-compose.ci.yml up -d --wait
+.\gradlew.bat bootRun --args='--spring.profiles.active=dev'
 ```
 
-Bash:
-
 ```bash
-SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/synapse_platform' \
-SPRING_DATASOURCE_USERNAME='synapse' \
-SPRING_DATASOURCE_PASSWORD='synapse' \
-SPRING_PROFILES_ACTIVE='local' \
-./gradlew bootRun
+docker compose -f docker-compose.ci.yml up -d --wait
+./gradlew bootRun --args='--spring.profiles.active=dev'
 ```
 
-애플리케이션 기본 포트는 `8081`입니다.
-
-### Docker Compose로 애플리케이션까지 실행
+Health check:
 
 ```bash
-docker compose up -d --build
+curl http://localhost:8081/actuator/health
 ```
 
----
+`docker-compose.yml`은 PostgreSQL/Redis와 app 컨테이너를 함께 정의하지만, 현재 app 서비스가 `8080:8080`으로 매핑되어 있습니다. 로컬 `bootRun`의 8081, gateway의 8080과 혼동될 수 있으니 platform 앱까지 compose로 띄우는 방식은 포트 정책을 먼저 맞춘 뒤 사용하세요.
 
-## Build & Test
+## Local Infra Variants
+
+`docker-compose.ci.yml` 기본값:
+
+| Component | Host | Port | Credential |
+|---|---|---|---|
+| PostgreSQL | `localhost` | `5432` | DB `synapse`, user `synapse`, password `synapse_local_pw` |
+| Redis | `localhost` | `6379` | password `redis_local_pw` |
+
+`docker-compose.yml` 기본값:
+
+| Component | Host | Port | Credential |
+|---|---|---|---|
+| PostgreSQL | `localhost` | `5432` | DB `synapse_platform`, user `synapse`, password `synapse` |
+| Redis | `localhost` | `6379` | no password |
+
+`docker-compose.yml`의 DB/Redis만 쓰려면 앱 실행 전에 값을 명시하세요.
+
+```powershell
+$env:DB_URL='jdbc:postgresql://localhost:5432/synapse_platform'
+$env:DB_USERNAME='synapse'
+$env:DB_PASSWORD='synapse'
+$env:SPRING_DATA_REDIS_HOST='localhost'
+$env:SPRING_DATA_REDIS_PORT='6379'
+$env:SPRING_DATA_REDIS_PASSWORD=''
+.\gradlew.bat bootRun --args='--spring.profiles.active=dev'
+```
+
+## Build And Test
 
 ```bash
-# 전체 빌드, 테스트, 정적 분석, JaCoCo 검증
+# full build: test, checkstyle, spotbugs, jacoco coverage verification
 ./gradlew clean build
 
-# Avro 스키마(.avsc) → SpecificRecord 코드 생성
+# Avro SpecificRecord 생성
 ./gradlew generateAvroJava
 
-# 테스트 전체 실행
+# 전체 테스트
 ./gradlew test
 
 # Modulith 구조 검증
 ./gradlew test --tests "*ModuleStructureTest"
 
-# 정적 분석
-./gradlew checkstyleMain checkstyleTest spotbugsMain spotbugsTest
+# Kafka config/gate 관련 테스트
+./gradlew test --tests "*Kafka*"
 
-# JaCoCo 리포트 생성
-./gradlew jacocoTestReport
+# Auth/Billing E2E
+./gradlew test --tests "*AuthBillingE2ETest"
 ```
 
-Windows + Testcontainers에서 Docker pipe를 명시해야 하는 경우:
+Windows에서 Testcontainers가 Docker Desktop Linux Engine을 못 찾으면 다음 값을 먼저 지정합니다.
 
 ```powershell
 $env:DOCKER_HOST='npipe:////./pipe/dockerDesktopLinuxEngine'
 ```
-
-> Avro 생성 소스(`generated-main-avro-java`, `generated-test-avro-java`)는 Checkstyle 대상에서 제외됩니다.
-
----
 
 ## API Endpoints
 
@@ -136,26 +141,24 @@ $env:DOCKER_HOST='npipe:////./pipe/dockerDesktopLinuxEngine'
 | Method | Path | 설명 | 인증 |
 |---|---|---|---|
 | `POST` | `/api/v1/auth/signup` | 이메일/비밀번호 회원가입 | 불필요 |
-| `POST` | `/api/v1/auth/login` | 이메일/비밀번호 로그인 | 불필요 |
-| `POST` | `/api/v1/auth/refresh` | Refresh Token(HttpOnly Cookie)으로 Access Token 갱신 | 불필요 |
-| `POST` | `/api/v1/auth/mfa/setup` | TOTP 시크릿 생성 및 QR URL 반환 | 필요 |
+| `POST` | `/api/v1/auth/login` | 이메일/비밀번호 로그인, access token 응답 + refresh cookie 설정 | 불필요 |
+| `POST` | `/api/v1/auth/refresh` | HttpOnly refresh cookie로 access token 재발급 | Origin 검증 |
+| `POST` | `/api/v1/auth/mfa/setup` | TOTP secret/QR URL 생성 | 필요 |
 | `POST` | `/api/v1/auth/mfa/verify` | TOTP 코드 검증 | 필요 |
-| `GET` | `/api/v1/auth/callback` | OAuth 성공 후 프론트 콜백 보조 엔드포인트 | 불필요 |
-| `GET` | `/oauth2/authorization/google` | Google OAuth 로그인 시작 | 불필요 |
-| `GET` | `/oauth2/authorization/github` | GitHub OAuth 로그인 시작 | 불필요 |
-| `GET` | `/oauth2/authorization/apple` | Apple OAuth 로그인 시작 | 불필요 |
-
-OAuth 로그인 성공 시 Access Token은 `?access_token={jwt}` 쿼리 파라미터로, **Refresh Token은 HttpOnly Cookie**로 내려가며 `app.oauth2.redirect-uri`로 리디렉트됩니다(D-028). `/api/v1/auth/refresh`는 요청 Cookie의 Refresh Token을 사용하고 Origin 검증을 수행합니다.
+| `GET` | `/api/v1/auth/callback` | 프론트 OAuth callback 보조 엔드포인트 | 불필요 |
+| `GET` | `/oauth2/authorization/google` | Google OAuth 시작 | 불필요 |
+| `GET` | `/oauth2/authorization/github` | GitHub OAuth 시작 | 불필요 |
+| `GET` | `/oauth2/authorization/apple` | Apple OAuth 시작 | 불필요 |
 
 ### Billing
 
 | Method | Path | 설명 | 인증 |
 |---|---|---|---|
 | `POST` | `/api/v1/billing/checkout` | Stripe Checkout Session 생성 | 필요 |
-| `GET` | `/api/v1/billing/subscription` | 현재 사용자의 구독 정보 조회 | 필요 |
-| `POST` | `/api/v1/billing/webhooks` | Stripe Webhook 수신(서명 검증) | 불필요 |
+| `GET` | `/api/v1/billing/subscription` | 현재 사용자 구독 조회 | 필요 |
+| `POST` | `/api/v1/billing/webhooks` | Stripe Webhook 수신 및 서명 검증 | 불필요 |
 
-Checkout 요청 예시:
+Checkout request:
 
 ```json
 {
@@ -165,16 +168,14 @@ Checkout 요청 예시:
 }
 ```
 
-지원 플랜 코드는 `FREE`, `PRO`, `TEAM`, `ENTERPRISE`입니다. Checkout 생성은 `PRO`, `TEAM`, `ENTERPRISE` 플랜을 대상으로 합니다.
-
 ### Notification
 
 | Method | Path | 설명 | 인증 |
 |---|---|---|---|
-| `POST` | `/api/v1/notifications/devices` | FCM 디바이스 토큰 등록 | 필요 |
-| `DELETE` | `/api/v1/notifications/devices/{id}` | FCM 디바이스 토큰 해제 | 필요 |
+| `POST` | `/api/v1/notifications/devices` | FCM device token 등록 | 필요 |
+| `DELETE` | `/api/v1/notifications/devices/{id}` | FCM device token 해제 | 필요 |
 
-디바이스 등록 요청 예시:
+Device token request:
 
 ```json
 {
@@ -183,122 +184,168 @@ Checkout 요청 예시:
 }
 ```
 
-지원 platform 값은 `ios`, `android`, `web`입니다. 사용자당 신규 디바이스 토큰은 최대 5개까지 등록할 수 있으며, 동일 토큰 재등록은 UPSERT로 기존 row의 `tenant_id`, `user_id`, `updated_at`을 갱신합니다.
+지원 platform 값은 `ios`, `android`, `web`입니다. 사용자당 신규 device token은 최대 5개까지 등록할 수 있고, 동일 token 재등록은 기존 row를 갱신합니다.
 
-> 실제 푸시/이메일 **발송**은 REST가 아니라 `platform.notification.notification-send-v1` Kafka 이벤트(`NotificationSend`) 소비로 처리됩니다(아래 Kafka Events 참고).
-
-### Admin (`ROLE_ADMIN`)
+### Admin
 
 | Method | Path | 설명 | 인증 |
 |---|---|---|---|
-| `GET` | `/api/v1/admin/audit-logs` | 감사 로그 조회(action·userId 필터, 페이지네이션) | ADMIN |
-| `PUT` | `/api/v1/admin/users/{id}/status` | 사용자 상태 변경(active/suspended/deleted) | ADMIN |
-| `DELETE` | `/api/v1/admin/users/{id}` | 사용자 삭제 | ADMIN |
-| `PUT` | `/api/v1/admin/tenants/{id}/status` | 테넌트 상태 변경 | ADMIN |
+| `GET` | `/api/v1/admin/users` | 관리자 사용자 목록/검색 | `ROLE_ADMIN` |
+| `PUT` | `/api/v1/admin/users/{id}/status` | 사용자 상태 변경: `active`, `suspended` | `ROLE_ADMIN` |
+| `DELETE` | `/api/v1/admin/users/{id}` | 사용자 삭제 | `ROLE_ADMIN` |
+| `GET` | `/api/v1/admin/tenants` | 관리자 테넌트 목록 | `ROLE_ADMIN` |
+| `PUT` | `/api/v1/admin/tenants/{id}/status` | 테넌트 상태 변경 | `ROLE_ADMIN` |
+| `GET` | `/api/v1/admin/audit-logs` | 감사 로그 조회 | `ROLE_ADMIN` |
 
-관리자 본인 정지/삭제는 `400`(`AdminSelfActionException`), 잘못된 status 쿼리는 `400`(`InvalidUserStatusFilterException`)으로 응답합니다. 사용자 정지/삭제 시 `UserSessionsRevocationRequested` 이벤트로 기존 세션을 무효화합니다(모듈 순환 의존 회피).
-
----
+관리자 본인 정지/삭제는 차단됩니다. 사용자 정지/삭제 시 `UserSessionsRevocationRequested` 도메인 이벤트로 기존 세션을 무효화합니다.
 
 ## Kafka Events
 
-Confluent **Avro + Schema Registry** 기반 bare typed record(`SpecificRecord`)로 직렬화합니다. 메시지 key는 `tenantId`, subject는 `<topic>-value`, 호환성은 BACKWARD입니다. 멱등성 키는 레코드의 `eventId`입니다. 스키마(`.avsc`)의 단일 출처는 synapse-shared이며 `src/main/avro/platform/`에 벤더링합니다.
+Kafka는 기본적으로 꺼져 있습니다. `KAFKA_ENABLED=true`일 때 producer/consumer factory, listener, outbox publisher가 생성됩니다.
 
-| 방향 | 토픽 | 레코드 | 처리 |
+공통 설정:
+
+- serializer/deserializer: Confluent `KafkaAvroSerializer` / `KafkaAvroDeserializer`
+- schema registry: `SCHEMA_REGISTRY_URL`
+- security protocol: `SPRING_KAFKA_SECURITY_PROTOCOL`, 기본 `PLAINTEXT`, MSK TLS-only 환경은 `SSL`
+- message key: `tenantId`
+- subject: `<topic>-value`
+- idempotency key: Avro record의 `eventId`
+
+| 방향 | Topic | Record | 처리 |
 |---|---|---|---|
-| 발행 | `platform.auth.user-registered-v1` | `UserRegistered` | 회원가입 시 Outbox 저장 후 발행(`UserEventPublisher`/`OutboxEventPublisher`) |
-| 소비 | `platform.auth.user-registered-v1` | `UserRegistered` | `audit_logs` 자동 기록(`AuditKafkaConsumer`, `eventId` 멱등) |
-| 소비 | `platform.notification.notification-send-v1` | `NotificationSend` | FCM 푸시 / SES 이메일 발송(`NotificationKafkaConsumer`) |
+| 발행 | `platform.auth.user-registered-v1` | `UserRegistered` | 회원가입 후 outbox 저장 및 비동기 발행 |
+| 소비 | `platform.auth.user-registered-v1` | `UserRegistered` | `audit_logs` 자동 적재 |
+| 소비 | `platform.notification.notification-send-v1` | `NotificationSend` | FCM/SES 발송 |
+| 소비 | `knowledge.note.note-created-v1` | `NoteCreated` | `audit_logs` 적재 |
+| 소비 | `knowledge.note.note-updated-v1` | `NoteUpdated` | `audit_logs` 적재 |
+| 소비 | `learning.card.review-completed-v1` | `ReviewCompleted` | `audit_logs` 적재 |
+| 소비 | `engagement.gamification.badge-earned-v1` | `BadgeEarned` | `audit_logs` 적재 |
+| 소비 | `engagement.gamification.level-up-v1` | `LevelUp` | `audit_logs` 적재 |
 
-- **Outbox 패턴**: 발행 트랜잭션과 메시지 발행의 원자성을 보장하고(유실 방지), PUBLISHING lease + async 실패 기록으로 재시도합니다.
-- **at-least-once + 멱등성**: audit은 `eventId` PK, notification은 `UNIQUE(event_id, channel)`로 중복 처리를 방지합니다.
-- **에러 처리**: `ErrorHandlingDeserializer`로 역직렬화 실패를 격리하고, `DefaultErrorHandler` + DLQ(`<topic>` + DLQ suffix)로 재시도/skip합니다. consumer group은 `platform-svc-group`으로 통일합니다.
+Avro schema는 `src/main/avro/`에 vendoring되어 있습니다. `platform` schema는 `UserRegistered`, `NotificationSend`이고, audit 소비용으로 `knowledge`, `learning`, `engagement` schema도 포함합니다.
 
----
+## Notification Reliability
+
+Step 10 기준으로 FCM/SES 발송 안정화가 반영되어 있습니다.
+
+- FCM/SES 전송 retry: `app.notification.retry.max-attempts`, `backoff-ms`
+- 기본값: `NOTIFICATION_RETRY_MAX_ATTEMPTS=3`, `NOTIFICATION_RETRY_BACKOFF_MS=200`
+- backoff: `backoff-ms * attempt`
+- metrics:
+  - counter `notification.send`, tags `channel`, `result`
+  - timer `notification.send.latency`, tag `channel`
+- notification idempotency: `UNIQUE(event_id, channel)`
+- email daily limit: 사용자당 하루 10건
 
 ## Environment Variables
 
-| 변수 | 설명 | 예시 |
+| Variable | 설명 | 기본/예시 |
 |---|---|---|
-| `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/synapse_platform` |
-| `SPRING_DATASOURCE_USERNAME` | PostgreSQL 사용자 | `synapse` |
-| `SPRING_DATASOURCE_PASSWORD` | PostgreSQL 비밀번호 | `synapse` |
-| `SPRING_DATA_REDIS_HOST` | Redis 호스트 | `localhost` |
-| `SPRING_DATA_REDIS_PORT` | Redis 포트 | `6379` |
-| `KAFKA_BOOTSTRAP_SERVERS` | Kafka 부트스트랩 서버 | `localhost:9092` |
-| `SCHEMA_REGISTRY_URL` | Confluent Schema Registry URL | `http://localhost:8086` |
-| `KAFKA_TOPIC_NOTIFICATION_SEND` | 알림 발송 소비 토픽 | `platform.notification.notification-send-v1` |
-| `FCM_ENABLED` | FCM 발송 활성화 | `false` |
-| `FCM_SERVICE_ACCOUNT_PATH` | Firebase 서비스 계정 키 경로 | |
-| `FCM_PROJECT_ID` | Firebase 프로젝트 ID | |
-| `SES_ENABLED` | AWS SES 발송 활성화 | `false` |
-| `SES_REGION` | AWS SES 리전 | `ap-northeast-2` |
-| `SES_FROM_EMAIL` | 발신 이메일 주소 | `noreply@synapse.app` |
-| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | `xxx.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | |
-| `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret | |
-| `APPLE_CLIENT_ID` | Apple OAuth Client ID | |
-| `APPLE_CLIENT_SECRET` | Apple OAuth Client Secret | |
-| `APP_OAUTH2_REDIRECT_URI` | OAuth 성공 후 프론트 리디렉트 URI | `http://localhost:3000/auth/callback` |
-| `CORS_ALLOWED_ORIGINS` | 허용할 프론트엔드 Origin 목록. `app.cors.allowed-origins`로 주입됨 | `http://127.0.0.1:8088` |
-| `PROD_FRONTEND_ORIGINS` | prod 프로파일 허용 Origin 목록 | `https://app.synapse.io` |
-| `JWT_PRIVATE_KEY` | RS256 JWT 서명용 개인키 PEM | |
-| `JWT_PUBLIC_KEY` | RS256 JWT 검증용 공개키 PEM | |
-| `JWT_KID` | JWT Key ID | `synapse-key-2026-05` |
+| `SPRING_PROFILES_ACTIVE` | Spring profile | `dev` |
+| `SERVER_PORT` | 서버 포트 override | 로컬 기본 `8081`, k8s `8080` |
+| `DB_URL` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/synapse` |
+| `DB_USERNAME` | PostgreSQL username | `synapse` |
+| `DB_PASSWORD` | PostgreSQL password | `synapse_local_pw` |
+| `SPRING_DATA_REDIS_HOST` | Redis host | `localhost` |
+| `SPRING_DATA_REDIS_PORT` | Redis port | `6379` |
+| `SPRING_DATA_REDIS_PASSWORD` | Redis password | `redis_local_pw` |
+| `SPRING_DATA_REDIS_SSL_ENABLED` | Redis TLS | staging/prod에서 사용 |
+| `KAFKA_ENABLED` | Kafka bean/listener/outbox 활성화 | `false` |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka bootstrap servers | `localhost:9092` |
+| `SCHEMA_REGISTRY_URL` | Schema Registry URL | `http://localhost:8086` |
+| `SPRING_KAFKA_SECURITY_PROTOCOL` | Kafka security protocol | `PLAINTEXT`, `SSL` |
+| `KAFKA_TOPIC_NOTIFICATION_SEND` | 알림 요청 소비 topic | `platform.notification.notification-send-v1` |
+| `KAFKA_TOPIC_NOTE_CREATED` | audit 소비 topic | `knowledge.note.note-created-v1` |
+| `KAFKA_TOPIC_NOTE_UPDATED` | audit 소비 topic | `knowledge.note.note-updated-v1` |
+| `KAFKA_TOPIC_REVIEW_COMPLETED` | audit 소비 topic | `learning.card.review-completed-v1` |
+| `KAFKA_TOPIC_BADGE_EARNED` | audit 소비 topic | `engagement.gamification.badge-earned-v1` |
+| `KAFKA_TOPIC_LEVEL_UP` | audit 소비 topic | `engagement.gamification.level-up-v1` |
+| `JWT_PRIVATE_KEY` | RS256 private key, PKCS#8/Base64 | prod 필수 |
+| `JWT_PUBLIC_KEY` | RS256 public key, X.509/Base64 | prod 필수 |
+| `JWT_KID` | JWT key id | `synapse-key-2026-05` |
 | `JWT_ISSUER` | JWT issuer | `synapse-auth` |
-| `AES_SECRET_KEY` | AES-256-GCM 필드 암호화 키, Base64 32 bytes | |
-| `STRIPE_API_KEY` | Stripe Secret API Key | |
-| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 서명 검증 Secret | |
+| `AES_SECRET_KEY` | AES-256-GCM key, Base64 32 bytes | prod 필수 |
+| `GOOGLE_CLIENT_ID` | Google OAuth client id | profile별 기본값 또는 secret |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | profile별 기본값 또는 secret |
+| `GITHUB_CLIENT_ID` | GitHub OAuth client id | profile별 기본값 또는 secret |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | profile별 기본값 또는 secret |
+| `APPLE_CLIENT_ID` | Apple OAuth client id | profile별 기본값 또는 secret |
+| `APPLE_CLIENT_SECRET` | Apple OAuth client secret | profile별 기본값 또는 secret |
+| `CORS_ALLOWED_ORIGINS` | dev/default CORS origins | `http://127.0.0.1:8088` |
+| `STAGING_FRONTEND_ORIGINS` | staging CORS origins | `https://staging.synapse.io` |
+| `PROD_FRONTEND_ORIGINS` | prod CORS origins | `https://app.synapse.io` |
+| `APP_OAUTH2_REDIRECT_URI` | OAuth success redirect URI | `http://localhost:3000/auth/callback` |
+| `STRIPE_API_KEY` | Stripe secret key | prod 필수 |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook secret | prod 필수 |
 | `STRIPE_PRO_PRICE_ID` | Stripe PRO price id | |
 | `STRIPE_TEAM_PRICE_ID` | Stripe TEAM price id | |
 | `STRIPE_ENTERPRISE_PRICE_ID` | Stripe ENTERPRISE price id | |
-
----
+| `FCM_ENABLED` | Firebase Admin SDK 활성화 | `false` |
+| `FCM_SERVICE_ACCOUNT_PATH` | Firebase service account JSON path | |
+| `FCM_PROJECT_ID` | Firebase project id | |
+| `SES_ENABLED` | SES client 활성화 | `false` |
+| `SES_REGION` | SES region | `ap-northeast-2` |
+| `SES_FROM_EMAIL` | SES sender email | `noreply@synapse.app` |
+| `NOTIFICATION_RETRY_MAX_ATTEMPTS` | FCM/SES retry 횟수 | `3` |
+| `NOTIFICATION_RETRY_BACKOFF_MS` | retry backoff 기준 ms | `200` |
 
 ## DB Migrations
 
-Flyway로 관리합니다. 마이그레이션 파일은 `src/main/resources/db/migration/`에 있습니다.
+Flyway migration은 `src/main/resources/db/migration/`에서 관리합니다.
 
-| 버전 | 내용 |
+| Version | 내용 |
 |---|---|
 | V1 | PostgreSQL extension 초기화 |
 | V2 | tenants, plans 초기화 |
-| V3 | users, oauth_identities 등 인증 기본 테이블 |
+| V3 | users, oauth_identities 인증 기본 테이블 |
 | V16 | RLS 정책 활성화 |
 | V17 | 공통 trigger 생성 |
 | V18 | plan quota seed |
 | V19 | totp_credentials 생성 |
-| V20 | oauth_identities.access_token_enc 추가 (기존 환경 보정용 — V3에 포함됨) |
+| V20 | oauth_identities.access_token_enc 추가 |
 | V21 | refresh_tokens 생성 |
-| V22 | totp_credentials에서 mfa_credentials로 이관 |
+| V22 | totp_credentials -> mfa_credentials 마이그레이션 |
 | V23 | refresh_tokens(user_id) unique index 추가 |
 | V24 | subscriptions 생성 |
 | V25 | payment_history 생성 |
 | V26 | processed_events 생성 |
 | V27 | device_tokens 생성 |
-| V28 | refresh_tokens 멀티 디바이스 허용 (user_id unique 제거, FIFO 다중 세션) |
+| V28 | refresh token 멀티 디바이스 허용 |
 | V29 | audit_logs 생성 |
 | V30 | outbox_events 생성 |
 | V31 | notifications 생성 |
-| V32 | users.status / suspended_at 추가 (계정 상태 관리) |
+| V32 | users.status, suspended_at 추가 |
 
----
+Flyway 표준:
+
+- `.github/workflows/flyway-guard.yml`가 synapse-shared reusable guard를 호출합니다.
+- `spring.flyway.out-of-order=true`
+- `spring.flyway.baseline-on-migrate=false`
+- 신규 migration은 synapse-shared 표준의 14자리 timestamp 버전을 사용합니다.
+- DB vendor 종속 native SQL은 Testcontainers PostgreSQL 통합 테스트로 실제 실행 검증합니다.
+
+## CI
+
+- `build`: `./gradlew clean build`, Modulith verify
+- `dev-smoke`: Docker Hub login 후 `docker-compose.ci.yml`로 PostgreSQL/Redis 기동, `dev` profile boot health 검증
+- `Flyway Guard`: migration version/checksum/표준 검증
+
+CI가 Docker Hub rate limit에 걸리지 않도록 `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` secret이 필요합니다.
 
 ## Architecture Notes
 
 - 패키지 루트는 `com.synapse.platform`입니다.
-- Spring Modulith 검증을 통해 모듈 간 직접 import를 제한합니다(`ApplicationModules.verify()` CI 자동 검증).
-- 모듈 간 공유가 필요한 기능은 공개 API 패키지 또는 공통 인프라 타입을 통해 접근하고, 부수효과(세션 무효화 등)는 직접 호출 대신 이벤트로 전달합니다.
-- Refresh Token 원문은 저장하지 않고 SHA-256 hash만 DB에 저장하며, 사용자당 최대 5개 멀티 디바이스 세션을 FIFO로 관리합니다(HttpOnly Cookie 전달).
-- JWT 서명 알고리즘은 RS256을 사용합니다.
-- Kafka 직렬화는 Confluent Avro + Schema Registry(bare typed record)로 통일하고, 유실 방지는 Outbox 패턴, 중복 방지는 `eventId` 기반 멱등으로 보장합니다.
-- `notification` 모듈은 `auth` 내부 구현 타입을 직접 import하지 않고, 보안 필터는 `jakarta.servlet.Filter` bean으로 주입받습니다.
+- Spring Modulith로 모듈 간 직접 참조를 제한하고, 필요한 공유 기능은 공개 API 패키지나 도메인 이벤트로 연결합니다.
+- Refresh Token은 원문을 저장하지 않고 SHA-256 hash만 DB에 저장하며, 사용자당 최대 5개 멀티 디바이스 세션을 FIFO로 관리합니다.
+- JWT는 RS256만 사용합니다. key는 `JwtTokenProvider` 생성 시 1회 파싱하여 잘못된 키를 기동 단계에서 드러냅니다.
+- Kafka 발행은 outbox pattern으로 트랜잭션과 메시지 발행 사이의 유실을 줄이고, 소비는 `eventId` 기반 멱등성으로 중복 처리를 방지합니다.
+- notification 모듈은 auth 내부 구현을 직접 import하지 않고 공개 API와 SecurityContext를 통해 사용자 경계를 다룹니다.
 
 ## Related Docs
 
-- `AGENTS.md`
 - `docs/ai/current/HANDOFF.md`
 - `docs/ai/current/TASK.md`
-- `docs/project-management/README.md`
+- `docs/project-management/task/TASK_platform.md`
+- `docs/project-management/history/HISTORY_platform.md`
 - `docs/synapse-platform-svc_ARCHITECTURE.md`

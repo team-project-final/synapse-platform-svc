@@ -410,12 +410,12 @@
 - **Step Name**: 인증/결제 E2E 테스트
 - **Step Goal**: 인증/결제 전체 E2E 시나리오(회원가입→로그인→JWT→MFA→결제→로그아웃)가 통과한다.
 - **Done When**:
-  - [ ] 회원가입 → OAuth 로그인 → JWT 발급 시나리오 통과
-  - [ ] MFA 등록 → TOTP 검증 시나리오 통과
-  - [ ] Stripe Checkout → Webhook → 플랜 활성화 시나리오 통과
-  - [ ] Token 갱신 → 로그아웃 시나리오 통과
-  - [ ] 전체 E2E 시나리오 연속 실행 통과
-  - [ ] 실패 케이스 식별 및 이슈 등록
+  - [x] 회원가입 → 로그인 → JWT 발급 시나리오 통과 (이메일/비번 경로 E2E. OAuth 로그인 자체는 기존 OAuth2LoginIntegrationTest가 커버)
+  - [x] MFA 등록 → TOTP 검증 시나리오 통과
+  - [x] Stripe Checkout → Webhook → 플랜 활성화 시나리오 통과
+  - [x] Token 갱신 시나리오 통과 (로그아웃 전용 엔드포인트 없음 — 무효화는 RefreshTokenService.delete 메커니즘)
+  - [x] 전체 E2E 시나리오 연속 실행 통과
+  - [x] 실패 케이스 식별 및 이슈 등록 (#56 — billing ON CONFLICT H2 미검증 gap)
 - **Scope**:
   - In Scope:
     - OAuth 회원가입/로그인 E2E
@@ -447,7 +447,7 @@
 - **Assignee**: @platform-owner
 - **Reviewer**: @team-lead
 
-**Status**: [ ] Not Started / [ ] In Progress / [ ] Done
+**Status**: [ ] Not Started / [ ] In Progress / [x] Done
 
 ---
 

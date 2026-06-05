@@ -52,10 +52,10 @@
 | Step | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | Kafka 계약 표준 | Avro+Schema Registry 전환 (선행, 이슈 #43/#30) | In Progress | 2026-05-29 | — | D-029/D-030. feature/PLAT-015-kafka-avro-registry. Worker 구현/검증 완료, Director 리뷰 및 PR 대기. 기한 06-02 |
-| Step 9 | 인증/결제 전체 E2E 테스트 | Not Started | — | — | Kafka 계약 표준 적용 후 |
+| Step 9 | 인증/결제 전체 E2E 테스트 | Done | 2026-06-04 | 2026-06-04 | PLAT-023, PR #57. Testcontainers PG E2E 5시나리오, gap 이슈 #56 등록 |
 | Step 10 | P0 버그 수정 및 알림 안정화 | Not Started | — | — | |
 
-**W4 진행률**: 0/2 Steps 완료
+**W4 진행률**: 1/2 Steps 완료 (Step 9 완료)
 
 ---
 
@@ -314,10 +314,16 @@
   - **PLAT-017 (이슈 #47, CI Docker Hub rate-limit)**: `dev-smoke` 잡 `Start dev services` 앞에 `docker/login-action@v3` 로그인 스텝 추가. 시크릿 선행조건(`DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`) 팀장 등록 확인. PR #49 (Closes #47) → **머지 완료**
   - **PLAT-018 (flaky 테스트 수정)**: #49 CI `build` 잡이 `AuditKafkaIntegrationTest`에서 반복 실패 → 코드 변경 0(워크플로 1줄)인데 실패해 flaky로 진단. 근본 원인 = 테스트 `application.yml` 컨슈머에 `auto-offset-reset` 누락 → Kafka 기본값 `latest` → 컨슈머 할당이 발행보다 늦으면 메시지 유실. 운영과 동일하게 `earliest` 고정 + audit await 3→10초. 로컬 BUILD SUCCESSFUL. PR #50 → **머지 완료**
   - 전 PR 머지 후 로컬 dev 동기화(fast-forward) + 머지된 feature 브랜치 정리
+  - HISTORY 2026-06-04 정리(PLAT-019, PR #53) → 머지
+  - **#52 리뷰(팀장 audit S6 PR)**: 6-pillar 코드 리뷰 후 spotbugs 블로커(벤더링 Avro 네임스페이스 미제외) 수정 푸시(`b8457e0`)로 CI green 처리. (초기 Request Changes는 dismiss — 교훈: 팀 PR 블로킹 액션은 사전 확인)
+  - **PLAT-022 (이슈 #51, Kafka security.protocol)**: producer/consumer 팩토리에 `spring.kafka.security.protocol` 배선(기본 PLAINTEXT, MSK TLS-only 대비). TDD. PR #54 → 머지
+  - **PLAT-021 (JWT flaky 결정적 수정)**: 서명 첫 글자(6비트 온전)를 원본과 다른 값으로 치환. 로컬 3회 연속 통과. PR #55 → 머지
+  - **minikube 로컬 개발 환경 구축**: 인프라 5종 + platform-svc만 기동(불필요 워크로드 scale 0), `/actuator/health` UP 검증. 공유 gitops 파일 수정 0.
+  - **Step 9 (PLAT-023, 인증/결제 E2E)**: @SpringBootTest+MockMvc 5시나리오(가입→로그인→JWT, MFA, Checkout→Webhook→구독, 갱신, 전체연속). Testcontainers PG(pgvector pg16)+Flyway. PR #57 → 머지. **Step 9 Done**
 - **진행 중**: 없음
 - **이슈**:
-  - **두 번째 flaky 발견 (미해결 → PLAT-019)**: `JwtTokenProviderTest.validateToken_tamperedToken_shouldReturnFalse` — 서명 마지막 2글자를 고정값 "aa"로 변조하는데, 원본 서명 마지막 바이트가 우연히 같으면(~1/256) 변조본==원본 → 검증 통과 → 실패. #49 재실행으로 우회해 머지했으나 결정적 변조로 교체 필요.
-- **다음**: PLAT-019(JWT flaky 결정적 수정) / minikube 로컬 개발 환경 구축(인프라+platform) / Step 9(E2E 테스트) 착수
+  - **gap 등록 #56**: billing 웹훅 멱등성 `ON CONFLICT` 네이티브 SQL이 H2 테스트 프로파일에서 미검증(repo 항상 모킹) → E2E에서 발견. E2E는 Testcontainers PG로 실행해 우회. 후속 조치 이슈에 정리.
+- **다음**: Step 10(P0 버그 수정 + 알림 안정화) / (선택) OAuth 로그인 leg E2E 보강
 
 #### 2026-06-05 (금)
 - **완료**:
@@ -331,7 +337,8 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
-| 2026-06-04 | 이슈 #47 대응 — `dev-smoke` CI에 Docker Hub 로그인 스텝 추가(`ci(infra)`, PLAT-017, PR #49, 머지). EmbeddedKafka 통합 테스트 flaky 수정(consumer `auto-offset-reset: earliest`, PLAT-018, PR #50, 머지). JWT 변조 테스트 flaky 발견(PLAT-019 예정). 브랜치 정리(main fast-forward, orphan docs/PLAT-016 삭제) |
+| 2026-06-04 | **Step 9 완료** — 인증/결제 E2E(PLAT-023, PR #57, Testcontainers PG 5시나리오). Kafka security.protocol 배선(이슈 #51, PLAT-022, PR #54). JWT flaky 결정적 수정(PLAT-021, PR #55). #52(팀장 audit S6) 리뷰+spotbugs 수정. minikube 로컬 환경 구축. gap 이슈 #56 등록(billing ON CONFLICT H2 미검증) |
+| 2026-06-04 | 이슈 #47 대응 — `dev-smoke` CI에 Docker Hub 로그인 스텝 추가(`ci(infra)`, PLAT-017, PR #49, 머지). EmbeddedKafka 통합 테스트 flaky 수정(consumer `auto-offset-reset: earliest`, PLAT-018, PR #50, 머지). JWT 변조 테스트 flaky 발견(PLAT-021로 수정). 브랜치 정리(main fast-forward, orphan docs/PLAT-016 삭제) |
 | 2026-05-19 | 멀티모듈 아키텍처 마이그레이션 결정 (D-013~D-015). PLAT-007 폐기. Step 번호 전면 재정비(4~10 → 5~11, 신규 Step 4 삽입). feature/PLAT-000-multi-module-migration 브랜치 시작 |
 | 2026-05-18 | Step 3 재점검 완료 — RS256 JWT, DB+Redis Refresh Token, TOTP MFA 신규 문서 기준 전면 충족 확인. 코드 변경 없음. WORKFLOW/TASK 체크박스 업데이트 |
 | 2026-05-18 | Step 2 재점검 완료 — Apple OAuth OIDC 구현(OAuthUserResolver 추출, CustomOidcUserService), Microsoft TODO 문서화 |

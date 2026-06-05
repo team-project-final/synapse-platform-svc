@@ -53,9 +53,9 @@
 |------|------|------|--------|--------|------|
 | Kafka 계약 표준 | Avro+Schema Registry 전환 (선행, 이슈 #43/#30) | In Progress | 2026-05-29 | — | D-029/D-030. feature/PLAT-015-kafka-avro-registry. Worker 구현/검증 완료, Director 리뷰 및 PR 대기. 기한 06-02 |
 | Step 9 | 인증/결제 전체 E2E 테스트 | Done | 2026-06-04 | 2026-06-04 | PLAT-023, PR #57. Testcontainers PG E2E 5시나리오, gap 이슈 #56 등록 |
-| Step 10 | P0 버그 수정 및 알림 안정화 | Not Started | — | — | |
+| Step 10 | P0 버그 수정 및 알림 안정화 | Done | 2026-06-05 | 2026-06-05 | PLAT-028, PR #64. P0 0건. FCM/SES 재시도 + Micrometer 메트릭(성공/실패/지연) |
 
-**W4 진행률**: 1/2 Steps 완료 (Step 9 완료)
+**W4 진행률**: 2/2 Steps 완료 (Step 9, Step 10 완료 — W4 종료)
 
 ---
 
@@ -327,9 +327,15 @@
 
 #### 2026-06-05 (금)
 - **완료**:
-- **진행 중**:
+  - **KAFKA_ENABLED 게이트 (이슈 #59, PLAT-026, PR #61)**: producer/consumer/error-handler/consumer에 `@ConditionalOnProperty(synapse.kafka.enabled)`, OutboxEventPublisher는 `@ConditionalOnExpression`. gitops env no-op 해소.
+  - **Step 10 알림 안정화 (PLAT-028, PR #64)**: FCM/SES 재시도(설정형 max-attempts/backoff) + Micrometer 메트릭(`notification.send` 성공/실패/지연). P0 버그 0건 확인. → **Step 10 Done**
+  - **Flyway 버전 표준 (이슈 #65, PLAT-030, PR #66)**: flyway-guard caller + `application.yml` out-of-order/baseline. synapse-shared 표준(#22) 적용. Flyway Guard CI green.
+  - 룰 4.6(native SQL은 PG 통합테스트로 검증, PR #60) 추가.
+  - 로컬 다중 서비스 실행 충돌 진단: synapse-shared 공유 DB(`synapse`) + 서비스별 V28 번호 겹침이 원인 → minikube(DB/포트 격리) 또는 4서비스 flyway 표준 롤아웃으로 해소.
+- **진행 중**: 없음
 - **이슈**:
-- **주간 요약**:
+  - 미해결 이슈 0(코드). 열린 이슈는 dev 반영 완료분으로 dev→main 릴리스 시 자동 close. #62(W5 라이브 E2E)는 W5 작업.
+- **주간 요약**: W4 종료 — Step 9(E2E)·Step 10(알림 안정화) 완료(2/2). 추가로 CI 안정화(flaky 2건 근본 수정), KAFKA_ENABLED 게이트, Kafka security.protocol, Flyway 표준, 룰 4.6, minikube 로컬 환경까지 처리. dev 11+커밋 미릴리스(dev→main 대기).
 
 ---
 
@@ -337,6 +343,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-05 | **Step 10 완료** — 알림 안정화(FCM/SES 재시도 + Micrometer 메트릭, PLAT-028, PR #64, P0 0건). KAFKA_ENABLED 게이트(이슈 #59, PLAT-026, PR #61). Flyway 버전 표준(이슈 #65, PLAT-030, PR #66). 룰 4.6(PR #60). **W4 종료(2/2)** |
 | 2026-06-04 | **Step 9 완료** — 인증/결제 E2E(PLAT-023, PR #57, Testcontainers PG 5시나리오). Kafka security.protocol 배선(이슈 #51, PLAT-022, PR #54). JWT flaky 결정적 수정(PLAT-021, PR #55). #52(팀장 audit S6) 리뷰+spotbugs 수정. minikube 로컬 환경 구축. gap 이슈 #56 등록(billing ON CONFLICT H2 미검증) |
 | 2026-06-04 | 이슈 #47 대응 — `dev-smoke` CI에 Docker Hub 로그인 스텝 추가(`ci(infra)`, PLAT-017, PR #49, 머지). EmbeddedKafka 통합 테스트 flaky 수정(consumer `auto-offset-reset: earliest`, PLAT-018, PR #50, 머지). JWT 변조 테스트 flaky 발견(PLAT-021로 수정). 브랜치 정리(main fast-forward, orphan docs/PLAT-016 삭제) |
 | 2026-05-19 | 멀티모듈 아키텍처 마이그레이션 결정 (D-013~D-015). PLAT-007 폐기. Step 번호 전면 재정비(4~10 → 5~11, 신규 Step 4 삽입). feature/PLAT-000-multi-module-migration 브랜치 시작 |

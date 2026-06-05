@@ -13,6 +13,10 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    # 버전 표준(synapse-shared docs/rules/12-flyway-migration.md, #65):
+    # 신규 마이그레이션은 14자리 타임스탬프 → 늦게 머지된 이른 타임스탬프 적용 허용.
+    out-of-order: true
+    baseline-on-migrate: false
   security:
     oauth2:
       client:

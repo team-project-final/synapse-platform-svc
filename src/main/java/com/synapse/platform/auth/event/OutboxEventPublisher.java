@@ -9,14 +9,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
-@ConditionalOnProperty(name = "app.kafka.outbox.enabled", havingValue = "true", matchIfMissing = true)
+// Kafka 게이트(synapse.kafka.enabled=true)일 때만 eventKafkaTemplate가 존재하므로 그 조건을 함께 요구한다.
+// app.kafka.outbox.enabled(기본 true)는 outbox drain on/off 별개 플래그(#59).
+@ConditionalOnExpression("${synapse.kafka.enabled:false} and ${app.kafka.outbox.enabled:true}")
 public class OutboxEventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxEventPublisher.class);

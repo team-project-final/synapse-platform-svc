@@ -7,10 +7,12 @@ import com.synapse.knowledge.NoteUpdated;
 import com.synapse.learning.ReviewCompleted;
 import com.synapse.platform.UserRegistered;
 import com.synapse.platform.audit.service.AuditLogService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "synapse.kafka", name = "enabled", havingValue = "true")
 public class AuditKafkaConsumer {
 
     private final AuditLogService auditLogService;

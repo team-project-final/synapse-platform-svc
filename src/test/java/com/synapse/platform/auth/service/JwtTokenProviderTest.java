@@ -1,6 +1,7 @@
 package com.synapse.platform.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.synapse.platform.auth.config.JwtProperties;
 import io.jsonwebtoken.Claims;
@@ -211,6 +212,15 @@ class JwtTokenProviderTest {
                 .verifyWith(properties.rsaPublicKey())
                 .build()
                 .parseSignedClaims(token);
+    }
+
+    @Test
+    void constructor_invalidKey_failsFastAtBeanCreation() {
+        JwtProperties invalid = new JwtProperties("local-dummy", "local-dummy", "test-kid", "synapse-auth");
+
+        assertThatThrownBy(() -> new JwtTokenProvider(invalid))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid RSA");
     }
 
     private JwtProperties testProperties() {

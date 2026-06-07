@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -39,7 +41,10 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
-@TestPropertySource(properties = "spring.flyway.enabled=true")
+@TestPropertySource(properties = {
+        "spring.flyway.enabled=true",
+        "app.cors.allowed-origins=http://localhost:3000,http://localhost:5173"
+})
 class DeviceTokenIntegrationTest {
 
     private static final String POSTGRES_DATABASE = "testdb";
@@ -102,6 +107,17 @@ class DeviceTokenIntegrationTest {
         deviceTokenRepository.deleteAll();
         userRepository.deleteAll();
         tenantRepository.deleteAll();
+    }
+
+    @Test
+    void register_preflightFromAllowedOrigin_shouldReturnCorsHeaders() throws Exception {
+        mockMvc.perform(options("/api/v1/notifications/devices")
+                        .header("Origin", "http://localhost:3000")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "content-type,authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
     @Test

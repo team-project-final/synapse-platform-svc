@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.auth.service.JwtTokenProvider;
+import com.synapse.platform.user.api.UserApi;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 class JwtAuthenticationFilterTest {
 
     private final JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
+    private final UserApi userApi = mock(UserApi.class);
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -31,23 +34,64 @@ class JwtAuthenticationFilterTest {
         SecurityContextHolder.clearContext();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new TestController())
-                .addFilters(new JwtAuthenticationFilter(jwtTokenProvider, new ObjectMapper()))
+                .addFilters(new JwtAuthenticationFilter(jwtTokenProvider, new ObjectMapper(), userApi))
                 .build();
     }
 
     @Test
     void doFilterInternal_validToken_shouldSetAuthenticationForProtectedEndpoint() throws Exception {
         // Given
+        UUID userId = UUID.randomUUID();
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("user-id", "access-token", List.of());
+                new UsernamePasswordAuthenticationToken(userId.toString(), "access-token", List.of());
         given(jwtTokenProvider.validateAccessToken("access-token")).willReturn(true);
+        given(jwtTokenProvider.getUserId("access-token")).willReturn(userId);
+        given(userApi.isLoginAllowed(userId)).willReturn(true);
         given(jwtTokenProvider.getAuthentication("access-token")).willReturn(authentication);
 
         // When & Then
         mockMvc.perform(get("/api/v1/protected")
                         .header("Authorization", "Bearer access-token"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("user-id"));
+                .andExpect(content().string(userId.toString()));
+    }
+
+    @Test
+    void doFilterInternal_deletedOrSuspendedUser_shouldReturnUnauthorizedProblem() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(jwtTokenProvider.validateAccessToken("access-token")).willReturn(true);
+        given(jwtTokenProvider.getUserId("access-token")).willReturn(userId);
+        given(jwtTokenProvider.getAuthentication("access-token"))
+                .willReturn(new UsernamePasswordAuthenticationToken(userId.toString(), "access-token", List.of()));
+        given(userApi.isLoginAllowed(userId)).willReturn(false);
+
+        // When & Then
+        mockMvc.perform(get("/api/v1/protected")
+                        .header("Authorization", "Bearer access-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("PLAT-002"));
+    }
+
+    @Test
+    void doFilterInternal_loginStateLookupFails_shouldReturnServerErrorProblem() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(jwtTokenProvider.validateAccessToken("access-token")).willReturn(true);
+        given(jwtTokenProvider.getUserId("access-token")).willReturn(userId);
+        given(jwtTokenProvider.getAuthentication("access-token"))
+                .willReturn(new UsernamePasswordAuthenticationToken(userId.toString(), "access-token", List.of()));
+        given(userApi.isLoginAllowed(userId)).willThrow(new IllegalStateException("database unavailable"));
+
+        // When & Then
+        mockMvc.perform(get("/api/v1/protected")
+                        .header("Authorization", "Bearer access-token"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.code").value("PLAT-999"));
     }
 
     @Test
@@ -96,7 +140,10 @@ class JwtAuthenticationFilterTest {
     @Test
     void doFilterInternal_authenticationCreationFails_shouldReturnUnauthorizedProblem() throws Exception {
         // Given
+        UUID userId = UUID.randomUUID();
         given(jwtTokenProvider.validateAccessToken("broken-token")).willReturn(true);
+        given(jwtTokenProvider.getUserId("broken-token")).willReturn(userId);
+        given(userApi.isLoginAllowed(userId)).willReturn(true);
         given(jwtTokenProvider.getAuthentication("broken-token"))
                 .willThrow(new IllegalArgumentException("Invalid token claims"));
 

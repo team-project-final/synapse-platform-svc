@@ -6,6 +6,9 @@ import com.synapse.platform.user.api.OAuthUserCreateCommand;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.api.UserLoginCredential;
+import com.synapse.platform.user.api.UserSessionsRevocationRequested;
+import com.synapse.platform.user.dto.request.UserProfileUpdateRequest;
+import com.synapse.platform.user.dto.response.UserProfileResponse;
 import com.synapse.platform.user.entity.User;
 import com.synapse.platform.user.entity.UserStatus;
 import com.synapse.platform.user.entity.UserSettings;
@@ -15,6 +18,8 @@ import jakarta.persistence.EntityNotFoundException;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +28,18 @@ public class UserService implements UserApi {
 
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public UserService(UserRepository userRepository, UserSettingsRepository userSettingsRepository) {
+    public UserService(
+            UserRepository userRepository,
+            UserSettingsRepository userSettingsRepository,
+            PasswordEncoder passwordEncoder,
+            ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.userSettingsRepository = userSettingsRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -59,6 +72,13 @@ public class UserService implements UserApi {
     @Override
     public boolean existsByUsername(String username) {
         return userRepository.existsByUsername(username);
+    }
+
+    @Override
+    public boolean hasPasswordLogin(UUID userId) {
+        return userRepository.findById(userId)
+                .map(User::hasPassword)
+                .orElse(false);
     }
 
     @Override
@@ -103,8 +123,56 @@ public class UserService implements UserApi {
         user.recordSuccessfulLogin(now);
     }
 
+    @Transactional(readOnly = true)
+    public UserProfileResponse getMyProfile(UUID userId) {
+        User user = findUser(userId);
+        UserSettings settings = userSettingsRepository.findById(userId)
+                .orElseGet(() -> UserSettings.defaultFor(userId));
+        return toProfileResponse(user, settings);
+    }
+
+    @Transactional
+    public UserProfileResponse updateMyProfile(UUID userId, UserProfileUpdateRequest request) {
+        User user = findUser(userId);
+        UserSettings settings = userSettingsRepository.findById(userId)
+                .orElseGet(() -> userSettingsRepository.save(UserSettings.defaultFor(userId)));
+        user.updateProfile(request.displayName().trim());
+        settings.updateLocale(request.language().trim());
+        return toProfileResponse(user, settings);
+    }
+
+    @Transactional
+    public void changeMyPassword(UUID userId, String currentPassword, String newPassword) {
+        User user = findUser(userId);
+        if (!user.hasPassword()) {
+            throw UserSelfServiceException.passwordLoginUnavailable();
+        }
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw UserSelfServiceException.invalidCurrentPassword();
+        }
+        user.changePassword(passwordEncoder.encode(newPassword));
+        eventPublisher.publishEvent(new UserSessionsRevocationRequested(userId));
+    }
+
+    @Transactional
+    public void deleteMyAccount(UUID userId) {
+        User user = findUser(userId);
+        user.softDelete();
+        eventPublisher.publishEvent(new UserSessionsRevocationRequested(userId));
+    }
+
     private UserInfo toUserInfo(User user) {
         return new UserInfo(user.getId(), user.getEmail(), user.getDisplayName(), user.getDefaultTenantId());
+    }
+
+    private UserProfileResponse toProfileResponse(User user, UserSettings settings) {
+        return new UserProfileResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getDisplayName(),
+                user.getAvatarUrl(),
+                settings.getLocale(),
+                user.hasPassword());
     }
 
     private UserLoginCredential toLoginCredential(User user) {
@@ -119,6 +187,11 @@ public class UserService implements UserApi {
 
     private User findLoginStateUserForUpdate(UUID userId) {
         return userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    }
+
+    private User findUser(UUID userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
     }
 }

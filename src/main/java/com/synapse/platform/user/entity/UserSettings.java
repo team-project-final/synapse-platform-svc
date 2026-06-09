@@ -54,7 +54,20 @@ public class UserSettings {
         return settings;
     }
 
+    public void updateLocale(String locale) {
+        this.locale = locale;
+        updatedAt = OffsetDateTime.now();
+    }
+
     public UUID getUserId() {
         return userId;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public String getTheme() {
+        return theme;
     }
 }

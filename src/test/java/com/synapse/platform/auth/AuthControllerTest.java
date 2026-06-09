@@ -1,8 +1,10 @@
 package com.synapse.platform.auth;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,6 +22,7 @@ import com.synapse.platform.auth.service.LoginResult;
 import com.synapse.platform.auth.service.RefreshTokenService;
 import com.synapse.platform.auth.service.SignupResult;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
+import com.synapse.platform.user.api.UserApi;
 import jakarta.servlet.http.Cookie;
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +40,7 @@ class AuthControllerTest {
     private final JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final EmailPasswordAuthService emailPasswordAuthService = mock(EmailPasswordAuthService.class);
+    private final UserApi userApi = mock(UserApi.class);
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -48,6 +52,7 @@ class AuthControllerTest {
                         jwtTokenProvider,
                         refreshTokenService,
                         emailPasswordAuthService,
+                        userApi,
                         "Lax",
                         false,
                         List.of("http://127.0.0.1:8088")))
@@ -63,7 +68,10 @@ class AuthControllerTest {
         given(jwtTokenProvider.validateRefreshToken("old-refresh-token")).willReturn(true);
         given(jwtTokenProvider.getUserId("old-refresh-token")).willReturn(userId);
         given(refreshTokenService.isValid(userId, "old-refresh-token")).willReturn(true);
-        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("new-access-token");
+        given(userApi.isLoginAllowed(userId)).willReturn(true);
+        given(userApi.findRoles(userId)).willReturn(List.of("ROLE_USER", "ROLE_ADMIN"));
+        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER", "ROLE_ADMIN")))
+                .willReturn("new-access-token");
         given(jwtTokenProvider.createRefreshToken(userId)).willReturn("new-refresh-token");
 
         // When & Then
@@ -79,6 +87,23 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.accessToken").value("new-access-token"))
                 .andExpect(jsonPath("$.refreshToken").doesNotExist());
         verify(refreshTokenService).rotate(userId, "old-refresh-token", "new-refresh-token");
+    }
+
+    @Test
+    void refresh_disabledUser_shouldReturnUnauthorizedWithoutRotatingToken() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(jwtTokenProvider.validateRefreshToken("old-refresh-token")).willReturn(true);
+        given(jwtTokenProvider.getUserId("old-refresh-token")).willReturn(userId);
+        given(refreshTokenService.isValid(userId, "old-refresh-token")).willReturn(true);
+        given(userApi.isLoginAllowed(userId)).willReturn(false);
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .header("Origin", "http://127.0.0.1:8088")
+                        .cookie(new Cookie("refresh_token", "old-refresh-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("PLAT-002"));
+
+        verify(refreshTokenService, never()).rotate(any(), any(), any());
     }
 
     @Test
@@ -142,6 +167,8 @@ class AuthControllerTest {
         given(jwtTokenProvider.validateRefreshToken("old-refresh-token")).willReturn(true);
         given(jwtTokenProvider.getUserId("old-refresh-token")).willReturn(userId);
         given(refreshTokenService.isValid(userId, "old-refresh-token")).willReturn(true);
+        given(userApi.isLoginAllowed(userId)).willReturn(true);
+        given(userApi.findRoles(userId)).willReturn(List.of("ROLE_USER"));
         given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("new-access-token");
         given(jwtTokenProvider.createRefreshToken(userId)).willReturn("new-refresh-token");
         doThrow(new UnauthorizedTokenException("Refresh token does not match stored token"))

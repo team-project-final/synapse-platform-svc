@@ -1,40 +1,43 @@
-# CONTEXT
+# CONTEXT - PLAT-064
 
-> 현재 판단에 필요한 상태만 기록합니다.
+## 현재 문제
 
-## 현재 확정된 것
+W5 프론트 연동 준비 중 어드민 화면을 테스트하려면 `ROLE_ADMIN`을 가진 계정이 필요하다는 점이 확인됐다.
+현재 platform-svc는 JWT access token 발급 시 기본 role만 넣는 구조라, 서비스 내부에서 어드민 권한을 부여하거나 보존하는 경로가 없다.
 
-- 루트 `docs/BACKEND_GAP_platform.md`는 frontend platform 화면이 호출하지만 platform-svc에 없는 API를 정리한 문서다.
-- 7번/B 항목은 타 서비스 소관이므로 이번 platform 백엔드 구현 범위에서 제외한다.
-- `TASK_platform.md`는 최초 개발 목록 문서이므로 새 항목을 추가하지 않는다.
-- 작업 브랜치는 `origin/dev` 기준 `feature/PLAT-063-frontend-backend-gap`다.
-- frontend profile/settings 화면은 아직 data layer가 없고 화면 TODO/mock 상태다.
-- `UserController`는 `/api/v1/users` placeholder이며 실제 매핑이 없다.
-- JWT 인증 후 `Authentication.getName()`은 userId UUID 문자열이다.
-- `users` 테이블에는 `display_name`, `avatar_url`, `password_hash`, `deleted_at`이 있다.
-- `user_settings` 테이블에는 `locale`, `theme`, `notification_prefs` 등이 있으나 timezone 컬럼은 없다.
-- `oauth_identities`는 user FK cascade를 가지고 provider/provider_id unique index가 있다.
-- 기존 계정 삭제/정지 시 session revocation은 `UserSessionsRevocationRequested` 이벤트로 처리한다.
-- refresh-token은 세션 저장소에서 제거되지만 access-token은 stateless JWT라 인증 필터에서 사용자 상태를 재확인한다.
+## 기존 구조
 
-## 현재 구현 방향
+- `/api/v1/admin/**`는 Spring Security에서 `hasRole("ADMIN")`으로 보호된다.
+- JWT `roles` claim은 `JwtTokenProvider`가 `SimpleGrantedAuthority`로 변환한다.
+- `ROLE_ADMIN`이 token에 있으면 기존 admin controller 접근 정책은 그대로 동작한다.
+- 사용자 상태는 `users.status`와 `deleted_at` 기반으로 관리된다.
+- 정지/삭제 사용자는 로그인 및 refresh 경로에서 차단해야 한다.
 
-- A-1을 첫 구현 단위로 잡는다.
-- 프로필 API는 `displayName`, `email`, `avatarUrl`, `language(locale)` 중심으로 계약을 잡는다. `language` 허용 값은 `ko-KR`, `en-US`, `ja-JP`다.
-- timezone은 저장 컬럼이 없으므로 request/response 계약에서 제외한다.
-- avatar 파일 업로드는 storage 정책이 필요하므로 첫 구현에서 제외한다.
-- password 변경은 password login 계정에 한정하고 현재 비밀번호 검증을 요구한다.
-- OAuth 연결 해제는 `oauth_identities` row lock 후 계정의 마지막 로그인 수단을 제거하지 못하게 막는다.
-- 계정 삭제는 기존 `User.softDelete()`와 session revocation event를 재사용한다.
+## 구현 방향
+
+- `user_roles` 테이블을 추가해 사용자별 role을 저장한다.
+- 삭제되지 않은 기존 사용자에게 `ROLE_USER`를 백필한다.
+- 신규 이메일/비밀번호 가입과 OAuth 가입 시 `ROLE_USER`를 저장한다.
+- access token 발급 시 `UserApi.findRoles(userId)`를 통해 DB role을 읽는다.
+- role row가 없는 예외 상황에서는 기존 호환성을 위해 `ROLE_USER`로 fallback한다.
+- role 조회 순서는 `created_at ASC`로 고정해 JWT roles claim이 흔들리지 않게 한다.
+
+## 어드민 부여 정책
+
+- env/profile은 수정하지 않는다.
+- 서비스 코드에서 최초 어드민을 자동 생성하지 않는다.
+- 운영 dummy admin 계정은 만들지 않는다.
+- 운영 최초 어드민은 승인된 사용자가 먼저 가입한 뒤, 승인된 DB 작업으로 `ROLE_ADMIN`을 추가한다.
+- 로컬 프론트 테스트도 동일하게 가입 후 SQL로 `ROLE_ADMIN`을 부여한다.
 
 ## 참고 파일
 
-- `src/main/java/com/synapse/platform/user/controller/UserController.java`
+- `src/main/resources/db/migration/V20260609140528__create_user_roles.sql`
+- `src/main/java/com/synapse/platform/user/entity/UserRole.java`
+- `src/main/java/com/synapse/platform/user/repository/UserRoleRepository.java`
+- `src/main/java/com/synapse/platform/user/api/UserApi.java`
 - `src/main/java/com/synapse/platform/user/service/UserService.java`
-- `src/main/java/com/synapse/platform/user/entity/User.java`
-- `src/main/java/com/synapse/platform/user/entity/UserSettings.java`
-- `src/main/java/com/synapse/platform/auth/entity/OAuthIdentity.java`
-- `src/main/java/com/synapse/platform/auth/repository/OAuthIdentityRepository.java`
-- `src/main/java/com/synapse/platform/user/api/UserSessionsRevocationRequested.java`
-- `src/test/java/com/synapse/platform/user/controller/AdminUserControllerTest.java`
-- `src/test/java/com/synapse/platform/user/service/UserServiceTest.java`
+- `src/main/java/com/synapse/platform/auth/service/EmailPasswordAuthService.java`
+- `src/main/java/com/synapse/platform/auth/service/OAuth2SuccessHandler.java`
+- `src/main/java/com/synapse/platform/auth/controller/AuthController.java`
+- `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`

@@ -1,82 +1,72 @@
-# TASK — PLAT-063: frontend platform backend gap
+# TASK - PLAT-064: DB 기반 사용자 Role 및 어드민 부여 경로
 
-> 출처: 루트 `docs/BACKEND_GAP_platform.md`, frontend `lib/services/platform/**` TODO, platform 실제 컨트롤러 매핑
+> 출처: W5 프론트 연동 준비 중 발견된 어드민 권한 부여 공백
 
 ## 상태
 
-- Phase: A-1 User self-service 구현 완료 / A-2~A-6 후속
+- Phase: 구현 진행
 - 담당 Agent: Codex
 - 시작일: 2026-06-09
-- 작업 브랜치: `feature/PLAT-063-frontend-backend-gap`
+- 작업 브랜치: `feature/PLAT-064-user-roles`
 - PR base: `dev`
 
 ---
 
-## Goal
+## 목표
 
-frontend platform 화면이 mock/TODO로 남겨둔 호출 중 platform-svc 책임 영역의 백엔드 API를 단계적으로 구현한다.
+platform-svc가 JWT 발급 시 고정 `ROLE_USER`만 넣던 구조를 DB 기반 역할 조회 구조로 전환한다.
+어드민 계정은 서비스 코드에서 자동 생성하지 않고, 승인된 가입 계정에 대해 수동 DB 작업으로 `ROLE_ADMIN`을 부여한다.
 
-## Scope
+## 범위
 
-- In Scope:
-  - A-1 User 셀프서비스 프로필
-  - A-2 Auth 보강
-  - A-3 Notification 인박스
-  - A-4 Billing 보강
-  - A-5 Tenant 셀프관리
-  - A-6 Admin 대시보드 보강
-- Out of Scope:
-  - 7번/B 항목: engagement/knowledge/learning 소관 화면
-  - `TASK_platform.md` 원본 개발 목록 수정
-  - production 배포
-  - secret/API key 커밋
+In Scope:
 
-## Current Slice
+- `user_roles` 테이블 생성 및 삭제되지 않은 기존 사용자 `ROLE_USER` 백필
+- 신규 이메일/비밀번호 가입 사용자 기본 `ROLE_USER` 저장
+- 신규 OAuth 가입 사용자 기본 `ROLE_USER` 저장
+- 로그인, OAuth 성공, refresh 재발급 시 DB role 기반 JWT 발급
+- 정지/삭제 사용자 refresh 차단 유지
+- 로컬/운영 어드민 role 수동 부여 runbook 작성
 
-이번 첫 구현은 A-1 중 DB와 기존 서비스 자산으로 바로 처리 가능한 API를 우선한다.
+Out of Scope:
 
-- [x] `GET /api/v1/users/me`
-- [x] `PUT /api/v1/users/me`
-- [x] `PUT /api/v1/users/me/password`
-- [x] `DELETE /api/v1/users/me/oauth/{provider}`
-- [x] `DELETE /api/v1/users/me`
+- env/profile 수정
+- 서비스 시작 시 최초 어드민 자동 생성
+- 운영 dummy admin 계정 생성
+- `TASK_platform.md` 항목 추가 또는 수정
+- 다른 서비스 DB/권한 체계 변경
 
-후속으로 분리:
+## 결정 사항
 
-- [ ] `POST /api/v1/users/me/avatar` — 저장소/S3 정책 필요
-- [x] timezone 필드 제거 — 현재 `user_settings` 스키마에 컬럼 없음, 저장되지 않는 값은 API 계약에서 제외
+- role 정본은 platform DB의 `user_roles`로 둔다.
+- 기본 사용자는 `ROLE_USER`, 어드민은 추가 role인 `ROLE_ADMIN`으로 표현한다.
+- 기존 `/api/v1/admin/**`의 `hasRole("ADMIN")` 정책은 유지한다.
+- 최초 운영 어드민은 정상 가입 후 승인된 DB 작업으로만 부여한다.
+- 로컬 프론트 연동 테스트도 임의 seed/profile이 아니라 runbook SQL로 처리한다.
 
 ## Done When
 
-- [x] `UserController` placeholder가 실제 self-service API를 노출한다.
-- [x] 현재 로그인 사용자 ID는 기존 JWT Authentication 패턴으로 해석한다.
-- [x] 프로필 조회/수정은 `users`와 `user_settings` 기존 컬럼만 사용한다. `language`는 `ko-KR`, `en-US`, `ja-JP`만 허용한다.
-- [x] 비밀번호 변경은 현재 비밀번호 검증과 신규 비밀번호 해시 저장을 수행한다.
-- [x] OAuth 연결 해제는 마지막 로그인 수단 제거를 막는다.
-- [x] OAuth 연결 해제는 `oauth_identities` row lock으로 동시 해제 경합을 방어한다.
-- [x] 계정 삭제는 기존 soft delete와 session revocation event를 재사용한다.
-- [x] JWT 인증 필터는 삭제/정지 등 로그인 불가 사용자의 access-token 요청을 차단한다.
-- [x] controller/service 테스트를 추가한다.
-- [x] `TASK_platform.md`는 변경하지 않는다.
+- [x] `user_roles` Flyway migration 추가
+- [x] `UserRole` entity 및 repository 추가
+- [x] `UserApi.findRoles(UUID)` 추가
+- [x] 신규 사용자 생성 시 기본 role 저장
+- [x] 로그인/OAuth/refresh access token 발급 시 DB role 사용
+- [x] refresh 시 정지/삭제 사용자 차단 유지
+- [x] 어드민 role 수동 부여 문서 추가
+- [x] 관련 단위 테스트 보강
+- [x] targeted test 통과
+- [x] `clean build` 통과
 
-## Validation
-
-우선 실행:
+## 검증 예정
 
 ```powershell
-.\gradlew.bat test --tests "*JwtAuthenticationFilterTest" --tests "*OAuthConnection*Test" --tests "*OAuthIdentityRepositoryLockingTest" --tests "*UserControllerTest" --tests "*UserServiceTest"
-```
-
-최종 확인:
-
-```powershell
-.\gradlew.bat test --tests "*User*"
+.\gradlew.bat test --tests "*UserServiceTest" --tests "*EmailPasswordAuthServiceTest" --tests "*AuthControllerTest" --tests "*OAuth2SuccessHandlerTest"
 .\gradlew.bat clean build
 ```
 
-실행 결과(2026-06-09):
+검증 결과(2026-06-09):
 
-- `.\gradlew.bat test --tests "*JwtAuthenticationFilterTest" --tests "*OAuthConnection*Test" --tests "*OAuthIdentityRepositoryLockingTest" --tests "*UserControllerTest" --tests "*UserServiceTest"`: PASS
+- `.\gradlew.bat test --tests "*UserServiceTest" --tests "*EmailPasswordAuthServiceTest" --tests "*AuthControllerTest" --tests "*OAuth2SuccessHandlerTest"`: PASS
 - `.\gradlew.bat clean build`: PASS
 
-> Windows Embedded Kafka 임시 디렉터리 삭제 실패 로그가 출력되지만 Gradle 결과는 성공이다.
+> Windows Embedded Kafka 종료 중 임시 디렉터리 삭제 실패 로그가 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`이다.

@@ -282,6 +282,11 @@ class CustomOAuth2UserServiceTest {
             }
 
             @Override
+            public List<String> findRoles(UUID userId) {
+                return List.of("ROLE_USER");
+            }
+
+            @Override
             public UserInfo createForOAuth(OAuthUserCreateCommand command) {
                 User user = User.ofOAuth(
                         command.email(),

@@ -372,6 +372,14 @@
 
 ---
 
+## 2026-06-09 PLAT-064 작업 기록
+
+- DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
+- 삭제되지 않은 기존 사용자에게 `ROLE_USER`를 백필하고, 신규 이메일/비밀번호 및 OAuth 가입 시 기본 `ROLE_USER`를 저장하도록 정리했다.
+- 로그인, OAuth 성공, refresh 재발급 access token 발급 시 DB role을 읽어 JWT `roles` claim에 반영하도록 변경했다.
+- 운영/로컬 최초 어드민은 자동 seed/profile 없이 승인된 DB 작업으로 `ROLE_ADMIN`을 부여하는 절차를 문서화했다.
+- `TASK_platform.md`는 최초 개발 목록 문서이므로 수정하지 않았다.
+
 ## 변경 이력
 
 | 날짜 | 변경 사항 |

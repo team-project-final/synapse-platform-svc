@@ -10,12 +10,15 @@ import com.synapse.platform.user.api.UserSessionsRevocationRequested;
 import com.synapse.platform.user.dto.request.UserProfileUpdateRequest;
 import com.synapse.platform.user.dto.response.UserProfileResponse;
 import com.synapse.platform.user.entity.User;
-import com.synapse.platform.user.entity.UserStatus;
+import com.synapse.platform.user.entity.UserRole;
 import com.synapse.platform.user.entity.UserSettings;
+import com.synapse.platform.user.entity.UserStatus;
 import com.synapse.platform.user.repository.UserRepository;
+import com.synapse.platform.user.repository.UserRoleRepository;
 import com.synapse.platform.user.repository.UserSettingsRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
@@ -26,18 +29,23 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService implements UserApi {
 
+    private static final String DEFAULT_ROLE = "ROLE_USER";
+
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
 
     public UserService(
             UserRepository userRepository,
             UserSettingsRepository userSettingsRepository,
+            UserRoleRepository userRoleRepository,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.userSettingsRepository = userSettingsRepository;
+        this.userRoleRepository = userRoleRepository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
     }
@@ -82,6 +90,18 @@ public class UserService implements UserApi {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<String> findRoles(UUID userId) {
+        List<String> roles = userRoleRepository.findAllByUserIdOrderByCreatedAtAsc(userId).stream()
+                .map(UserRole::getRole)
+                .toList();
+        if (roles.isEmpty()) {
+            return List.of(DEFAULT_ROLE);
+        }
+        return roles;
+    }
+
+    @Override
     @Transactional
     public UserInfo createForOAuth(OAuthUserCreateCommand command) {
         User user = User.ofOAuth(
@@ -92,6 +112,7 @@ public class UserService implements UserApi {
         user.updateDefaultTenantId(command.defaultTenantId());
         User saved = userRepository.save(user);
         userSettingsRepository.save(UserSettings.defaultFor(saved.getId()));
+        userRoleRepository.save(UserRole.of(saved.getId(), DEFAULT_ROLE));
         return toUserInfo(saved);
     }
 
@@ -105,6 +126,7 @@ public class UserService implements UserApi {
                 command.defaultTenantId());
         User saved = userRepository.save(user);
         userSettingsRepository.save(UserSettings.defaultFor(saved.getId()));
+        userRoleRepository.save(UserRole.of(saved.getId(), DEFAULT_ROLE));
         return toUserInfo(saved);
     }
 

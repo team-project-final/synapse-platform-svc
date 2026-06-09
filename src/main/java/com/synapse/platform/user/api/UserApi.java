@@ -1,6 +1,7 @@
 package com.synapse.platform.user.api;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,6 +19,8 @@ public interface UserApi {
     boolean existsByUsername(String username);
 
     boolean hasPasswordLogin(UUID userId);
+
+    List<String> findRoles(UUID userId);
 
     UserInfo createForOAuth(OAuthUserCreateCommand command);
 

@@ -29,6 +29,7 @@ import com.synapse.platform.global.crypto.FieldEncryptor;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -194,6 +195,11 @@ class OAuthUserResolverTest {
             @Override
             public boolean hasPasswordLogin(UUID userId) {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public List<String> findRoles(UUID userId) {
+                return List.of("ROLE_USER");
             }
 
             @Override

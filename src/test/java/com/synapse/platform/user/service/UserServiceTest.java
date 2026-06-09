@@ -14,10 +14,13 @@ import com.synapse.platform.user.api.UserSessionsRevocationRequested;
 import com.synapse.platform.user.dto.request.UserProfileUpdateRequest;
 import com.synapse.platform.user.dto.response.UserProfileResponse;
 import com.synapse.platform.user.entity.User;
+import com.synapse.platform.user.entity.UserRole;
 import com.synapse.platform.user.entity.UserSettings;
 import com.synapse.platform.user.repository.UserRepository;
+import com.synapse.platform.user.repository.UserRoleRepository;
 import com.synapse.platform.user.repository.UserSettingsRepository;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
@@ -36,6 +39,9 @@ class UserServiceTest {
 
     @Mock
     private UserSettingsRepository userSettingsRepository;
+
+    @Mock
+    private UserRoleRepository userRoleRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -62,6 +68,47 @@ class UserServiceTest {
         assertThat(result.displayName()).isEqualTo("user");
         assertThat(result.defaultTenantId()).isEqualTo(tenantId);
         verify(userSettingsRepository).save(any(UserSettings.class));
+        verify(userRoleRepository).save(any(UserRole.class));
+    }
+
+    @Test
+    void createForOAuth_shouldPersistDefaultUserRole() {
+        com.synapse.platform.user.api.OAuthUserCreateCommand command =
+                new com.synapse.platform.user.api.OAuthUserCreateCommand(
+                        "oauth@example.com",
+                        "oauth",
+                        "OAuth User",
+                        "https://example.com/avatar.png",
+                        UUID.randomUUID());
+        given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        UserInfo result = userService.createForOAuth(command);
+
+        assertThat(result.email()).isEqualTo("oauth@example.com");
+        verify(userSettingsRepository).save(any(UserSettings.class));
+        verify(userRoleRepository).save(any(UserRole.class));
+    }
+
+    @Test
+    void findRoles_existingRoles_shouldReturnPersistedRoles() {
+        UUID userId = UUID.randomUUID();
+        given(userRoleRepository.findAllByUserIdOrderByCreatedAtAsc(userId)).willReturn(List.of(
+                UserRole.of(userId, "ROLE_USER"),
+                UserRole.of(userId, "ROLE_ADMIN")));
+
+        List<String> roles = userService.findRoles(userId);
+
+        assertThat(roles).containsExactly("ROLE_USER", "ROLE_ADMIN");
+    }
+
+    @Test
+    void findRoles_missingRoles_shouldFallbackToUserRole() {
+        UUID userId = UUID.randomUUID();
+        given(userRoleRepository.findAllByUserIdOrderByCreatedAtAsc(userId)).willReturn(List.of());
+
+        List<String> roles = userService.findRoles(userId);
+
+        assertThat(roles).containsExactly("ROLE_USER");
     }
 
     @Test

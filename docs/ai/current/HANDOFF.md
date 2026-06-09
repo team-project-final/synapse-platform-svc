@@ -1,69 +1,92 @@
-# HANDOFF - PLAT-066: Notification 인박스 조회 API
+# HANDOFF - PLAT-067: Billing 결제 이력/사용량 조회 API
 
 ## 한줄 요약
 
-루트 `docs/BACKEND_GAP_platform.md` A-3을 처리한다. 기존 notification 발송 이력 테이블에 읽음 상태를 추가하고, 프론트 알림센터가 사용할 목록/count/read API를 만든다.
+루트 `docs/BACKEND_GAP_platform.md` A-4를 처리한다. 기존 billing 결제 저장 데이터를 프론트가 조회할 수 있도록 결제 이력, 사용량/한도, 영수증/인보이스 read API를 추가한다.
+
+## 현재 상태
+
+- 구현 완료
+- targeted test 통과
+- `clean build` 통과
+- PR 전 자체 리뷰 대기
 
 ## 작업 위치
 
 - Repo: `synapse-platform-svc`
-- Branch: `feature/PLAT-066-notification-inbox`
+- Branch: `feature/PLAT-067-billing-read-apis`
 - Base: `dev`
 - 작업문서: `docs/ai/current`
+- 이전 current archive: `docs/ai/archive/20260609-plat-066-completed`
 
 ## 구현 순서
 
-1. Flyway migration 추가
-   - 파일명: `VyyyyMMddHHmmss__add_notification_read_state.sql`
-   - `notifications.read_at TIMESTAMPTZ NULL`
-   - inbox 조회용 index 추가
+1. 결제 이력 메타데이터 migration 추가
+   - 후보 파일명: `V20260609170000__add_payment_invoice_metadata.sql`
+   - `payment_history.stripe_invoice_id`
+   - `payment_history.invoice_url`
+   - `payment_history.invoice_pdf_url`
+   - tenant + paid_at 조회 인덱스 추가
 
-2. Entity 보강
-   - `Notification.readAt`
-   - `markRead(OffsetDateTime now)`
-   - `isRead()`
+2. `PaymentHistory` entity 보강
+   - invoice id/url/pdf url 필드 추가
+   - `hasReceipt()` 또는 `isReceiptAvailable()` 계산 메서드 추가
+   - `PaymentHistory.of(...)` 또는 별도 factory에 invoice metadata 반영
 
-3. Repository query 추가
-   - 본인 알림 목록: `userId`, `FCM`, `SENT`, pageable, `createdAt DESC`
-   - unread count: `userId`, `FCM`, `SENT`, `readAt IS NULL`
-   - 단건 조회: `id`, `userId`, `FCM`, `SENT`
-   - 전체 읽음 update 또는 service loop
+3. Webhook 저장 로직 보강
+   - `BillingService.handleInvoicePaid`
+   - Stripe `Invoice`에서 invoice id, hosted invoice URL, invoice PDF URL 추출
+   - URL은 nullable 허용
+   - 기존 amount/currency/status 저장 로직 유지
 
-4. Service 추가
-   - 발송 책임의 `NotificationService`와 분리 권장
-   - 후보명: `NotificationInboxService`
-   - 타인 알림 접근은 404 처리
+4. Repository query 추가
+   - `findByTenantId(UUID tenantId, Pageable pageable)`
+   - `findByIdAndTenantId(UUID id, UUID tenantId)`
+   - 필요 시 `paidAt DESC, createdAt DESC` 정렬을 service에서 pageable sort로 고정
 
-5. Controller/DTO 추가
-   - `GET /api/v1/notifications`
-   - `GET /api/v1/notifications/unread-count`
-   - `PUT /api/v1/notifications/{id}/read`
-   - `POST /api/v1/notifications/read-all`
-   - 현재 사용자 UUID는 `Authentication.getName()`에서 파싱
+5. Plan quota 공개 계약 추가
+   - billing이 auth 내부 repository를 직접 참조하지 않도록 `TenantApi` 확장 권장
+   - 후보 record: `PlanQuotaInfo`
+   - 필드: plan, displayName, maxNotes, maxCards, maxStorageBytes, maxAiTokensMonthly, maxAiCardGenerationsMonthly, maxUsersPerTenant
 
-6. Settings API
-   - 루트 문서 A-3의 settings API를 같은 작업에 포함한다.
-   - 저장소는 기존 `user_settings.notification_prefs`.
-   - notification 모듈은 `UserApi`의 prefs 조회/저장 메서드만 호출한다.
-   - 요청/응답은 JSON object를 주고받되 기본 `categories`, `quietHours` 구조와 merge한다.
-   - 잘못된 타입의 settings payload는 400으로 거절한다.
+6. Billing read service 추가
+   - 기존 `BillingService`에 read method를 추가하거나 `BillingReadService`로 분리
+   - 분리 기준: Stripe write/webhook 로직과 read API 로직이 섞이면 `BillingReadService` 선호
+   - tenant resolve는 기존 방식과 동일하게 `UserApi` 사용
+
+7. Controller/DTO 추가
+   - `GET /api/v1/billing/payments`
+   - `GET /api/v1/billing/usage`
+   - `GET /api/v1/billing/payments/{id}/receipt`
+   - DTO 후보:
+     - `PaymentHistoryResponse`
+     - `PaymentHistoryPageResponse`
+     - `BillingUsageResponse`
+     - `BillingReceiptResponse`
+
+8. 테스트 추가
+   - Controller standalone test
+   - Service unit test
+   - Repository Testcontainers PG test
+   - 필요 시 HTTP + security integration test
+   - ModuleStructureTest 회귀
 
 ## API 응답 후보
 
-목록:
+결제 이력:
 
 ```json
 {
   "items": [
     {
       "id": "uuid",
-      "type": "ACHIEVEMENT_UNLOCKED",
-      "title": "새 업적을 획득했습니다",
-      "body": "연속 학습 목표를 달성했습니다.",
-      "read": false,
-      "readAt": null,
-      "createdAt": "2026-06-09T14:30:00+09:00",
-      "sentAt": "2026-06-09T14:30:01+09:00"
+      "subscriptionId": "uuid",
+      "amount": 999,
+      "currency": "usd",
+      "status": "succeeded",
+      "paidAt": "2026-06-09T15:30:00+09:00",
+      "createdAt": "2026-06-09T15:30:01+09:00",
+      "receiptAvailable": true
     }
   ],
   "page": 0,
@@ -73,36 +96,63 @@
 }
 ```
 
-Unread count:
+사용량:
 
 ```json
 {
-  "count": 3
+  "tenantId": "uuid",
+  "planCode": "pro",
+  "subscriptionStatus": "ACTIVE",
+  "quotas": {
+    "maxNotes": 50000,
+    "maxCards": 50000,
+    "maxStorageBytes": 10000000000,
+    "maxAiTokensMonthly": 5000000,
+    "maxAiCardGenerationsMonthly": 500,
+    "maxUsersPerTenant": 1
+  },
+  "usage": {
+    "notes": { "used": null, "limit": 50000, "remaining": null, "source": "NOT_CONNECTED" }
+  }
 }
 ```
 
-Read all:
+영수증/인보이스:
 
 ```json
 {
-  "updatedCount": 3
+  "paymentId": "uuid",
+  "stripePaymentIntentId": "pi_test",
+  "stripeInvoiceId": "in_test",
+  "invoiceUrl": "https://invoice.stripe.com/i/acct_test/...",
+  "invoicePdfUrl": "https://pay.stripe.com/invoice/...",
+  "available": true
 }
 ```
 
 ## 검증 명령
 
 ```powershell
-.\gradlew.bat test --tests "*NotificationInbox*"
-.\gradlew.bat test --tests "*NotificationRepositoryTest"
-.\gradlew.bat test --tests "*ModuleStructureTest"
-.\gradlew.bat test --tests "*NotificationInboxIntegrationTest"
+.\gradlew.bat test --tests "*BillingControllerTest"
+.\gradlew.bat test --tests "*BillingServiceTest"
+.\gradlew.bat test --tests "*BillingRepositoryTest"
+.\gradlew.bat test --tests "*BillingSecurityIntegrationTest"
+.\gradlew.bat test --tests "*PlatformModuleStructureTest"
 .\gradlew.bat clean build
 ```
+
+검증 결과(2026-06-10):
+
+- `.\gradlew.bat test --tests "*BillingControllerTest" --tests "*BillingServiceTest" --tests "*BillingRepositoryTest"`: PASS
+- `.\gradlew.bat test --tests "*BillingControllerTest" --tests "*BillingServiceTest" --tests "*BillingRepositoryTest" --tests "*BillingSecurityIntegrationTest" --tests "*PlatformModuleStructureTest"`: PASS
+- `.\gradlew.bat clean build`: PASS
 
 ## 금지/주의
 
 - `TASK_platform.md` 수정 금지
 - env/profile 수정 금지
-- 다른 서비스 DB 기준 변경 금지
-- EMAIL 행을 사용자 인박스에 바로 노출하지 말 것
+- gitops/shared 수정 금지
+- billing에서 auth/user 내부 repository 직접 참조 금지
+- read endpoint에서 Stripe API 실시간 호출 금지
+- 기존 Webhook permitAll 설정 변경 금지
 - PR 본문 작성 시 UTF-8 body file 사용

@@ -3,11 +3,14 @@ package com.synapse.platform.billing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.synapse.platform.billing.entity.PaymentHistory;
 import com.synapse.platform.billing.entity.PlanCode;
 import com.synapse.platform.billing.entity.Subscription;
 import com.synapse.platform.billing.entity.SubscriptionStatus;
+import com.synapse.platform.billing.repository.PaymentHistoryRepository;
 import com.synapse.platform.billing.repository.ProcessedEventRepository;
 import com.synapse.platform.billing.repository.SubscriptionRepository;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -15,6 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -50,6 +55,9 @@ class BillingRepositoryTest {
 
     @Autowired
     private ProcessedEventRepository processedEventRepository;
+
+    @Autowired
+    private PaymentHistoryRepository paymentHistoryRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -114,6 +122,79 @@ class BillingRepositoryTest {
 
         assertThat(first).isOne();
         assertThat(second).isZero();
+    }
+
+    @Test
+    void paymentHistory_findByTenantIdReturnsOnlyTenantRowsNewestFirst() {
+        UUID tenantId = createTenant();
+        UUID otherTenantId = createTenant();
+        PaymentHistory older = paymentHistoryRepository.save(PaymentHistory.of(
+                tenantId,
+                null,
+                "pi_old",
+                "in_old",
+                "https://invoice.stripe.test/in_old",
+                "https://invoice.stripe.test/in_old.pdf",
+                900,
+                "usd",
+                "succeeded",
+                OffsetDateTime.parse("2026-06-08T00:00:00Z")));
+        PaymentHistory newer = paymentHistoryRepository.save(PaymentHistory.of(
+                tenantId,
+                null,
+                "pi_new",
+                "in_new",
+                "https://invoice.stripe.test/in_new",
+                "https://invoice.stripe.test/in_new.pdf",
+                1200,
+                "usd",
+                "succeeded",
+                OffsetDateTime.parse("2026-06-09T00:00:00Z")));
+        paymentHistoryRepository.save(PaymentHistory.of(
+                otherTenantId,
+                null,
+                "pi_other",
+                "in_other",
+                "https://invoice.stripe.test/in_other",
+                "https://invoice.stripe.test/in_other.pdf",
+                1500,
+                "usd",
+                "succeeded",
+                OffsetDateTime.parse("2026-06-10T00:00:00Z")));
+
+        assertThat(paymentHistoryRepository.findByTenantId(tenantId, paymentPage()).getContent())
+                .extracting(PaymentHistory::getId)
+                .containsExactly(newer.getId(), older.getId());
+    }
+
+    @Test
+    void paymentHistory_findByIdAndTenantIdHidesOtherTenantRows() {
+        UUID tenantId = createTenant();
+        UUID otherTenantId = createTenant();
+        PaymentHistory payment = paymentHistoryRepository.save(PaymentHistory.of(
+                otherTenantId,
+                null,
+                "pi_other_tenant",
+                "in_other_tenant",
+                "https://invoice.stripe.test/in_other_tenant",
+                "https://invoice.stripe.test/in_other_tenant.pdf",
+                1500,
+                "usd",
+                "succeeded",
+                OffsetDateTime.parse("2026-06-09T00:00:00Z")));
+
+        assertThat(paymentHistoryRepository.findByIdAndTenantId(payment.getId(), tenantId)).isEmpty();
+        assertThat(paymentHistoryRepository.findByIdAndTenantId(payment.getId(), otherTenantId))
+                .hasValueSatisfying(found -> {
+                    assertThat(found.getStripeInvoiceId()).isEqualTo("in_other_tenant");
+                    assertThat(found.isReceiptAvailable()).isTrue();
+                });
+    }
+
+    private PageRequest paymentPage() {
+        return PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("paidAt").nullsLast(),
+                Sort.Order.desc("createdAt")));
     }
 
     private UUID createTenant() {

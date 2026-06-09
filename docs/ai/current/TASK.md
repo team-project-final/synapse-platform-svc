@@ -1,77 +1,87 @@
-# TASK - PLAT-066: Notification 인박스 조회 API
+# TASK - PLAT-067: Billing 결제 이력/사용량 조회 API
 
-> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-3. 프론트 `notifications/notification_screens.dart`가 목록, 읽음, 안읽음 카운트, 설정 API를 기대하지만 platform-svc는 현재 디바이스 토큰 등록/해제와 이벤트 기반 발송만 제공한다.
+> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-4. 프론트 `billing/billing_screens.dart`가 결제 이력, 사용량, 영수증/인보이스 조회를 기대하지만 platform-svc는 현재 Checkout 생성, Webhook 처리, 현재 구독 조회만 제공한다.
 
-## 상태
+## Task Metadata
 
-- Phase: 구현 및 검증 완료
-- 담당 Agent: Codex
-- 시작일: 2026-06-09
-- 작업 브랜치: `feature/PLAT-066-notification-inbox`
-- PR base: `dev`
+| 필드 | 내용 |
+|---|---|
+| Task ID | `PLAT-067` |
+| Title | Billing 결제 이력/사용량 조회 API |
+| Owner | platform (김해준) |
+| Status | `DONE` |
+| Priority | `P1` |
+| Step Goal | 프론트 결제 화면이 로그인 사용자의 결제 이력, 플랜 한도, 영수증/인보이스 정보를 platform API로 조회한다. |
+| Done When | 아래 `Done When` 체크리스트 기준 |
+| Scope | 아래 `Scope` 기준 |
+| Dependencies | `BACKEND_GAP_platform.md` A-4, `payment_history`, `subscriptions`, `plan_quotas`, `UserApi`, `TenantApi` |
+| Due Date | 2026-06-12 |
 
----
+## Step Goal
 
-## 목표
+프론트 결제 화면이 로그인 사용자의 결제 이력, 플랜 한도, 영수증/인보이스 정보를 platform API로 조회한다.
 
-platform-svc의 기존 `notifications` 테이블을 사용자 알림센터 조회용으로 확장한다.
-프론트는 로그인한 사용자의 알림 목록, 안읽음 카운트, 단건 읽음, 전체 읽음 처리를 백엔드 API로 연동할 수 있어야 한다.
+## Done When
 
-## 범위
+- [ ] `GET /api/v1/billing/payments`가 로그인 사용자의 기본 tenant 결제 이력을 최신순 페이지로 반환한다.
+- [ ] `GET /api/v1/billing/usage`가 현재 구독/플랜과 `plan_quotas` 기준 한도를 반환한다.
+- [ ] `GET /api/v1/billing/payments/{id}/receipt`가 본인 tenant 결제 건의 Stripe invoice URL/PDF URL 메타데이터를 반환한다.
+- [ ] 다른 tenant 결제 이력 또는 영수증 접근은 존재 여부를 숨기도록 404로 처리한다.
+- [ ] Stripe Webhook `invoice.paid` 처리 시 invoice 식별자와 invoice URL/PDF URL을 저장한다.
+- [ ] 기존 Checkout, Webhook, Subscription API의 동작을 변경하지 않는다.
+- [ ] `TASK_platform.md`, env/profile, gitops/shared 프로젝트는 수정하지 않는다.
+- [ ] billing 단위 테스트, controller 테스트, repository 또는 통합 테스트가 통과한다.
+- [ ] `clean build`가 통과한다.
 
-In Scope:
+## Scope
 
-- `notifications` 읽음 상태 추가: `read_at TIMESTAMPTZ NULL`
-- 로그인 사용자 기준 알림 목록 조회 API 추가
-- 로그인 사용자 기준 안읽음 카운트 API 추가
-- 본인 알림 단건 읽음 처리 API 추가
-- 본인 알림 전체 읽음 처리 API 추가
-- 알림 설정 API 포함 여부 판단 및 계약 정리
-- notification 인박스 단위/슬라이스 테스트 추가
+### In Scope
 
-Conditional Scope:
+- 결제 이력 조회 API 추가
+- 결제 이력 응답 DTO 추가
+- 영수증/인보이스 조회 API 추가
+- `payment_history`에 Stripe invoice 메타데이터를 저장하는 nullable 컬럼 추가
+- `invoice.paid` Webhook 처리 시 invoice id, hosted invoice URL, invoice PDF URL 저장
+- 사용량 조회 API 추가
+- `plan_quotas` 한도 조회를 위한 공개 API 계약 정리
+- 본인 tenant 기준 접근 제어
+- billing read API 단위/통합 테스트 추가
 
-- `GET /api/v1/notifications/settings`
-- `PUT /api/v1/notifications/settings`
-- 기존 `user_settings.notification_prefs`를 정본으로 사용한다.
-- notification 모듈에서 user 내부 repository를 직접 접근하지 않는다.
-- 같은 PR에 포함하려면 `UserApi`에 notification prefs 조회/저장 계약을 추가한다.
-- 계약 확장이 커지면 settings API는 별도 PLAT 작업으로 분리한다.
+### Out of Scope
 
-Out of Scope:
-
-- FCM/SES 발송 안정화 또는 재시도 정책 변경
-- 실시간 WebSocket/SSE 알림
+- Stripe Checkout 생성 플로우 변경
+- Stripe Webhook 서명 검증 방식 변경
+- 실제 카드 정보 저장 또는 결제 수단 관리
+- 타 서비스 note/card/storage/AI 사용량 집계 구현
 - 프론트 화면 수정
-- `TASK_platform.md` 항목 추가 또는 수정
-- 다른 서비스 DB/권한 체계 변경
+- `TASK_platform.md` 수정
+- env/profile/gitops/shared 수정
 
-## API 계약
+## API Contract
 
-### 알림 목록
+### 결제 이력
 
-`GET /api/v1/notifications?page=0&size=20`
+`GET /api/v1/billing/payments?page=0&size=20`
 
 - 인증 필요
-- 로그인 사용자 본인 알림만 반환
-- 최신순 정렬: `createdAt DESC`
-- 인박스 노출 대상은 우선 `channel = FCM`, `status = SENT` 행으로 제한한다.
-- 이유: 현재 `notifications`는 `event_id + channel` 단위라 EMAIL 행까지 노출하면 같은 이벤트가 중복 표시될 수 있다. EMAIL 행은 발송 감사/이력 성격으로 유지한다.
+- 로그인 사용자의 `defaultTenantId` 기준 결제 이력만 반환
+- 정렬: `paidAt DESC NULLS LAST`, `createdAt DESC`
+- 금액 단위는 Stripe 저장값 그대로 minor unit을 사용한다. 예: USD 999 = $9.99
 
-응답 예시:
+응답 후보:
 
 ```json
 {
   "items": [
     {
-      "id": "d6f4d47d-4cb9-4c55-b5c2-7a855fc2e8c4",
-      "type": "ACHIEVEMENT_UNLOCKED",
-      "title": "새 업적을 획득했습니다",
-      "body": "연속 학습 목표를 달성했습니다.",
-      "read": false,
-      "readAt": null,
-      "createdAt": "2026-06-09T14:30:00+09:00",
-      "sentAt": "2026-06-09T14:30:01+09:00"
+      "id": "3f8a8a87-9c1d-4f1d-89d5-493f2d19d901",
+      "subscriptionId": "0cc0c6d7-5fc8-4943-8322-3d2f337713db",
+      "amount": 999,
+      "currency": "usd",
+      "status": "succeeded",
+      "paidAt": "2026-06-09T15:30:00+09:00",
+      "createdAt": "2026-06-09T15:30:01+09:00",
+      "receiptAvailable": true
     }
   ],
   "page": 0,
@@ -81,89 +91,128 @@ Out of Scope:
 }
 ```
 
-### 안읽음 카운트
+### 사용량
 
-`GET /api/v1/notifications/unread-count`
+`GET /api/v1/billing/usage`
 
-```json
-{
-  "count": 3
-}
-```
+- 인증 필요
+- 로그인 사용자의 기본 tenant 기준
+- 현재 활성 구독이 있으면 구독의 plan을 우선 사용한다.
+- 활성 구독이 없으면 tenant의 현재 plan을 사용한다.
+- 한도는 `plan_quotas` 정본을 사용한다.
+- note/card/storage/AI 실제 사용량은 현재 platform-svc 정본이 없으므로 이번 작업에서는 `used = null`, `remaining = null`, `source = "NOT_CONNECTED"`로 명시한다.
 
-### 단건 읽음
-
-`PUT /api/v1/notifications/{id}/read`
-
-- 본인 알림만 처리
-- 이미 읽은 알림이면 idempotent 성공
-- 타인 알림이거나 존재하지 않으면 404로 처리해 존재 여부를 노출하지 않는다.
-
-### 전체 읽음
-
-`POST /api/v1/notifications/read-all`
+응답 후보:
 
 ```json
 {
-  "updatedCount": 3
+  "tenantId": "75c0cf72-dc31-4d58-bf6b-77e0b45e9dd5",
+  "planCode": "pro",
+  "subscriptionStatus": "ACTIVE",
+  "currentPeriodStart": "2026-06-09T15:00:00+09:00",
+  "currentPeriodEnd": "2026-07-09T15:00:00+09:00",
+  "quotas": {
+    "maxNotes": 50000,
+    "maxCards": 50000,
+    "maxStorageBytes": 10000000000,
+    "maxAiTokensMonthly": 5000000,
+    "maxAiCardGenerationsMonthly": 500,
+    "maxUsersPerTenant": 1
+  },
+  "usage": {
+    "notes": { "used": null, "limit": 50000, "remaining": null, "source": "NOT_CONNECTED" },
+    "cards": { "used": null, "limit": 50000, "remaining": null, "source": "NOT_CONNECTED" },
+    "storageBytes": { "used": null, "limit": 10000000000, "remaining": null, "source": "NOT_CONNECTED" },
+    "aiTokensMonthly": { "used": null, "limit": 5000000, "remaining": null, "source": "NOT_CONNECTED" },
+    "aiCardGenerationsMonthly": { "used": null, "limit": 500, "remaining": null, "source": "NOT_CONNECTED" },
+    "users": { "used": null, "limit": 1, "remaining": null, "source": "NOT_CONNECTED" }
+  }
 }
 ```
 
-## 데이터 모델
+### 영수증/인보이스
 
-신규 Flyway migration:
+`GET /api/v1/billing/payments/{id}/receipt`
 
-- 파일명 형식: `VyyyyMMddHHmmss__add_notification_read_state.sql`
-- `notifications.read_at TIMESTAMPTZ NULL` 추가
-- 추천 인덱스:
-  - `idx_notifications_inbox_user_created_at` on `(user_id, channel, status, created_at DESC)`
-  - `idx_notifications_inbox_unread` on `(user_id, channel, status, read_at)` 또는 PostgreSQL partial index
+- 인증 필요
+- 로그인 사용자 기본 tenant의 결제 건만 반환
+- 타 tenant 결제 건은 404
+- URL은 Webhook 수신 시 저장된 Stripe invoice 메타데이터를 사용한다.
+- 기존 결제 row처럼 URL이 없는 경우 200 응답에 `available=false`를 반환한다.
 
-읽음 판정:
+응답 후보:
 
-- `read_at IS NULL`이면 unread
-- `read_at IS NOT NULL`이면 read
+```json
+{
+  "paymentId": "3f8a8a87-9c1d-4f1d-89d5-493f2d19d901",
+  "stripePaymentIntentId": "pi_test",
+  "stripeInvoiceId": "in_test",
+  "invoiceUrl": "https://invoice.stripe.com/i/acct_test/...",
+  "invoicePdfUrl": "https://pay.stripe.com/invoice/...",
+  "available": true
+}
+```
 
-## 결정 사항
+## Data Model
 
-- 사용자 식별은 기존 JWT `Authentication.getName()`의 UUID subject를 사용한다.
-- 숫자 userId 변환을 새로 만들지 않는다. platform의 `notifications.user_id`는 UUID다.
-- inbox 조회는 `NotificationService`의 발송 책임과 분리해 별도 query/service 계층으로 둔다.
-- `channel = FCM`, `status = SENT`만 프론트 인박스에 노출한다.
-- settings API는 `user_settings.notification_prefs`를 정본 후보로 보되, user 모듈 API 계약 없이는 직접 접근하지 않는다.
+신규 Flyway migration 후보:
 
-- [x] 기존 PLAT-064 current 문서 아카이브 완료
-- [x] PLAT-066 작업문서 작성 완료
-- [x] `notifications.read_at` migration 추가
-- [x] `Notification` entity 읽음 상태 추가
-- [x] repository inbox query 추가
-- [x] inbox service 추가
-- [x] inbox controller 추가
-- [x] request/response DTO 추가
-- [x] settings API 포함 여부 결정
-- [x] 본인 알림만 조회/수정되는 테스트 추가
-- [x] 안읽음 카운트 테스트 추가
-- [x] 단건/전체 읽음 테스트 추가
-- [x] settings 기본값 merge 및 잘못된 타입 검증 보강
-- [x] 인박스 HTTP + Spring Security + DB 통합 테스트 추가
+- `V20260609170000__add_payment_invoice_metadata.sql`
+
+추가 컬럼:
+
+- `payment_history.stripe_invoice_id VARCHAR(255)`
+- `payment_history.invoice_url TEXT`
+- `payment_history.invoice_pdf_url TEXT`
+
+추가 인덱스:
+
+- `uq_payment_history_stripe_invoice_id` partial unique index where `stripe_invoice_id IS NOT NULL`
+- `idx_payment_history_tenant_paid_at` on `(tenant_id, paid_at DESC, created_at DESC)`
+
+## Design Notes
+
+- 사용자 식별은 기존 billing 방식과 동일하게 `Authentication.getName()` UUID를 사용한다.
+- tenant 식별은 기존 `BillingService.resolveTenantId(userId)` 경로와 동일하게 `UserApi.findById(userId).defaultTenantId()`를 사용한다.
+- billing 모듈은 auth/user 내부 repository를 직접 참조하지 않는다.
+- `plan_quotas` 조회가 필요하면 `TenantApi` named interface에 `PlanQuotaInfo` 조회 계약을 추가한다.
+- `GET /api/v1/billing/payments/{id}/receipt`는 Stripe API를 실시간 호출하지 않는다. Webhook에서 저장한 메타데이터만 반환한다.
+- 실제 사용량 집계는 knowledge/learning/AI 서비스와의 정본 협의가 필요하므로 이번 작업에서는 연결 상태를 응답에 명시한다.
+
+## Implementation Checklist
+
+- [x] 기존 PLAT-066 current 문서 archive 완료
+- [x] PLAT-067 작업 브랜치 생성
+- [x] PLAT-067 작업문서 작성
+- [x] `payment_history` invoice 메타데이터 migration 추가
+- [x] `PaymentHistory` entity invoice 메타데이터 필드 추가
+- [x] `PaymentHistoryRepository` tenant scoped query 추가
+- [x] `TenantApi` plan quota 조회 계약 추가
+- [x] plan quota 응답 record/API 구현
+- [x] billing payment/usage/receipt DTO 추가
+- [x] `BillingService` read method 추가
+- [x] `BillingController` read endpoint 추가
+- [x] Webhook `invoice.paid` 저장 로직 invoice 메타데이터 반영
+- [x] controller/service/repository/security 테스트 추가
+- [x] modulith 구조 테스트 통과
 - [x] targeted test 통과
 - [x] `clean build` 통과
 
-## 검증 예정
+## Verification Plan
 
 ```powershell
-.\gradlew.bat test --tests "*NotificationInbox*"
-.\gradlew.bat test --tests "*NotificationRepositoryTest"
-.\gradlew.bat test --tests "*ModuleStructureTest"
+.\gradlew.bat test --tests "*BillingControllerTest"
+.\gradlew.bat test --tests "*BillingServiceTest"
+.\gradlew.bat test --tests "*BillingRepositoryTest"
+.\gradlew.bat test --tests "*BillingSecurityIntegrationTest"
+.\gradlew.bat test --tests "*PlatformModuleStructureTest"
 .\gradlew.bat clean build
 ```
 
-검증 결과(2026-06-09):
+검증 결과(2026-06-10):
 
-- `.\gradlew.bat test --tests "*NotificationInbox*" --tests "*NotificationSettings*" --tests "*NotificationRepositoryTest" --tests "*UserServiceTest"`: PASS
-- `.\gradlew.bat test --tests "*ModuleStructureTest"`: PASS
-- `.\gradlew.bat test --tests "*NotificationSettingsServiceTest" --tests "*NotificationInboxIntegrationTest"`: PASS
-- `.\gradlew.bat spotbugsMain`: PASS
+- `.\gradlew.bat test --tests "*BillingControllerTest" --tests "*BillingServiceTest" --tests "*BillingRepositoryTest"`: PASS
+- `.\gradlew.bat test --tests "*BillingControllerTest" --tests "*BillingServiceTest" --tests "*BillingRepositoryTest" --tests "*BillingSecurityIntegrationTest" --tests "*PlatformModuleStructureTest"`: PASS
 - `.\gradlew.bat clean build`: PASS
 
 > Windows Embedded Kafka 종료 중 임시 디렉터리 삭제 실패 로그가 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`이다.

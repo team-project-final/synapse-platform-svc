@@ -337,12 +337,40 @@
   - 미해결 이슈 0(코드). 열린 이슈는 dev 반영 완료분으로 dev→main 릴리스 시 자동 close. #62(W5 라이브 E2E)는 W5 작업.
 - **주간 요약**: W4 종료 — Step 9(E2E)·Step 10(알림 안정화) 완료(2/2). 추가로 CI 안정화(flaky 2건 근본 수정), KAFKA_ENABLED 게이트, Kafka security.protocol, Flyway 표준, 룰 4.6, minikube 로컬 환경까지 처리. dev 11+커밋 미릴리스(dev→main 대기).
 
+### W5 (2026-06-08 ~ 06-12)
+
+| 구분 | 내용 | 상태 | 시작일 | 완료일 | 비고 |
+|------|------|------|--------|--------|------|
+| W5 작업 로그 | 라이브 E2E 및 staging 검증 | In Progress | 2026-06-09 | — | #62 라이브 E2E, #37 staging health/profile 정합 |
+
+**W5 진행 상태**: 라이브 E2E 및 staging 검증 진행 중
+
+#### 2026-06-09 (화)
+
+- **완료**:
+  - W5 PRD/WORKFLOW와 열린 이슈 #62/#37 확인.
+  - `origin/dev` 기준 `feature/PLAT-062-w5-live-e2e` 브랜치 생성.
+  - 기존 `docs/ai/current` W4 Kafka 문서를 archive로 이동하고 W5 실행용 `TASK.md`, `CONTEXT.md`, `HANDOFF.md` 작성.
+  - synapse-gitops/synapse-shared 최신 main fast-forward 및 platform 관련 W5 문서/overlay/Avro 정본 확인.
+  - #37 staging datasource 정합 확인: 최신 gitops overlay가 `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`를 주입하고 shared 문서가 platform-svc staging Healthy를 기록.
+  - platform `UserRegistered.avsc`, `NotificationSend.avsc`를 shared 최신 정본과 동일하게 정렬.
+  - 검증 통과: `generateAvroJava`, `AuthBillingE2ETest`, notification 테스트 묶음, `clean build`(286 tests, failures 0).
+- **진행 중**:
+  - #62 cross-service live 알림 E2E는 engagement/learning P0 선결 후 재실행 필요.
+- **이슈**:
+  - 프론트엔드 결제 UI는 아직 미연동이므로 결제 검증은 백엔드 Stripe Test Mode 기준으로 설명해야 한다.
+  - 로그아웃 전용 HTTP endpoint 없음. 현재 토큰 무효화는 `RefreshTokenService.delete(userId)` 및 세션 무효화 이벤트 경로만 존재.
+  - shared W5 Day1 기준 P0는 platform이 아니라 engagement `UserRegistered` reader(F1), learning-ai `NotificationSend` writer(F2/F3).
+- **다음**:
+  - #62 코멘트/보고 후, engagement/learning P0 머지 이후 cross-service live E2E 재실행.
+
 ---
 
 ## 변경 이력
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-09 | **W5 라이브 E2E 작업 진행** — #37 최신 gitops/shared 기준 해소 확인, platform Avro 벤더링 shared 정본 정렬, Auth/Billing·Notification 테스트 및 `clean build` 통과. platform P0 없음, cross-service P0는 engagement/learning 선결 |
 | 2026-06-05 | **Step 10 완료** — 알림 안정화(FCM/SES 재시도 + Micrometer 메트릭, PLAT-028, PR #64, P0 0건). KAFKA_ENABLED 게이트(이슈 #59, PLAT-026, PR #61). Flyway 버전 표준(이슈 #65, PLAT-030, PR #66). 룰 4.6(PR #60). **W4 종료(2/2)** |
 | 2026-06-04 | **Step 9 완료** — 인증/결제 E2E(PLAT-023, PR #57, Testcontainers PG 5시나리오). Kafka security.protocol 배선(이슈 #51, PLAT-022, PR #54). JWT flaky 결정적 수정(PLAT-021, PR #55). #52(팀장 audit S6) 리뷰+spotbugs 수정. minikube 로컬 환경 구축. gap 이슈 #56 등록(billing ON CONFLICT H2 미검증) |
 | 2026-06-04 | 이슈 #47 대응 — `dev-smoke` CI에 Docker Hub 로그인 스텝 추가(`ci(infra)`, PLAT-017, PR #49, 머지). EmbeddedKafka 통합 테스트 flaky 수정(consumer `auto-offset-reset: earliest`, PLAT-018, PR #50, 머지). JWT 변조 테스트 flaky 발견(PLAT-021로 수정). 브랜치 정리(main fast-forward, orphan docs/PLAT-016 삭제) |

@@ -22,6 +22,10 @@ public interface UserApi {
 
     List<String> findRoles(UUID userId);
 
+    String getNotificationPreferences(UUID userId);
+
+    String updateNotificationPreferences(UUID userId, String notificationPreferences);
+
     UserInfo createForOAuth(OAuthUserCreateCommand command);
 
     UserInfo createForEmailPassword(EmailPasswordUserCreateCommand command);

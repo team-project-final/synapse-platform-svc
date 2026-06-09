@@ -102,6 +102,25 @@ public class UserService implements UserApi {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public String getNotificationPreferences(UUID userId) {
+        findUser(userId);
+        return userSettingsRepository.findById(userId)
+                .map(UserSettings::getNotificationPrefs)
+                .orElse("{}");
+    }
+
+    @Override
+    @Transactional
+    public String updateNotificationPreferences(UUID userId, String notificationPreferences) {
+        findUser(userId);
+        UserSettings settings = userSettingsRepository.findById(userId)
+                .orElseGet(() -> userSettingsRepository.save(UserSettings.defaultFor(userId)));
+        settings.updateNotificationPrefs(notificationPreferences);
+        return settings.getNotificationPrefs();
+    }
+
+    @Override
     @Transactional
     public UserInfo createForOAuth(OAuthUserCreateCommand command) {
         User user = User.ofOAuth(

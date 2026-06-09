@@ -193,6 +193,36 @@ class UserServiceTest {
     }
 
     @Test
+    void getNotificationPreferences_existingSettings_shouldReturnStoredJson() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        UserSettings settings = UserSettings.defaultFor(userId);
+        settings.updateNotificationPrefs("{\"quietHours\":{\"start\":\"23:00\",\"end\":\"07:00\"}}");
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userSettingsRepository.findById(userId)).willReturn(Optional.of(settings));
+
+        String result = userService.getNotificationPreferences(userId);
+
+        assertThat(result).isEqualTo("{\"quietHours\":{\"start\":\"23:00\",\"end\":\"07:00\"}}");
+    }
+
+    @Test
+    void updateNotificationPreferences_missingSettings_shouldCreateAndStoreSettings() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userSettingsRepository.findById(userId)).willReturn(Optional.empty());
+        given(userSettingsRepository.save(any(UserSettings.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        String result = userService.updateNotificationPreferences(
+                userId,
+                "{\"quietHours\":{\"start\":\"23:00\",\"end\":\"07:00\"}}");
+
+        assertThat(result).isEqualTo("{\"quietHours\":{\"start\":\"23:00\",\"end\":\"07:00\"}}");
+        verify(userSettingsRepository).save(any(UserSettings.class));
+    }
+
+    @Test
     void changeMyPassword_validCurrentPassword_shouldUpdateHashAndRevokeSessions() {
         UUID userId = UUID.randomUUID();
         User user = user(userId);

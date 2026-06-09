@@ -1,24 +1,25 @@
 # synapse-platform-svc
 
-> 마지막 갱신: 2026-06-05 KST
-> 기준 브랜치: `dev` (`18a2741`, JWT key fail-fast 포함)
+> 마지막 갱신: 2026-06-09 KST
+> 기준 브랜치: `dev` (`cc57c9f`, PLAT-064 DB 기반 사용자 role 포함)
 
 Synapse MSA의 platform 서비스입니다. 인증, 사용자, 결제, 알림, 감사 로그, 관리자 기능을 Spring Boot 단일 애플리케이션 안에서 Spring Modulith 모듈 경계로 관리합니다. 다른 서비스가 신뢰하는 JWT 발급/검증의 기준점이며, Kafka 이벤트 계약의 platform 영역을 담당합니다.
 
 ## 현재 상태
 
 - W3/W4 platform 기능은 `dev` 기준 완료: auth, billing, notification, audit, admin, Kafka Avro 계약, Step 9 E2E, Step 10 알림 안정화.
+- W5 프론트 연동 백엔드 갭 중 A-1 User self-service API와 PLAT-064 DB 기반 사용자 role 발급 경로가 반영되었습니다.
 - Kafka는 Confluent Avro + Schema Registry bare typed record 방식입니다.
 - Kafka 인프라는 `KAFKA_ENABLED=false`가 기본이며, GitOps/dev/staging/prod에서 필요할 때 `true`로 켭니다.
 - JWT key는 기본 프로파일/prod에서 누락 또는 파싱 실패 시 기동 단계에서 fail-fast 합니다. dev/staging은 로컬 편의용 non-prod 기본 키를 갖습니다.
-- 남은 GitHub 이슈는 staging live health 검증(#37), W5 라이브 E2E 실행(#62)입니다.
+- 열린 GitHub 이슈는 #37, #62입니다. #37 staging datasource/profile 정합은 최신 GitOps/shared 기준으로 확인된 상태이고, #62 cross-service live E2E는 engagement/learning 선결 이슈 이후 재실행 대상입니다.
 
 ## Modules
 
 | Module | 역할 | 상태 |
 |---|---|---|
-| `auth` | 이메일/비밀번호 가입/로그인, Google/GitHub/Apple OAuth2, JWT RS256, Refresh Token, MFA TOTP | 구현 |
-| `user` | 사용자 도메인, 관리자 사용자 조회/상태 변경/삭제 | 구현 |
+| `auth` | 이메일/비밀번호 가입/로그인, Google/GitHub/Apple OAuth2, JWT RS256, Refresh Token, MFA TOTP, OAuth 연결 관리 | 구현 |
+| `user` | 사용자 도메인, 내 프로필/비밀번호/계정 삭제 self-service, DB 기반 role, 관리자 사용자 조회/상태 변경/삭제 | 구현 |
 | `billing` | Stripe Checkout, 구독 조회, Stripe Webhook, 결제 이력, 관리자 테넌트 관리 | 구현 |
 | `notification` | FCM 디바이스 토큰 등록/해제, `NotificationSend` 이벤트 기반 FCM/SES 발송 | 구현 |
 | `audit` | 주요 도메인 Kafka 이벤트를 `audit_logs`에 적재, 관리자 감사 로그 조회 | 구현 |
@@ -150,6 +151,37 @@ $env:DOCKER_HOST='npipe:////./pipe/dockerDesktopLinuxEngine'
 | `GET` | `/oauth2/authorization/github` | GitHub OAuth 시작 | 불필요 |
 | `GET` | `/oauth2/authorization/apple` | Apple OAuth 시작 | 불필요 |
 
+### User Self-Service
+
+| Method | Path | 설명 | 인증 |
+|---|---|---|---|
+| `GET` | `/api/v1/users/me` | 내 프로필 조회 | 필요 |
+| `PUT` | `/api/v1/users/me` | 표시 이름, 언어 설정 수정 | 필요 |
+| `PUT` | `/api/v1/users/me/password` | 현재 비밀번호 검증 후 새 비밀번호로 변경 | 필요 |
+| `DELETE` | `/api/v1/users/me` | 본인 계정 soft delete 및 세션 무효화 | 필요 |
+| `GET` | `/api/v1/users/me/oauth` | 연결된 OAuth provider 목록 조회 | 필요 |
+| `DELETE` | `/api/v1/users/me/oauth/{provider}` | OAuth 연결 해제. 마지막 로그인 수단 삭제는 차단 | 필요 |
+
+Profile update request:
+
+```json
+{
+  "displayName": "Updated User",
+  "language": "ko-KR"
+}
+```
+
+`language`는 `ko-KR`, `en-US`, `ja-JP`만 허용합니다. `timezone`은 현재 DB 스키마에 없으므로 API 계약에서 제외합니다.
+
+Password change request:
+
+```json
+{
+  "currentPassword": "Oldpass1!",
+  "newPassword": "Newpass1!"
+}
+```
+
 ### Billing
 
 | Method | Path | 설명 | 인증 |
@@ -198,6 +230,7 @@ Device token request:
 | `GET` | `/api/v1/admin/audit-logs` | 감사 로그 조회 | `ROLE_ADMIN` |
 
 관리자 본인 정지/삭제는 차단됩니다. 사용자 정지/삭제 시 `UserSessionsRevocationRequested` 도메인 이벤트로 기존 세션을 무효화합니다.
+운영 최초 어드민은 자동 seed/profile 없이 가입된 사용자에게 DB 작업으로 `ROLE_ADMIN`을 부여합니다. 절차는 `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`를 따릅니다.
 
 ## Kafka Events
 
@@ -316,13 +349,14 @@ Flyway migration은 `src/main/resources/db/migration/`에서 관리합니다.
 | V30 | outbox_events 생성 |
 | V31 | notifications 생성 |
 | V32 | users.status, suspended_at 추가 |
+| V20260609140528 | user_roles 생성, 삭제되지 않은 기존 사용자 `ROLE_USER` 백필 |
 
 Flyway 표준:
 
 - `.github/workflows/flyway-guard.yml`가 synapse-shared reusable guard를 호출합니다.
 - `spring.flyway.out-of-order=true`
 - `spring.flyway.baseline-on-migrate=false`
-- 신규 migration은 synapse-shared 표준의 14자리 timestamp 버전을 사용합니다.
+- 신규 migration은 synapse-shared 표준의 14자리 timestamp 버전을 사용합니다. 예: `VyyyyMMddHHmmss__description.sql`
 - DB vendor 종속 native SQL은 Testcontainers PostgreSQL 통합 테스트로 실제 실행 검증합니다.
 
 ## CI
@@ -339,6 +373,7 @@ CI가 Docker Hub rate limit에 걸리지 않도록 `DOCKERHUB_USERNAME`, `DOCKER
 - Spring Modulith로 모듈 간 직접 참조를 제한하고, 필요한 공유 기능은 공개 API 패키지나 도메인 이벤트로 연결합니다.
 - Refresh Token은 원문을 저장하지 않고 SHA-256 hash만 DB에 저장하며, 사용자당 최대 5개 멀티 디바이스 세션을 FIFO로 관리합니다.
 - JWT는 RS256만 사용합니다. key는 `JwtTokenProvider` 생성 시 1회 파싱하여 잘못된 키를 기동 단계에서 드러냅니다.
+- JWT `roles` claim은 `user_roles` DB row에서 조회합니다. role 변경은 새 access token 발급 이후 반영됩니다.
 - Kafka 발행은 outbox pattern으로 트랜잭션과 메시지 발행 사이의 유실을 줄이고, 소비는 `eventId` 기반 멱등성으로 중복 처리를 방지합니다.
 - notification 모듈은 auth 내부 구현을 직접 import하지 않고 공개 API와 SecurityContext를 통해 사용자 경계를 다룹니다.
 
@@ -348,4 +383,5 @@ CI가 Docker Hub rate limit에 걸리지 않도록 `DOCKERHUB_USERNAME`, `DOCKER
 - `docs/ai/current/TASK.md`
 - `docs/project-management/task/TASK_platform.md`
 - `docs/project-management/history/HISTORY_platform.md`
+- `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`
 - `docs/synapse-platform-svc_ARCHITECTURE.md`

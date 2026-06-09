@@ -17,6 +17,8 @@ public interface UserApi {
 
     boolean existsByUsername(String username);
 
+    boolean hasPasswordLogin(UUID userId);
+
     UserInfo createForOAuth(OAuthUserCreateCommand command);
 
     UserInfo createForEmailPassword(EmailPasswordUserCreateCommand command);

@@ -342,8 +342,9 @@
 | 구분 | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | W5 작업 로그 | 라이브 E2E 및 staging 검증 | In Progress | 2026-06-09 | — | #62 라이브 E2E, #37 staging health/profile 정합 |
+| W5 작업 로그 | 프론트 연동 백엔드 갭 구현 | In Progress | 2026-06-09 | — | A-1 완료, A-2~A-6 후속. 7번/B 타 서비스 항목 제외 |
 
-**W5 진행 상태**: 라이브 E2E 및 staging 검증 진행 중
+**W5 진행 상태**: 라이브 E2E 재검증 대기 + 프론트 연동 백엔드 갭 구현 진행 중
 
 #### 2026-06-09 (화)
 
@@ -355,8 +356,13 @@
   - #37 staging datasource 정합 확인: 최신 gitops overlay가 `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`를 주입하고 shared 문서가 platform-svc staging Healthy를 기록.
   - platform `UserRegistered.avsc`, `NotificationSend.avsc`를 shared 최신 정본과 동일하게 정렬.
   - 검증 통과: `generateAvroJava`, `AuthBillingE2ETest`, notification 테스트 묶음, `clean build`(286 tests, failures 0).
+  - `origin/dev` 기준 `feature/PLAT-063-frontend-backend-gap` 브랜치 생성.
+  - 루트 `docs/BACKEND_GAP_platform.md` 기준 프론트 연동 백엔드 갭 작업 문서 작성. `TASK_platform.md`는 원본 개발 목록으로 유지.
+  - A-1 User 셀프서비스 API 구현: 내 프로필 조회/수정, 비밀번호 변경, OAuth 연결 조회/해제, 본인 계정 삭제.
+  - 검증 통과: User/OAuthConnection 테스트, Modulith 구조 테스트, `clean build`.
 - **진행 중**:
   - #62 cross-service live 알림 E2E는 engagement/learning P0 선결 후 재실행 필요.
+  - A-2~A-6 프론트 연동 백엔드 갭은 후속 구현 필요.
 - **이슈**:
   - 프론트엔드 결제 UI는 아직 미연동이므로 결제 검증은 백엔드 Stripe Test Mode 기준으로 설명해야 한다.
   - 로그아웃 전용 HTTP endpoint 없음. 현재 토큰 무효화는 `RefreshTokenService.delete(userId)` 및 세션 무효화 이벤트 경로만 존재.
@@ -370,6 +376,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-09 | **PLAT-063 프론트 연동 백엔드 갭 A-1 구현** — User self-service API(`/users/me`, password, OAuth connection, delete) 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-09 | **W5 라이브 E2E 작업 진행** — #37 최신 gitops/shared 기준 해소 확인, platform Avro 벤더링 shared 정본 정렬, Auth/Billing·Notification 테스트 및 `clean build` 통과. platform P0 없음, cross-service P0는 engagement/learning 선결 |
 | 2026-06-05 | **Step 10 완료** — 알림 안정화(FCM/SES 재시도 + Micrometer 메트릭, PLAT-028, PR #64, P0 0건). KAFKA_ENABLED 게이트(이슈 #59, PLAT-026, PR #61). Flyway 버전 표준(이슈 #65, PLAT-030, PR #66). 룰 4.6(PR #60). **W4 종료(2/2)** |
 | 2026-06-04 | **Step 9 완료** — 인증/결제 E2E(PLAT-023, PR #57, Testcontainers PG 5시나리오). Kafka security.protocol 배선(이슈 #51, PLAT-022, PR #54). JWT flaky 결정적 수정(PLAT-021, PR #55). #52(팀장 audit S6) 리뷰+spotbugs 수정. minikube 로컬 환경 구축. gap 이슈 #56 등록(billing ON CONFLICT H2 미검증) |

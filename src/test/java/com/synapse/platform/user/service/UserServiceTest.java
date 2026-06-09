@@ -3,12 +3,16 @@ package com.synapse.platform.user.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.synapse.platform.user.api.EmailPasswordUserCreateCommand;
 import com.synapse.platform.user.api.LoginFailureResult;
 import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.api.UserLoginCredential;
+import com.synapse.platform.user.api.UserSessionsRevocationRequested;
+import com.synapse.platform.user.dto.request.UserProfileUpdateRequest;
+import com.synapse.platform.user.dto.response.UserProfileResponse;
 import com.synapse.platform.user.entity.User;
 import com.synapse.platform.user.entity.UserSettings;
 import com.synapse.platform.user.repository.UserRepository;
@@ -16,6 +20,8 @@ import com.synapse.platform.user.repository.UserSettingsRepository;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +36,12 @@ class UserServiceTest {
 
     @Mock
     private UserSettingsRepository userSettingsRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private UserService userService;
@@ -96,5 +108,87 @@ class UserServiceTest {
         assertThat(user.getLockedUntil()).isNull();
         assertThat(user.getLastLoginAt()).isEqualTo(now);
         verify(userRepository).findByIdForUpdate(user.getId());
+    }
+
+    @Test
+    void getMyProfile_shouldReturnUserAndSettings() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        UserSettings settings = UserSettings.defaultFor(userId);
+        settings.updateLocale("en-US");
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userSettingsRepository.findById(userId)).willReturn(Optional.of(settings));
+
+        UserProfileResponse result = userService.getMyProfile(userId);
+
+        assertThat(result.id()).isEqualTo(userId);
+        assertThat(result.email()).isEqualTo("user@example.com");
+        assertThat(result.displayName()).isEqualTo("user");
+        assertThat(result.language()).isEqualTo("en-US");
+        assertThat(result.hasPassword()).isTrue();
+    }
+
+    @Test
+    void updateMyProfile_shouldUpdateDisplayNameAndLocale() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        UserSettings settings = UserSettings.defaultFor(userId);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(userSettingsRepository.findById(userId)).willReturn(Optional.of(settings));
+
+        UserProfileResponse result = userService.updateMyProfile(
+                userId,
+                new UserProfileUpdateRequest(" Updated User ", "en-US"));
+
+        assertThat(user.getDisplayName()).isEqualTo("Updated User");
+        assertThat(settings.getLocale()).isEqualTo("en-US");
+        assertThat(result.displayName()).isEqualTo("Updated User");
+    }
+
+    @Test
+    void changeMyPassword_validCurrentPassword_shouldUpdateHashAndRevokeSessions() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("Oldpass1!", "$2a$10$hash")).willReturn(true);
+        given(passwordEncoder.encode("Newpass1!")).willReturn("$2a$new");
+
+        userService.changeMyPassword(userId, "Oldpass1!", "Newpass1!");
+
+        assertThat(user.getPasswordHash()).isEqualTo("$2a$new");
+        verify(eventPublisher).publishEvent(new UserSessionsRevocationRequested(userId));
+    }
+
+    @Test
+    void changeMyPassword_invalidCurrentPassword_shouldThrowAndNotRevokeSessions() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("wrong", "$2a$10$hash")).willReturn(false);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> userService.changeMyPassword(userId, "wrong", "Newpass1!"))
+                .isInstanceOf(UserSelfServiceException.class);
+
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void deleteMyAccount_shouldSoftDeleteAndRevokeSessions() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        userService.deleteMyAccount(userId);
+
+        assertThat(user.getDeletedAt()).isNotNull();
+        assertThat(user.getEmail()).isEqualTo("deleted_" + userId + "@deleted.invalid");
+        verify(eventPublisher).publishEvent(new UserSessionsRevocationRequested(userId));
+    }
+
+    private static User user(UUID userId) {
+        User user = User.ofEmailPassword("user@example.com", "user", "$2a$10$hash", UUID.randomUUID());
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "id", userId);
+        return user;
     }
 }

@@ -32,7 +32,7 @@ W5 프론트 연동 준비 중 어드민 화면을 테스트하려면 `ROLE_ADMI
 
 ## 참고 파일
 
-- `src/main/resources/db/migration/V33__create_user_roles.sql`
+- `src/main/resources/db/migration/V20260609140528__create_user_roles.sql`
 - `src/main/java/com/synapse/platform/user/entity/UserRole.java`
 - `src/main/java/com/synapse/platform/user/repository/UserRoleRepository.java`
 - `src/main/java/com/synapse/platform/user/api/UserApi.java`

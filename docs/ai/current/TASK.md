@@ -1,79 +1,108 @@
-# TASK — W4 선행: Kafka 이벤트 계약 표준 적용 (Avro + Schema Registry)
+# TASK — Step 11: W5 라이브 E2E 및 staging 검증
 
-> 출처: synapse-shared W4_KAFKA_WORKORDER §P1-1 / 이슈 #43, #30
-> 표준: synapse-shared `docs/guides/EVENT_CONTRACT_STANDARD.md` (D-002 **Option 1** 채택안)
+> 출처: `docs/project-management/prd/PRD_W5.md`, `docs/project-management/workflow/WORKFLOW_platform_W5.md`, GitHub issue #62, #37
 
 ## 상태
 
-- Phase: Worker 구현/로컬 검증 완료 → Director 리뷰 및 PR 대기
-- 담당 Agent: Director(설계/분해/리뷰) → Worker(구현)
-- 시작일: 2026-05-29
-- 목표 완료일: 2026-06-02 (W4 2일차, EOD)
-- 최근 검증: 2026-06-01 `generateAvroJava`, `ModuleStructureTest`, `check`, synapse-shared `--scenarios`, `kafka-avro-console-consumer` 수신 확인
+- Phase: 검증 진행 / 백엔드 회귀 테스트 완료
+- 담당 Agent: Director(Codex) -> Worker(Codex)
+- 시작일: 2026-06-09
+- 목표 완료일: 2026-06-12
+- 작업 브랜치: `feature/PLAT-062-w5-live-e2e`
 
 ---
 
 ## Step Goal
 
-platform-svc의 Kafka 직렬화를 **수동 Avro 바이트(data:bytes 중첩 봉투)** 에서 **Confluent `KafkaAvroSerializer/Deserializer` + Schema Registry**(bare typed record)로 전환하여, 전 서비스가 synapse-shared의 단일 `.avsc` 계약으로 메시지를 주고받게 한다.
+platform-owner가 staging 또는 로컬 통합 환경에서 인증, 결제, 알림 라이브 E2E를 실행하고 platform P0 이슈를 0건으로 정리한다.
 
 ## Done When
 
-- [x] 직렬화를 Confluent Avro + Schema Registry로 전환 (수동 bytes/`PlatformAvroEvents` 제거)
-- [x] 네임스페이스 `com.synapse.event.platform` → `com.synapse.platform` 정렬
-- [x] 발행: `platform.auth.user-registered-v1` = `UserRegistered`(userId, email, displayName + 공통메타 eventId/tenantId/occurredAt)
-- [x] 소비: `platform.notification.notification-send-v1` = `NotificationSend` → FCM/이메일 발송 (notificationType=AI_CARDS_READY 포함)
-- [x] 멱등성: 같은 `eventId` 재수신 시 1회만 처리 (중복 발송 없음)
-- [x] `bash scripts/kafka-e2e-test.sh --scenarios` 통과 (synapse-shared 레포, 로컬 Kafka+Schema Registry 기동)
-- [x] 로컬 `kafka-avro-console-consumer`로 user-registered-v1 수신 확인
-- [x] `./gradlew check` 통과 (신규/변경 코드 커버리지 80%+)
-- [ ] feature/PLAT-015 → **PR(base: dev)** 생성
+- [x] #37 staging profile/GitOps secret 정합을 확인하고 `/actuator/health` 결과를 기록한다.
+- [x] 인증 E2E 결과를 기록한다: 회원가입 -> 로그인 -> JWT refresh -> MFA -> 로그아웃/토큰 무효화.
+- [x] 결제 E2E 결과를 기록한다: Stripe Test Mode Checkout -> Webhook -> 플랜 활성화.
+- [~] 알림 E2E 결과를 기록한다: `card.review.due`, `gamification.*`, `community.*` 관련 이벤트 -> notification -> FCM/SES/audit 경로.
+- [x] 실패 항목을 P0/P1/P2로 분류하고, 필요한 경우 이슈 또는 후속 PR 링크를 남긴다.
+- [x] 백엔드 회귀 테스트 결과를 기록한다.
+- [x] #62에 실행 환경, 시나리오, 결과, 잔여 이슈를 공유할 수 있는 형태로 정리한다.
 
-> 외부 E2E 참고: `scripts/kafka-e2e-test.sh`는 CRLF 때문에 직접 실행이 실패하여, 파일 수정 없이 실행 시 `tr -d '\r'`로 정규화해 수행했다. 해당 스크립트는 현재 JSON CloudEvent transport smoke이며, Avro 검증은 별도 `kafka-avro-console-producer/consumer`로 `platform.auth.user-registered-v1`에서 수행했다.
+> `[~]` 알림 E2E: platform notification consumer/service/FCM/SES 백엔드 검증은 통과. cross-service 라이브 이벤트(`card.review.due`, `gamification.*`, `community.*`)는 shared W5 Day1 리포트 기준 engagement/learning P0 선결 후 재실행 필요.
+
+## 현재 실행 결과 (2026-06-09)
+
+| 영역 | 결과 | 근거 | 후속 |
+|------|------|------|------|
+| #37 staging | PASS | 최신 gitops staging overlay가 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 주입하고 shared가 staging 20/0/0 ALL PASSED 및 platform-svc Healthy 기록 | platform 코드 수정 없음 |
+| Avro 정본 | PASS | `UserRegistered.avsc`, `NotificationSend.avsc`를 shared 최신 정본과 동일하게 정렬 | 변경 포함 |
+| 인증/결제 백엔드 E2E | PASS | `.\gradlew.bat test --tests "*AuthBillingE2ETest"` BUILD SUCCESSFUL | 로그아웃 전용 HTTP endpoint 없음은 gap으로 기록 |
+| 알림 백엔드 테스트 | PASS | `NotificationKafkaConsumerIT`, `NotificationServiceTest`, `FcmPushServiceTest`, `SesEmailServiceTest` BUILD SUCCESSFUL | cross-service live E2E는 다른 owner P0 후 재실행 |
+| 전체 빌드 | PASS | `.\gradlew.bat clean build` BUILD SUCCESSFUL, 286 tests / failures 0 / errors 0 | Windows Embedded Kafka temp delete 로그는 비차단 |
+| #62 라이브 E2E | PARTIAL | shared W5 Day1에서 서비스 단위 환경 13/13 healthy, platform audit 정상, engagement/learning P0 발견 | P0: engagement F1, learning-ai F2/F3 |
 
 ## Scope
 
 - In Scope:
-  - 직렬화 전환(Producer/Consumer config), `.avsc` 벤더링 + 코드생성, Outbox payload 형식 교체
-  - UserRegistered 발행 경로, NotificationSend 소비 경로(audit + notification 양쪽)
-  - shared `.avsc` 임시 보정(displayName/eventId/occurredAt, NotificationSend namespace) + **병행 shared PR**
+  - platform-svc staging profile과 GitOps ExternalSecret 키 정합 확인
+  - 인증/결제/알림 라이브 또는 로컬 통합 E2E 실행
+  - 기존 백엔드 E2E/통합 테스트 재실행
+  - 실패 케이스 P0/P1/P2 분류
+  - 실행 결과 보고 문서/이슈 코멘트 초안 작성
 - Out of Scope:
-  - `learning.ai.cards-generated-v1` 소비 (D-001로 철회 — HTTP 처리)
-  - CardReviewDue/LevelUp/BadgeEarned 알림 소비 (W4 후속, 별도 작업)
-  - dev → main 릴리스 머지 (PR base는 dev; dev→main은 별도/본인 처리)
-  - shared 라이브러리 발행 메커니즘 (표준 §6, team-lead 소관)
+  - 프론트엔드 결제 UI 신규 구현
+  - 다른 서비스의 도메인 로직 수정
+  - production 배포
+  - Stripe 실결제
+  - GitOps/shared 레포 임의 수정
 
-## Instructions (10단계 워크플로 매핑)
+## Input
 
-1. ① TASK/표준 확인 — EVENT_CONTRACT_STANDARD.md(v2, Avro) + 카탈로그 §2
-2. ④ 스키마 = `.avsc` 벤더링(보정본) → `src/main/avro/platform/` (CONTEXT 확정본 사용)
-3. ⑥ build.gradle.kts: avro 플러그인 1.9.1 + avro 1.12.0 + kafka-avro-serializer 7.7.0, `generateAvroJava`
-4. ⑦ Producer config: `eventKafkaTemplate` → `KafkaAvroSerializer`, schema.registry.url, auto.register.schemas
-5. ⑦ Consumer config: `KafkaAvroDeserializer`(ErrorHandlingDeserializer 래핑 유지) + specific.avro.reader=true, group `platform-svc-group`
-   - `@KafkaListener(groupId=...)` 하드코딩도 `platform-svc-group`으로 정렬
-   - DLQ용 KafkaTemplate/Recoverer는 GenericRecord 전용이 아니라 Object/SpecificRecord를 수용하도록 전환
-6. ⑧ `UserEventPublisher`/`OutboxEventPublisher`: 생성된 `UserRegistered` SpecificRecord 발행 (Outbox 유지, payload JSON 교체)
-   - Outbox `eventKey`와 최종 Kafka key는 tenantId
-7. ⑧ `AuditLogService`/`NotificationService`: GenericRecord 수동 디코딩 → SpecificRecord 필드 접근, eventId 멱등
-8. ⑧ `PlatformAvroEvents` 및 수동 인코딩/디코딩 전면 제거
-9. ⑨ application.yml 표준 Kafka 설정 적용 (key=tenantId, acks=all)
-10. ⑩ 테스트 전면 재작성(Embedded Kafka + mock Schema Registry) + `./gradlew check` → PR
+- `docs/project-management/prd/PRD_W5.md`
+- `docs/project-management/workflow/WORKFLOW_platform_W5.md`
+- `docs/project-management/task/TASK_platform.md`
+- `docs/project-management/history/HISTORY_platform.md`
+- GitHub issue #62: `[W5 E2E] 알림 + 인증 + 결제 라이브 E2E 실행`
+- GitHub issue #37: `[W3/staging] platform-svc staging Spring profile 추가`
+- `src/main/resources/application-staging.yml`
+- `README.md` 실행 환경/포트 정책
+- Stripe Test Mode 계정/웹훅 설정
+- OAuth 테스트 계정, FCM/SES 테스트 자격 증명, Kafka/Schema Registry 실행 환경
 
-## Constraints (이 작업 한정)
+## Instructions
 
-- 벤더링 `.avsc`는 **shared 병행 PR과 항상 동일 내용 유지** (drift 금지 — 머지 즉시 동기화)
-- bare typed record만 사용 — `data:bytes` 중첩 봉투 **금지**
-- 역직렬화 실패 → 에러 로그 + skip (크래시/무한재시도 금지, DLQ 유지)
-- 멱등성 키 = 레코드의 `eventId` (envelope.id 아님 — 봉투 폐기)
-- 모듈 경계 유지 (audit/notification/auth), ApplicationModules.verify() 통과
-- PR 생성은 Director 리뷰 및 사용자 커밋 승인 이후 진행. Worker Done When은 구현/검증 결과 보고까지.
-- synapse-shared 기반 외부 E2E는 로컬 Kafka/Schema Registry/shared 레포가 준비된 경우 수행하고, 불가 시 실행 불가 사유를 결과에 기록
+1. [x] 현재 브랜치와 작업 문서를 확인한다.
+2. [x] #37의 최신 요구사항과 현재 `application-staging.yml`을 비교한다.
+3. [x] GitOps/shared가 정의한 staging secret key와 platform 설정이 다른지 확인한다.
+4. [x] 로컬 백엔드 회귀 테스트를 먼저 실행한다.
+5. [x] staging 또는 로컬 통합 환경에서 인증 E2E를 실행한다. (백엔드 E2E 기준)
+6. [x] Stripe Test Mode 결제 E2E를 실행한다. (백엔드 E2E 기준)
+7. [~] 알림 이벤트 경로를 확인하고 FCM/SES/audit 결과를 기록한다.
+8. [x] 실패 항목을 P0/P1/P2로 분류한다.
+9. [x] 필요한 코드 수정이 생기면 별도 최소 변경으로 처리하고 회귀 테스트를 재실행한다.
+10. [x] #62 공유용 결과 요약과 HISTORY 로그를 갱신한다.
+
+## Output Format
+
+- 작업 결과 요약: 실행 환경, 실행 일시, 시나리오별 PASS/FAIL/PARTIAL
+- 실패 항목: 증상, 원인 추정, 우선순위(P0/P1/P2), 후속 액션
+- 검증 로그: 실행한 Gradle 명령과 결과
+- 이슈 코멘트 초안: #62에 붙일 수 있는 한국어 요약
+- 필요 시 PR: base `dev`, 제목/본문은 `docs/rules/13-git-rules.md` 준수
+
+## Constraints
+
+- GitOps/shared가 관리하는 값이 있으면 해당 레포의 정의를 우선한다.
+- secret, API key, Stripe key, Firebase key, AWS credential은 문서나 코드에 커밋하지 않는다.
+- Stripe는 Test Mode만 사용한다.
+- 프론트엔드 결제 UI는 현재 Out of Scope다. 설명 시 "백엔드 E2E/Test Mode 검증"으로 구분한다.
+- 현재 레포 기준 로컬 기본 포트는 8081, Kubernetes/GitOps 배포는 `SERVER_PORT=8080` override를 사용한다. 포트 변경은 검증 결과가 필요할 때만 별도 판단한다.
+- 로그아웃 전용 API가 없으면 현재 구현 가능한 토큰 무효화 경로를 확인하고 gap으로 기록한다.
+- 코드 수정 전에는 실패 재현 또는 설정 불일치 근거를 먼저 남긴다.
 
 ## Duration
 
-1.5 ~ 2일 (Worker 구현 + Director 리뷰 + 로컬 E2E)
+1.0 ~ 1.5일
 
 ## Assignee / Reviewer
 
-- Assignee(구현): Worker(Codex)
-- Reviewer(설계/코드): Director(Claude) / 최종 @team-lead(계약 영향)
+- Assignee: @platform-owner
+- Reviewer: @team-lead

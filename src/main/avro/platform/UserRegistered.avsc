@@ -2,14 +2,14 @@
   "type": "record",
   "name": "UserRegistered",
   "namespace": "com.synapse.platform",
-  "doc": "Emitted when a new user completes registration.",
+  "doc": "Emitted when a new user completes registration. 정본 = platform-svc 라이브 writer와 필드 단위 동일 (2026-06-08 정렬, EVENT_CONTRACT_STANDARD §1/§2). 구형 registeredAt 필드는 writer가 발행한 적 없어 제거 — reader가 default 없이 요구하면 역직렬화 실패(W5 Day1 F1 실측).",
   "fields": [
-    {"name": "eventId", "type": "string"},
-    {"name": "tenantId", "type": "string"},
-    {"name": "occurredAt", "type": "long"},
-    {"name": "traceparent", "type": ["null", "string"], "default": null},
-    {"name": "userId", "type": "string"},
-    {"name": "email", "type": "string"},
-    {"name": "displayName", "type": "string"}
+    {"name": "eventId", "type": "string", "doc": "Unique event ID (UUID) — idempotency key (common meta)"},
+    {"name": "tenantId", "type": "string", "doc": "Tenant the user belongs to (common meta)"},
+    {"name": "occurredAt", "type": "long", "doc": "Event emission time, epoch millis — 평문 long, logicalType 미사용 (common meta)"},
+    {"name": "traceparent", "type": ["null", "string"], "default": null, "doc": "W3C trace context (common meta, optional)"},
+    {"name": "userId", "type": "string", "doc": "UUID of the newly registered user"},
+    {"name": "email", "type": "string", "doc": "User email address"},
+    {"name": "displayName", "type": "string", "doc": "User display name"}
   ]
 }

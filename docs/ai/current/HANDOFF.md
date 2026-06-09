@@ -1,128 +1,184 @@
 # HANDOFF
 
-> Agent 간 작업 전달 문서. 태스크마다 덮어씁니다.
+> Agent 간 작업 전달 문서입니다.
+> 태스크마다 덮어씁니다. 이전 HANDOFF는 archive에 있습니다.
 
 ## FROM
-Director (Claude)
+
+Director (Codex)
 
 ## TO
+
 Worker (Codex)
 
 ## 작업 브랜치
-`feature/PLAT-015-kafka-avro-registry` (이미 생성됨, base: dev). 커밋은 사용자 확인 후.
+
+`feature/PLAT-062-w5-live-e2e` (base: `origin/dev`)
 
 ## 요청 내용
 
-platform-svc Kafka 직렬화를 **Confluent Avro + Schema Registry**로 전환한다. 설계·스키마는 [[CONTEXT]] 확정본을 그대로 따른다. 새 설계 결정 금지 — 모호하면 멈추고 Director에 질의.
+W5 platform 작업으로 #62 라이브 E2E와 #37 staging health/profile 정합을 실행한다. 새 기능을 먼저 만들지 말고, 현재 구현과 환경 기준으로 무엇이 통과하고 무엇이 막히는지 증거를 남긴다.
 
-> 배경: 수동 Avro 봉투(`PlatformAvroEvents`, data:bytes 중첩) 전면 폐기 → 토픽당 단일 bare typed record(생성된 SpecificRecord). [[D-029]] [[D-030]]
+## 실행 순서
 
----
+### 1. 사전 확인
 
-### 1. `.avsc` 벤더링 (CONTEXT 확정본 그대로)
+- `git status --short --branch`로 브랜치와 변경사항 확인
+- `docs/ai/current/TASK.md`, `docs/ai/current/CONTEXT.md` 확인
+- #62, #37 최신 본문/댓글 확인
+- `README.md`, `src/main/resources/application-staging.yml`, `src/main/resources/application.yml` 확인
 
-신규 파일 2개 — `src/main/avro/platform/` 에 생성:
+### 2. #37 staging profile 정합 확인
 
-`UserRegistered.avsc`:
-```json
-{
-  "type": "record", "name": "UserRegistered", "namespace": "com.synapse.platform",
-  "doc": "Emitted when a new user completes registration.",
-  "fields": [
-    {"name": "eventId", "type": "string"},
-    {"name": "tenantId", "type": "string"},
-    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "traceparent", "type": ["null", "string"], "default": null},
-    {"name": "userId", "type": "string"},
-    {"name": "email", "type": "string"},
-    {"name": "displayName", "type": "string"}
-  ]
-}
+- 현재 `application-staging.yml`의 datasource/redis/env key를 확인한다.
+- GitOps/shared 기준이 확인 가능하면 staging ExternalSecret key와 비교한다.
+- `/actuator/health` 검증 방법을 정리한다.
+- 설정 불일치가 재현되면 최소 수정 후보를 제시한다. 바로 수정하기 전 근거를 기록한다.
+
+### 3. 백엔드 회귀 테스트
+
+우선 아래 테스트를 실행하고 결과를 기록한다.
+
+```powershell
+.\gradlew.bat test --tests "*AuthBillingE2ETest"
+.\gradlew.bat test --tests "*NotificationKafkaConsumerIT" --tests "*NotificationServiceTest" --tests "*FcmPushServiceTest" --tests "*SesEmailServiceTest"
 ```
 
-`NotificationSend.avsc`:
-```json
-{
-  "type": "record", "name": "NotificationSend", "namespace": "com.synapse.platform",
-  "doc": "Notification dispatch request consumed by platform-svc (FCM/email).",
-  "fields": [
-    {"name": "eventId", "type": "string"},
-    {"name": "tenantId", "type": "string"},
-    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "traceparent", "type": ["null", "string"], "default": null},
-    {"name": "userId", "type": "string"},
-    {"name": "notificationType", "type": "string"},
-    {"name": "channels", "type": {"type": "array", "items": "string"}, "default": []},
-    {"name": "title", "type": "string"},
-    {"name": "body", "type": "string"},
-    {"name": "emailSubject", "type": ["null", "string"], "default": null},
-    {"name": "emailHtmlBody", "type": ["null", "string"], "default": null},
-    {"name": "data", "type": {"type": "map", "values": "string"}, "default": {}}
-  ]
-}
+코드 또는 설정을 수정했다면 다음도 실행한다.
+
+```powershell
+.\gradlew.bat clean build
 ```
 
-### 2. build.gradle.kts
-- plugins: `id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"`
-- deps: `org.apache.avro:avro` 1.11.3 → **1.12.0**, `io.confluent:kafka-avro-serializer:7.7.0`(유지)
-- `./gradlew generateAvroJava` 로 `com.synapse.platform.UserRegistered/NotificationSend` SpecificRecord 생성 확인
-- ⚠️ avro 1.12.0 ↔ kafka-avro-serializer 7.7.0 호환 충돌 시 → avro 1.11.3 유지하고 **Director에 보고**(CONTEXT 미결 항목)
+### 4. 인증 E2E
 
-### 3. Producer config — `KafkaProducerConfig.java`
-- `eventKafkaTemplate`: value-serializer `KafkaAvroSerializer`, `KafkaTemplate<String, Object>`(또는 SpecificRecord 상위)
-- props: `schema.registry.url`, `auto.register.schemas=true`, `acks=all`, key-serializer String
+- 회원가입 -> 로그인 -> access token 발급 확인
+- refresh cookie 기반 JWT refresh 확인
+- MFA setup -> TOTP verify 확인
+- 로그아웃/토큰 무효화 경로 확인
+- 전용 logout endpoint가 없으면 gap으로 기록하고 P0/P1 여부를 판단한다.
 
-### 4. Consumer config — `KafkaConsumerConfig.java`
-- `KafkaAvroDeserializer` + `specific.avro.reader=true`, group `platform-svc-group`
-- `@KafkaListener(groupId=...)` 하드코딩도 `platform-svc-group`으로 정렬. 기존 `audit-consumer-group` / `notification-consumer-group` 유지 금지.
-- 기존 `ErrorHandlingDeserializer` 래핑 + `DefaultErrorHandler`(DLQ/skip) **유지** (표준 §5)
-- audit/notification 두 리스너가 **동일 consumer factory** 공유 가능(토픽만 다름). 기존 분리 팩토리는 단일화 검토
-- `data:bytes`/GenericRecord 수동 디코딩 경로 제거
-- `KafkaErrorHandlerConfig`의 DLT producer/template도 GenericRecord 전용 타입에서 `Object`/SpecificRecord 수용 타입으로 전환. 역직렬화 실패 raw `byte[]` DLT 경로는 유지.
+### 5. 결제 E2E
 
-### 5. Producer 경로 — `UserEventPublisher` + `OutboxEventPublisher` (Outbox 유지)
-- `UserEventPublisher.publishUserRegistered(...)`: `UserRegistered` SpecificRecord 빌드 — eventId=UUID, occurredAt=now(epoch millis), userId/email/displayName/tenantId 채움 → Outbox 저장
-- **Outbox payload 교체**: Avro-bytes → **JSON DTO 문자열**(userId,email,displayName,tenantId,eventId,occurredAt). `OutboxEvent.payload` byte[] 유지(UTF-8 JSON 저장) → V30 마이그레이션 변경 불요
-- Outbox `eventKey` 저장값도 `tenantId`로 변경. 최종 Kafka record key는 항상 tenantId.
-- `OutboxEventPublisher.publish()`: payload(JSON) → `UserRegistered` SpecificRecord 재구성 → `eventKafkaTemplate.send(topic, tenantId, record)`. lease/재시도/실패기록 로직 유지
-- `displayName` 출처 확인: 발행 호출부(OAuth/이메일 가입 성공 지점)에서 displayName 전달되는지 확인, 없으면 UserApi로 조회
+- Stripe Test Mode 기준으로 Checkout 생성 확인
+- Webhook 서명 검증 경로 확인
+- `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted` 등 현재 구현된 이벤트 처리 범위를 확인한다.
+- 플랜 활성화/구독 조회 결과를 기록한다.
+- 프론트 결제 UI 미연동은 별도 Out of Scope로 명시한다.
 
-### 6. Consumer 경로
-- `AuditKafkaConsumer.consume(UserRegistered ev)` — SpecificRecord 시그니처. `AuditLogService.processEvent(ev)`: `ev.getEventId()` 멱등, action=USER_REGISTERED, data=레코드 필드 직렬화
-- `NotificationKafkaConsumer.consume(NotificationSend ev)` — SpecificRecord 시그니처
-- `NotificationService.processNotificationSend(NotificationSend ev)`: 봉투 디코딩 제거, `ev.getEventId()`를 멱등 키로 사용(notifications UNIQUE(event_id,channel) 그대로). channels/title/body/email*/data 매핑 유지. FCM/SES 분기·일일 한도·재시도 로직 **변경 없음**
+### 6. 알림 E2E
 
-### 7. 제거
-- `PlatformAvroEvents.java` 및 모든 참조(인코딩/디코딩 유틸, CloudEventEnvelope/USER_REGISTERED_SCHEMA/NOTIFICATION_SEND_SCHEMA, *Envelope/decode* 메서드) 삭제
-- 영향 파일(참조 21개): `PlatformAvroEvents`, `KafkaProducerConfig`, `KafkaConsumerConfig`, `KafkaErrorHandlerConfig`, `UserEventPublisher`, `OutboxEventPublisher`, `AuditLogService`, `AuditKafkaConsumer`, `NotificationService`, `NotificationKafkaConsumer` + 테스트 10종
+- platform이 직접 consume하는 토픽과 다른 서비스가 발행해야 하는 토픽을 구분한다.
+- `card.review.due`, `gamification.*`, `community.*`가 notification으로 이어지는 실제 경로를 확인한다.
+- FCM/SES 발송 성공, 실패, 지연 메트릭을 확인한다.
+- audit 적재 여부를 확인한다.
 
-### 8. application.yml (`src/main/resources` + `src/test/resources`)
-- 표준 §4.1 복붙: producer KafkaAvroSerializer/acks=all/auto.register, consumer KafkaAvroDeserializer/specific.avro.reader=true/group `platform-svc-group`, schema.registry.url(8086)
-- test 프로파일: Embedded Kafka + **mock Schema Registry**(`mock://...`) 사용, fcm/ses enabled=false 유지
+### 7. 결과 정리
 
-### 9. 테스트 (커버리지 80%+ 유지)
-- 기존 Avro/GenericRecord 테스트 전면 재작성: SpecificRecord 직접 생성으로 발행/소비
-- `NotificationKafkaConsumerIT`, `AuditKafkaIntegrationTest`: EmbeddedKafka + `schema.registry.url=mock://platform-test`, AI_CARDS_READY 케이스 포함, 동일 eventId 중복 발송 없음 검증
-- `PlatformAvroEventsTest` 삭제, 대체 테스트(SpecificRecord round-trip) 추가
+시나리오별로 아래 형식으로 정리한다.
+
+```markdown
+| 영역 | 시나리오 | 결과 | 근거 | 후속 |
+|------|----------|------|------|------|
+| 인증 | 회원가입 -> 로그인 -> refresh -> MFA | PASS/FAIL/PARTIAL | 명령/로그/응답 | 없음/#이슈 |
+```
+
+실패 항목은 다음 기준으로 분류한다.
+
+- P0: 발표/핵심 시나리오를 막음
+- P1: 우회 가능하지만 품질/시연 리스크가 큼
+- P2: 문서화 또는 후속 개선으로 이월 가능
 
 ## 필요한 출력 형식
-- 파일 경로 + 전체 코드 블록. 변경/삭제/신규 구분 명시
-- `./gradlew generateAvroJava`, `./gradlew check` 실행 로그 요약(통과/실패 수)
-- 독립 결정·이탈 사항은 별도 "Director review 필요" 섹션에 기록
-- 커밋하지 말 것 (Director 리뷰 후 사용자 확인 → 커밋)
 
-## 검증 (Done When 매핑)
-1. `./gradlew generateAvroJava` → SpecificRecord 생성
-2. `./gradlew test --tests '*ModuleStructureTest'` → generated Avro class import가 Modulith 경계를 깨지 않는지 확인
-3. `./gradlew check` 전체 통과
-4. (로컬 가능 시) synapse-shared에서 `docker compose up -d zookeeper kafka schema-registry kafka-init` → platform 기동 → `bash scripts/kafka-e2e-test.sh --scenarios` + `kafka-avro-console-consumer`로 user-registered-v1 수신 확인. 환경 미구성 시 사유 기록.
+- 변경 파일 목록
+- 실행한 명령과 결과 요약
+- PASS/FAIL/PARTIAL 표
+- P0/P1/P2 분류
+- #62 issue comment 초안
+- 코드 수정이 있었다면 PR 본문 초안
+
+## 현재 결과 (2026-06-09)
+
+### 변경 파일
+
+- `src/main/avro/platform/UserRegistered.avsc`
+- `src/main/avro/platform/NotificationSend.avsc`
+- `docs/ai/current/TASK.md`
+- `docs/ai/current/CONTEXT.md`
+- `docs/ai/current/HANDOFF.md`
+- `docs/project-management/history/HISTORY_platform.md`
+- `docs/ai/archive/20260609-w5-live-e2e-prep-old-current/*`
+
+### 실행한 명령
+
+```powershell
+.\gradlew.bat generateAvroJava
+.\gradlew.bat test --tests "*AuthBillingE2ETest"
+.\gradlew.bat test --tests "*NotificationKafkaConsumerIT" --tests "*NotificationServiceTest" --tests "*FcmPushServiceTest" --tests "*SesEmailServiceTest"
+.\gradlew.bat clean build
+```
+
+결과: 전부 BUILD SUCCESSFUL. 전체 빌드 기준 286 tests / failures 0 / errors 0 / skipped 0.
+
+### PASS / FAIL / PARTIAL
+
+| 영역 | 시나리오 | 결과 | 근거 | 후속 |
+|------|----------|------|------|------|
+| #37 | staging profile/GitOps env 정합 | PASS | gitops staging overlay가 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` 주입. shared가 platform-svc staging Healthy 기록 | platform 코드 수정 없음 |
+| Avro | shared 정본과 platform 벤더링 정합 | PASS | `Compare-Object` 차이 없음 | 변경 포함 |
+| 인증 | 가입 -> 로그인 -> JWT 발급/refresh -> MFA | PASS | `AuthBillingE2ETest` 통과 | 로그아웃 endpoint gap 기록 |
+| 결제 | Stripe Test Mode Checkout -> Webhook -> 플랜 활성화 | PASS | `AuthBillingE2ETest` 통과 | 프론트 결제 UI는 out of scope |
+| 알림 | NotificationSend -> FCM/SES service path | PASS | notification 테스트 묶음 통과 | cross-service event path는 아래 PARTIAL |
+| 알림 | card/gamification/community -> notification live chain | PARTIAL | shared W5 Day1이 P0 F1/F2/F3 발견 | engagement/learning owner P0 선결 |
+
+### P0 / P1 / P2
+
+- P0(platform): 없음.
+- P0(other owner): engagement `UserRegistered` reader F1, learning-ai `NotificationSend` writer F2/F3.
+- P1(platform): 없음.
+- P2(platform): 로그아웃 전용 HTTP endpoint 부재. 현재는 refresh token delete/service event 경로만 존재.
+- P2(other owner): learning-ai AI client key gate F4.
+
+### #62 issue comment 초안
+
+```markdown
+## platform-svc W5 E2E 진행 결과 (2026-06-09)
+
+### 확인한 것
+- synapse-gitops / synapse-shared 최신 main 기준으로 재확인했습니다.
+- #37 staging datasource 이슈는 최신 gitops overlay가 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 주입하고, shared W5 문서가 platform-svc staging Healthy를 기록하고 있어 platform 코드 수정은 필요 없어 보입니다.
+- platform 벤더링 Avro(`UserRegistered`, `NotificationSend`)는 shared 최신 정본과 동일하게 맞췄습니다.
+
+### 검증 결과
+- `generateAvroJava`: PASS
+- `AuthBillingE2ETest`: PASS
+- `NotificationKafkaConsumerIT`, `NotificationServiceTest`, `FcmPushServiceTest`, `SesEmailServiceTest`: PASS
+- `clean build`: PASS (286 tests, failures 0, errors 0)
+
+### 시나리오 상태
+| 영역 | 결과 | 비고 |
+|------|------|------|
+| 인증 백엔드 E2E | PASS | 가입/로그인/JWT refresh/MFA 경로 확인 |
+| 결제 백엔드 E2E | PASS | Stripe Test Mode mock boundary + webhook + plan activation |
+| 알림 platform 경로 | PASS | NotificationSend consumer/service/FCM/SES 테스트 통과 |
+| cross-service live 알림 | PARTIAL | shared W5 Day1 기준 engagement F1, learning-ai F2/F3 P0 선결 필요 |
+
+### 잔여
+- platform P0: 없음
+- P0(other owner): engagement UserRegistered reader, learning-ai NotificationSend writer
+- P2(platform): 로그아웃 전용 HTTP endpoint 없음. 현재 토큰 무효화는 `RefreshTokenService.delete(userId)` 경로로만 존재
+```
 
 ## 첨부할 파일
-- docs/ai/agent/worker.md
-- docs/ai/current/CONTEXT.md
-- docs/ai/current/HANDOFF.md (이 문서)
-- docs/rules/08-kafka-event.md
-- synapse-shared `docs/guides/EVENT_CONTRACT_STANDARD.md`, `src/main/avro/platform/*.avsc`
+
+- `docs/ai/current/TASK.md`
+- `docs/ai/current/CONTEXT.md`
+- `docs/ai/current/HANDOFF.md`
+- `docs/project-management/prd/PRD_W5.md`
+- `docs/project-management/workflow/WORKFLOW_platform_W5.md`
+- `docs/rules/13-git-rules.md`
 
 ## 기한
-2026-06-02 (W4 2일차 EOD)
+
+2026-06-12 (W5 금요일 EOD)

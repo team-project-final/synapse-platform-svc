@@ -5,57 +5,57 @@
 
 ## 현재 확정된 것
 
-- **방향**: D-002 **Option 1** — Confluent Avro + Schema Registry (이전 JSON CloudEvent 방향 폐기). [[D-029]]
-- **머지**: feature/PLAT-015 → PR(base: dev). dev→main 릴리스는 별도/본인 처리.
-- **Outbox**: 유지 (user-registered 유실 방지). payload는 Avro-bytes → JSON DTO로 교체, 발행 시 SpecificRecord 재구성.
-- **shared 정합 전략**: 벤더링본을 보정본으로 즉시 사용 + **동일 내용 shared PR 병행**. [[D-030]]
-- **단일 출처**: 이벤트 필드/네임스페이스 = synapse-shared `src/main/avro/`. 변경은 shared PR.
-- **로컬 Schema Registry**: 외부 `http://localhost:8086`, compose 내부 `http://schema-registry:8081`.
-
-### 확정 스키마 (벤더링 + shared PR 공통 — 보정본)
-
-`src/main/avro/platform/UserRegistered.avsc` (namespace `com.synapse.platform`):
-```
-공통메타: eventId(string), tenantId(string), occurredAt(long, timestamp-millis), traceparent(["null","string"] default null)
-도메인:   userId(string), email(string), displayName(string)
-```
-> shared 원본 대비 변경: **displayName 추가**, **eventId/occurredAt 추가**, registeredAt(string) → occurredAt(long)로 대체.
-
-`src/main/avro/platform/NotificationSend.avsc` (namespace `com.synapse.platform` — 구 `com.synapse.event.platform`에서 정정):
-```
-공통메타: eventId, tenantId, occurredAt, traceparent
-도메인:   userId(string), notificationType(string), channels(array<string> default []),
-          title(string), body(string),
-          emailSubject(["null","string"] default null), emailHtmlBody(["null","string"] default null),
-          data(map<string> default {})
-```
-> shared 원본 대비 변경: **namespace 정정**, **eventId/occurredAt 추가**, DRAFT/봉투 doc 제거.
+- W5 platform 작업의 중심은 신규 기능 구현이 아니라 staging health, 라이브/통합 E2E, P0 0건 정리다.
+- W4에서 `AuthBillingE2ETest` 기반 백엔드 E2E와 notification hardening은 완료 기록이 있다.
+- 현재 열린 W5 관련 이슈는 #62(라이브 E2E 실행)와 #37(staging health/profile 정합)이다.
+- 작업 브랜치는 `origin/dev` 기준 `feature/PLAT-062-w5-live-e2e`다.
+- 프론트엔드 결제 UI는 아직 붙어 있지 않다. 결제 설명은 "백엔드에서 Stripe Test Mode/mock boundary로 검증"이라고 구분한다.
+- 현재 레포 기준 로컬 기본 포트는 8081이고, Kubernetes/GitOps에서는 `SERVER_PORT=8080` override로 컨테이너/probe 포트를 맞춘다.
+- 2026-06-09 기준 `synapse-gitops`/`synapse-shared`를 최신화했다.
+- 최신 gitops staging overlay는 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 platform-svc에 주입한다. 현재 `application-staging.yml`의 datasource 설정과 정합한다.
+- shared W5 문서는 EKS 재apply 후 staging 20/0/0 ALL PASSED 및 platform-svc staging Healthy를 기록한다. #37의 GitHub OPEN 상태는 최신 문서보다 늦은 상태로 본다.
+- `src/main/avro/platform/UserRegistered.avsc`, `NotificationSend.avsc`는 shared 최신 정본과 동일하게 맞췄다.
 
 ## 현재 미결 사항
 
-- shared `.avsc` 보정안(위)의 **team-lead 최종 비준** — engagement(UserRegistered 소비자)에 영향. 병행 PR로 제기.
-- learning-ai NotificationSend 발행(이슈 #32) 완료 전까지 notification-send-v1 **끝단 E2E는 미검증** (platform 자가 발행으로 라운드트립만 검증 가능).
+- staging 실제 URL, OAuth 테스트 계정, Stripe webhook endpoint, FCM/SES 테스트 credential 제공 여부가 필요하다.
+- 로그아웃 전용 HTTP endpoint는 없다. 현재 토큰 무효화는 `RefreshTokenService.delete(userId)`와 세션 무효화 이벤트 경로만 있다. #62 설명 시 gap으로 기록한다.
+- `card.review.due`, `gamification.*`, `community.*` cross-service live E2E는 shared W5 Day1에서 발견된 engagement/learning P0 선결 후 재실행해야 한다.
+- #62 실행 결과를 issue comment로 남길지 별도 문서로 남길지 최종 결정이 필요하다. 현재는 issue comment 초안을 HANDOFF에 작성한다.
 
 ## 현재 검증된 것
 
-- avro 1.12.0 ↔ kafka-avro-serializer 7.7.0 조합은 `generateAvroJava` + `./gradlew check`로 통과 확인.
-- `./gradlew test --tests '*ModuleStructureTest'` 통과 — 생성 Avro 클래스 import가 Modulith 경계를 깨지 않음.
-- synapse-shared 로컬 Kafka/Schema Registry 기동 후 `bash scripts/kafka-e2e-test.sh --scenarios` 통과(PASS 5 / FAIL 0). 단, 해당 스크립트는 현재 JSON CloudEvent transport smoke 성격.
-- `kafka-avro-console-producer/consumer`로 `platform.auth.user-registered-v1` Avro value 수신 확인. `timestamp-millis` console produce에는 `avro.use.logical.type.converters=true` 필요.
+- `docs/project-management/prd/PRD_W5.md`: platform P0는 인증 E2E와 결제 E2E다.
+- `docs/project-management/workflow/WORKFLOW_platform_W5.md`: 알림 안정화와 P0/P1/P2 분류까지 포함한다.
+- `docs/project-management/history/HISTORY_platform.md`: W4 Step 9/10은 완료 상태다.
+- GitHub issue #62: 알림 + 인증 + 결제 라이브 E2E 실행이 남아 있다.
+- GitHub issue #37: staging profile datasource/env binding 이슈가 OPEN 상태다.
+- `.\gradlew.bat generateAvroJava` 통과.
+- `.\gradlew.bat test --tests "*AuthBillingE2ETest"` 통과.
+- `.\gradlew.bat test --tests "*NotificationKafkaConsumerIT" --tests "*NotificationServiceTest" --tests "*FcmPushServiceTest" --tests "*SesEmailServiceTest"` 통과.
+- `.\gradlew.bat clean build` 통과. 286 tests / failures 0 / errors 0 / skipped 0.
+- Windows에서 Embedded Kafka 임시 디렉터리 삭제 실패 로그가 출력되지만 Gradle 결과는 성공이다.
 
 ## 활성 제약
 
-- bare typed record만 (data:bytes 중첩 봉투 금지)
-- 멱등성 키 = 레코드 `eventId`
-- 역직렬화 실패 → 로그 + skip + DLQ (크래시 금지)
-- JWT RS256 / Refresh Token DB+Redis / 모듈 순환 의존 금지 / 신규 코드 커버리지 80%+
-- 메시지 key = tenantId, subject = `<topic>-value`, 호환 BACKWARD
+- GitOps/shared가 관리하는 설정과 계약을 우선한다.
+- secret 값은 절대 커밋하지 않는다.
+- Stripe는 Test Mode만 사용한다.
+- Kafka/Avro/Schema Registry 계약은 shared 표준과 drift가 없어야 한다.
+- JWT RS256, Refresh Token DB+Redis, 모듈 순환 의존 금지, 신규 코드 커버리지 80%+ 기준 유지.
+- PR base는 `dev`다.
 
 ## 참고할 공식 문서
 
-- synapse-shared `docs/guides/EVENT_CONTRACT_STANDARD.md` (v2, Avro)
-- synapse-shared `docs/designs/D-002_SCHEMA_FAMILY_DECISION.md` (Option 1)
-- synapse-shared `docs/work-orders/W4_KAFKA_WORKORDER.md` §P1-1
-- synapse-shared `src/main/avro/platform/*.avsc` (벤더링 원본)
-- synapse-shared `scripts/kafka-e2e-test.sh`, `scripts/create-kafka-topics.sh`
-- docs/rules/08-kafka-event.md
+- `docs/project-management/prd/PRD_W5.md`
+- `docs/project-management/workflow/WORKFLOW_platform_W5.md`
+- `docs/project-management/task/TASK_platform.md`
+- `docs/project-management/history/HISTORY_platform.md`
+- `docs/rules/01-security.md`
+- `docs/rules/04-quality.md`
+- `docs/rules/06-auth-token.md`
+- `docs/rules/08-kafka-event.md`
+- `docs/rules/12-working-log.md`
+- `docs/rules/13-git-rules.md`
+- GitHub issue #62
+- GitHub issue #37

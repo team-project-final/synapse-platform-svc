@@ -342,7 +342,7 @@
 | 구분 | 내용 | 상태 | 시작일 | 완료일 | 비고 |
 |------|------|------|--------|--------|------|
 | W5 작업 로그 | 라이브 E2E 및 staging 검증 | In Progress | 2026-06-09 | — | #62 라이브 E2E, #37 staging health/profile 정합 |
-| W5 작업 로그 | 프론트 연동 백엔드 갭 구현 | In Progress | 2026-06-09 | — | A-1 완료, A-2~A-6 후속. 7번/B 타 서비스 항목 제외 |
+| W5 작업 로그 | 프론트 연동 백엔드 갭 구현 | In Progress | 2026-06-09 | — | A-1/A-3/A-4 완료, A-2/A-5/A-6 후속. 7번/B 타 서비스 항목 제외 |
 
 **W5 진행 상태**: 라이브 E2E 재검증 대기 + 프론트 연동 백엔드 갭 구현 진행 중
 
@@ -372,6 +372,25 @@
 
 ---
 
+#### 2026-06-10 (수)
+
+- **완료**:
+  - `origin/dev` 기준 `feature/PLAT-067-billing-read-apis` 브랜치 생성.
+  - PLAT-067 작업문서 작성 및 PLAT-066 current 문서 archive.
+  - A-4 Billing 보강 구현: 결제 이력 조회, 사용량/플랜 한도 조회, 영수증/인보이스 조회 API 추가.
+  - `payment_history`에 Stripe invoice id/url/pdf url 메타데이터 nullable 컬럼 추가.
+  - `TenantApi` named interface로 `plan_quotas` 조회 계약을 추가해 billing 모듈 경계를 유지.
+  - `invoice.paid` Webhook 저장 로직에 invoice 메타데이터 반영.
+  - 검증 통과: Billing controller/service/repository/security 테스트, PlatformModuleStructureTest, `clean build`.
+- **진행 중**:
+  - A-2 Auth 보강, A-5 Tenant 셀프관리, A-6 Admin 대시보드 보강은 후속.
+- **이슈**:
+  - 실제 note/card/storage/AI 사용량 정본은 platform 단독 소관이 아니므로 이번 API는 `NOT_CONNECTED` source와 plan quota 한도만 반환.
+- **다음**:
+  - 작업 내용 리뷰 후 PR 준비.
+
+---
+
 ## 2026-06-09 PLAT-064 작업 기록
 
 - DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
@@ -384,6 +403,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-067 프론트 연동 백엔드 갭 A-4 구현** — Billing payments/usage/receipt read API 추가, invoice metadata 저장, `TenantApi` plan quota 계약 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-09 | **PLAT-063 프론트 연동 백엔드 갭 A-1 구현** — User self-service API(`/users/me`, password, OAuth connection, delete) 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-09 | **W5 라이브 E2E 작업 진행** — #37 최신 gitops/shared 기준 해소 확인, platform Avro 벤더링 shared 정본 정렬, Auth/Billing·Notification 테스트 및 `clean build` 통과. platform P0 없음, cross-service P0는 engagement/learning 선결 |
 | 2026-06-05 | **Step 10 완료** — 알림 안정화(FCM/SES 재시도 + Micrometer 메트릭, PLAT-028, PR #64, P0 0건). KAFKA_ENABLED 게이트(이슈 #59, PLAT-026, PR #61). Flyway 버전 표준(이슈 #65, PLAT-030, PR #66). 룰 4.6(PR #60). **W4 종료(2/2)** |

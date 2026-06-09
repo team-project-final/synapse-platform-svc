@@ -25,6 +25,15 @@ public class PaymentHistory {
     @Column(name = "stripe_payment_intent_id", unique = true)
     private String stripePaymentIntentId;
 
+    @Column(name = "stripe_invoice_id")
+    private String stripeInvoiceId;
+
+    @Column(name = "invoice_url")
+    private String invoiceUrl;
+
+    @Column(name = "invoice_pdf_url")
+    private String invoicePdfUrl;
+
     @Column(nullable = false)
     private Integer amount;
 
@@ -51,10 +60,27 @@ public class PaymentHistory {
             String currency,
             String status,
             OffsetDateTime paidAt) {
+        return of(tenantId, subscriptionId, stripePaymentIntentId, null, null, null, amount, currency, status, paidAt);
+    }
+
+    public static PaymentHistory of(
+            UUID tenantId,
+            UUID subscriptionId,
+            String stripePaymentIntentId,
+            String stripeInvoiceId,
+            String invoiceUrl,
+            String invoicePdfUrl,
+            int amount,
+            String currency,
+            String status,
+            OffsetDateTime paidAt) {
         PaymentHistory paymentHistory = new PaymentHistory();
         paymentHistory.tenantId = tenantId;
         paymentHistory.subscriptionId = subscriptionId;
         paymentHistory.stripePaymentIntentId = stripePaymentIntentId;
+        paymentHistory.stripeInvoiceId = stripeInvoiceId;
+        paymentHistory.invoiceUrl = invoiceUrl;
+        paymentHistory.invoicePdfUrl = invoicePdfUrl;
         paymentHistory.amount = amount;
         paymentHistory.currency = currency;
         paymentHistory.status = status;
@@ -86,6 +112,18 @@ public class PaymentHistory {
         return stripePaymentIntentId;
     }
 
+    public String getStripeInvoiceId() {
+        return stripeInvoiceId;
+    }
+
+    public String getInvoiceUrl() {
+        return invoiceUrl;
+    }
+
+    public String getInvoicePdfUrl() {
+        return invoicePdfUrl;
+    }
+
     public Integer getAmount() {
         return amount;
     }
@@ -104,5 +142,9 @@ public class PaymentHistory {
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isReceiptAvailable() {
+        return invoiceUrl != null || invoicePdfUrl != null;
     }
 }

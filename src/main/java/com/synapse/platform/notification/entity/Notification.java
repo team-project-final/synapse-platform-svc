@@ -60,6 +60,9 @@ public class Notification {
     @Column(name = "sent_at")
     private Instant sentAt;
 
+    @Column(name = "read_at")
+    private Instant readAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -116,6 +119,16 @@ public class Notification {
         return NotificationStatus.SENT == status;
     }
 
+    public void markRead(Instant readAt) {
+        if (this.readAt == null) {
+            this.readAt = readAt;
+        }
+    }
+
+    public boolean isRead() {
+        return readAt != null;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -162,6 +175,10 @@ public class Notification {
 
     public Instant getSentAt() {
         return sentAt;
+    }
+
+    public Instant getReadAt() {
+        return readAt;
     }
 
     public Instant getCreatedAt() {

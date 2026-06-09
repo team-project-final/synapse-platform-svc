@@ -1,41 +1,108 @@
-# HANDOFF - PLAT-064
+# HANDOFF - PLAT-066: Notification 인박스 조회 API
 
-## FROM
+## 한줄 요약
 
-Codex
+루트 `docs/BACKEND_GAP_platform.md` A-3을 처리한다. 기존 notification 발송 이력 테이블에 읽음 상태를 추가하고, 프론트 알림센터가 사용할 목록/count/read API를 만든다.
 
-## TO
+## 작업 위치
 
-Worker
+- Repo: `synapse-platform-svc`
+- Branch: `feature/PLAT-066-notification-inbox`
+- Base: `dev`
+- 작업문서: `docs/ai/current`
 
-## 작업 브랜치
+## 구현 순서
 
-`feature/PLAT-064-user-roles` (base: `origin/dev`)
+1. Flyway migration 추가
+   - 파일명: `VyyyyMMddHHmmss__add_notification_read_state.sql`
+   - `notifications.read_at TIMESTAMPTZ NULL`
+   - inbox 조회용 index 추가
 
-## 요청 내용
+2. Entity 보강
+   - `Notification.readAt`
+   - `markRead(OffsetDateTime now)`
+   - `isRead()`
 
-프론트 연동 테스트와 실제 어드민 API 접근을 위해 platform-svc에 DB 기반 사용자 role 저장 및 JWT 반영 경로를 추가한다.
-최초 어드민은 자동 seed나 profile 설정이 아니라 승인된 DB 작업으로 부여한다.
+3. Repository query 추가
+   - 본인 알림 목록: `userId`, `FCM`, `SENT`, pageable, `createdAt DESC`
+   - unread count: `userId`, `FCM`, `SENT`, `readAt IS NULL`
+   - 단건 조회: `id`, `userId`, `FCM`, `SENT`
+   - 전체 읽음 update 또는 service loop
 
-## 구현 지침
+4. Service 추가
+   - 발송 책임의 `NotificationService`와 분리 권장
+   - 후보명: `NotificationInboxService`
+   - 타인 알림 접근은 404 처리
 
-- `user_roles` 테이블을 추가한다.
-- 가입 시 기본 `ROLE_USER`를 저장한다.
-- access token 발급 경로는 DB role을 조회한다.
-- refresh 경로는 기존 Redis token 검증 후 `UserApi.isLoginAllowed(userId)`를 확인하고, 통과한 사용자에게만 새 access/refresh token을 발급한다.
-- 기존 admin security rule은 그대로 둔다.
-- env, profile, secret, GitOps overlay는 수정하지 않는다.
-- `TASK_platform.md`는 수정하지 않는다.
+5. Controller/DTO 추가
+   - `GET /api/v1/notifications`
+   - `GET /api/v1/notifications/unread-count`
+   - `PUT /api/v1/notifications/{id}/read`
+   - `POST /api/v1/notifications/read-all`
+   - 현재 사용자 UUID는 `Authentication.getName()`에서 파싱
 
-## 운영 절차
+6. Settings API
+   - 루트 문서 A-3의 settings API를 같은 작업에 포함한다.
+   - 저장소는 기존 `user_settings.notification_prefs`.
+   - notification 모듈은 `UserApi`의 prefs 조회/저장 메서드만 호출한다.
+   - 요청/응답은 JSON object를 주고받되 기본 `categories`, `quietHours` 구조와 merge한다.
+   - 잘못된 타입의 settings payload는 400으로 거절한다.
 
-- 운영 최초 어드민은 사용자가 정상 가입한 뒤 `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md` 절차로 `ROLE_ADMIN`을 부여한다.
-- role 부여 후 사용자는 다시 로그인해야 새 access token에 `ROLE_ADMIN`이 포함된다.
-- 삭제된 사용자에게는 role을 부여하지 않는다.
+## API 응답 후보
+
+목록:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "type": "ACHIEVEMENT_UNLOCKED",
+      "title": "새 업적을 획득했습니다",
+      "body": "연속 학습 목표를 달성했습니다.",
+      "read": false,
+      "readAt": null,
+      "createdAt": "2026-06-09T14:30:00+09:00",
+      "sentAt": "2026-06-09T14:30:01+09:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+Unread count:
+
+```json
+{
+  "count": 3
+}
+```
+
+Read all:
+
+```json
+{
+  "updatedCount": 3
+}
+```
 
 ## 검증 명령
 
 ```powershell
-.\gradlew.bat test --tests "*UserServiceTest" --tests "*EmailPasswordAuthServiceTest" --tests "*AuthControllerTest" --tests "*OAuth2SuccessHandlerTest"
+.\gradlew.bat test --tests "*NotificationInbox*"
+.\gradlew.bat test --tests "*NotificationRepositoryTest"
+.\gradlew.bat test --tests "*ModuleStructureTest"
+.\gradlew.bat test --tests "*NotificationInboxIntegrationTest"
 .\gradlew.bat clean build
 ```
+
+## 금지/주의
+
+- `TASK_platform.md` 수정 금지
+- env/profile 수정 금지
+- 다른 서비스 DB 기준 변경 금지
+- EMAIL 행을 사용자 인박스에 바로 노출하지 말 것
+- PR 본문 작성 시 UTF-8 body file 사용

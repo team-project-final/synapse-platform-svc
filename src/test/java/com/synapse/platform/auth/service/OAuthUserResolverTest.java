@@ -203,6 +203,16 @@ class OAuthUserResolverTest {
             }
 
             @Override
+            public String getNotificationPreferences(UUID userId) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public String updateNotificationPreferences(UUID userId, String notificationPreferences) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
             public UserInfo createForOAuth(OAuthUserCreateCommand command) {
                 User user = User.ofOAuth(
                         command.email(),

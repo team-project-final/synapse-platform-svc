@@ -433,6 +433,25 @@
 
 ---
 
+#### 2026-06-10 (수) - PLAT-072
+
+- **완료**:
+  - `feature/PLAT-072-admin-settings` 브랜치에서 A-6 Admin 대시보드 보강 2차 구현.
+  - `GET /api/v1/admin/settings`, `PUT /api/v1/admin/settings` API 추가.
+  - Plan quota는 수정 없이 `TenantApi.listPlanQuotas()` 공개 계약으로 조회하도록 정리.
+  - 피처 플래그와 API 요청 제한 설정 저장용 `admin_settings` 테이블 추가.
+  - feature flag key는 영문 stable key로 저장하고, `apiRequestsPerMinute`는 `1..10000` 범위 검증.
+  - admin settings service/controller/security 테스트 추가 및 보강.
+  - 검증 통과: `*AdminSettings*`, `AdminSecurityIntegrationTest`, `PlatformModuleStructureTest`, `clean build`.
+- **진행 중**:
+  - GDPR/data request API는 후속 PLAT-073 후보.
+- **이슈**:
+  - 이번 작업은 설정 저장까지만 포함하며 실제 feature flag 적용과 rate limit enforcement는 별도 작업.
+- **다음**:
+  - 작업 내용 리뷰 후 PR 준비.
+
+---
+
 ## 2026-06-09 PLAT-064 작업 기록
 
 - DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
@@ -445,6 +464,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-072 프론트 연동 백엔드 갭 A-6 2차 구현** — Admin settings API 추가, `admin_settings` 저장소, `TenantApi.listPlanQuotas()` quota 조회 계약, settings/security 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-071 프론트 연동 백엔드 갭 A-6 1차 구현** — Admin analytics summary API 추가, user/tenant/billing/notification/audit 공개 API 기반 집계, today 지표 00:00 기준 및 soft-delete 포함 user total 정리, cross-service 값 `NOT_CONNECTED` 처리. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-070 프론트 연동 백엔드 갭 A-2 구현** — Auth password reset API, MFA backup code API, notification quota 예외, 복구 플로우 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-067 프론트 연동 백엔드 갭 A-4 구현** — Billing payments/usage/receipt read API 추가, invoice metadata 저장, `TenantApi` plan quota 계약 추가. `TASK_platform.md` 미수정. `clean build` 통과 |

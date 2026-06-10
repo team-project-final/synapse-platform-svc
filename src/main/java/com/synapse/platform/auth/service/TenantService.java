@@ -6,6 +6,7 @@ import com.synapse.platform.auth.api.PlanQuotaInfo;
 import com.synapse.platform.auth.entity.PlanQuota;
 import com.synapse.platform.auth.repository.PlanQuotaRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,6 +37,13 @@ public class TenantService implements TenantApi {
         }
         return planQuotaRepository.findById(planCode.toLowerCase(Locale.ROOT))
                 .map(this::toPlanQuotaInfo);
+    }
+
+    @Override
+    public List<PlanQuotaInfo> listPlanQuotas() {
+        return planQuotaRepository.findAll().stream()
+                .map(this::toPlanQuotaInfo)
+                .toList();
     }
 
     @Override

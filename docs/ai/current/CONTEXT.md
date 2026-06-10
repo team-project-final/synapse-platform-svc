@@ -1,156 +1,132 @@
-# CONTEXT - PLAT-071: Admin 대시보드 분석 API
+# PLAT-072 Context
 
-## 현재 상태
+## Current State
+- `dev`는 PR #85 merge 이후 최신 상태다.
+- PLAT-071 Admin analytics summary API는 merge 완료됐다.
+- 현재 작업 브랜치: `feature/PLAT-072-admin-settings`
+- PLAT-072 Admin settings API 구현과 검증이 완료됐다.
 
-- 로컬 `dev`는 PR #83 `feat(auth): Auth 복구 플로우 보강` 머지 커밋까지 fast-forward 완료.
-- 현재 브랜치: `feature/PLAT-071-admin-analytics`.
-- 루트 `docs/BACKEND_GAP_platform.md` 기준 platform 담당 gap 중 A-1, A-2, A-3, A-4, A-5는 dev에 반영됨.
-- 남은 platform 핵심 gap은 A-6 Admin 대시보드 보강.
-- 이번 작업은 A-6 전체 중 첫 단위인 Admin analytics summary API만 처리한다.
+## Requirement Source
+Root 문서 `C:\workspace\team_project_2\docs\BACKEND_GAP_platform.md` A-6에는 Admin 대시보드 보강 항목이 남아 있다.
 
-## 요구사항 근거
+| 기대 동작 | 제안 엔드포인트 | 상태 |
+|---|---|---|
+| DAU/MAU, 시스템 사용량, 최근 활동 | `GET /api/v1/admin/analytics/*` | PLAT-071 완료 |
+| 시스템 설정/피처 플래그 | `GET`, `PUT /api/v1/admin/settings` | 이번 작업 |
+| GDPR 데이터 요청 처리 | `GET`, `POST /api/v1/admin/data-requests` | 다음 후보 |
 
-### 루트 문서
+## Frontend Context
+프론트의 Admin System Settings 화면은 아직 mock 기반이다.
 
-- `C:\workspace\team_project_2\docs\BACKEND_GAP_platform.md`
-  - A-6: Admin 대시보드 보강
-  - 요구 후보:
-    - `GET /api/v1/admin/analytics/*`
-    - `GET`/`PUT /api/v1/admin/settings`
-    - `GET`/`POST /api/v1/admin/data-requests`
+파일:
+- `C:\workspace\team_project_2\synapse-frontend\lib\services\platform\features\admin\presentation\screens\admin_screens\admin_system_settings_screen.dart`
 
-### frontend 근거
+화면 구조:
+- Plan Quota
+- Feature Flags
+- Rate Limit
 
-- `synapse-frontend/lib/services/platform/features/admin/presentation/screens/admin_screens/admin_dashboard_screen.dart`
-  - 사용자/테넌트 총계는 현재 목록 API의 `totalElements`로 조회.
-  - DAU/MAU는 mock.
-  - 시스템 사용량은 mock.
-  - 긴급 처리 항목은 mock.
-  - 최근 활동은 mock.
-- `synapse-frontend/lib/services/platform/features/admin/presentation/screens/admin_screens/admin_system_settings_screen.dart`
-  - 피처 플래그와 rate limit 저장은 mock.
-  - 이번 PLAT-071에서는 제외하고 PLAT-072 후보로 둔다.
-- `synapse-frontend/lib/services/platform/features/admin/presentation/screens/admin_screens/admin_data_request_screen.dart`
-  - GDPR/data request API는 mock.
-  - 이번 PLAT-071에서는 제외하고 PLAT-073 후보로 둔다.
+프론트 mock 피처 플래그:
+- `AI 카드 자동 생성`
+- `소셜 로그인 (Google)`
+- `소셜 로그인 (GitHub)`
+- `실시간 협업 편집`
+- `베타: 음성 복습`
 
-## 기존 Backend API
+프론트 mock rate limit:
+- `100`
 
-- `AdminUserController`
-  - `GET /api/v1/admin/users`
-  - `PUT /api/v1/admin/users/{id}/status`
-  - `DELETE /api/v1/admin/users/{id}`
-- `AdminTenantController`
-  - `GET /api/v1/admin/tenants`
-  - `PUT /api/v1/admin/tenants/{id}/status`
-- `AuditLogController`
-  - `GET /api/v1/admin/audit-logs`
-- `SecurityConfig`
-  - `/api/v1/admin/**`는 `ROLE_ADMIN` 필요.
+## Backend Context
+Admin 관련 기존 코드:
+- `src/main/java/com/synapse/platform/admin/controller/AdminAnalyticsController.java`
+- `src/main/java/com/synapse/platform/admin/service/AdminAnalyticsService.java`
+- `src/main/java/com/synapse/platform/admin/dto/AdminAnalyticsSummaryResponse.java`
+- `src/main/java/com/synapse/platform/user/controller/AdminUserController.java`
+- `src/main/java/com/synapse/platform/billing/controller/AdminTenantController.java`
+- `src/main/java/com/synapse/platform/audit/controller/AuditLogController.java`
 
-## 사용 가능한 데이터
+Admin 보안:
+- `src/main/java/com/synapse/platform/auth/config/SecurityConfig.java`
+- `/api/v1/admin/**`는 `ROLE_ADMIN` 필요
+- Admin 컨트롤러들은 `@PreAuthorize("hasRole('ADMIN')")` 패턴 사용
 
-### users
+Plan quota 관련 기존 코드:
+- `src/main/java/com/synapse/platform/auth/entity/PlanQuota.java`
+- `src/main/java/com/synapse/platform/auth/repository/PlanQuotaRepository.java`
+- `src/main/java/com/synapse/platform/auth/api/TenantApi.java`
+- `src/main/java/com/synapse/platform/auth/api/PlanQuotaInfo.java`
+- `src/main/resources/db/migration/V2__init_tenants_and_plans.sql`
+- `src/main/resources/db/migration/V18__seed_plan_quotas.sql`
 
-- Entity: `com.synapse.platform.user.entity.User`
-- 주요 필드:
-  - `status`
-  - `createdAt`
-  - `lastLoginAt`
-  - `deletedAt`
-- 참고:
-  - `@SQLRestriction("deleted_at IS NULL")` 적용.
-  - 일반 JPA count는 삭제 사용자를 제외하므로 total/deleted는 native query로 soft-delete 행까지 포함한다.
-  - newToday/DAU 후보 지표는 `generatedAt` 날짜 00:00 이후, MAU 후보 지표는 최근 30일 `lastLoginAt` 기준으로 산출한다.
+## Design Decision
+이번 작업의 핵심 결정은 다음과 같다.
 
-### tenants
+- Plan quota는 조회 전용이다.
+- 피처 플래그와 rate limit만 `PUT /api/v1/admin/settings`로 저장한다.
+- 피처 플래그 key는 영문 stable key로 저장한다.
+- 화면 표시용 label은 응답에 포함할 수 있지만 저장 기준은 key다.
+- Admin 모듈은 auth 내부 repository/entity가 아니라 `auth::tenant-api`의 `TenantApi.listPlanQuotas()`만 사용한다.
+- 실제 기능 on/off 적용과 실제 rate limit enforcement는 별도 작업이다.
+- 환경 변수, profile, 포트 설정은 건드리지 않는다.
 
-- Entity: `com.synapse.platform.auth.entity.Tenant`
-- 주요 필드:
-  - `plan`
-  - `status`
-  - `createdAt`
-  - `deletedAt`
-- Repository:
-  - `TenantRepository`
-  - `findAllByDeletedAtIsNull(Pageable)`
-  - `findByIdAndDeletedAtIsNull(UUID)`
+## Proposed Backend Shape
+패키지는 기존 Admin analytics 작업과 같은 `com.synapse.platform.admin` 하위를 우선 사용한다.
 
-### audit_logs
+구현 파일:
+- `admin/controller/AdminSettingsController.java`
+- `admin/service/AdminSettingsService.java`
+- `admin/dto/AdminSettingsResponse.java`
+- `admin/dto/AdminSettingsUpdateRequest.java`
+- `admin/entity/AdminSetting.java`
+- `admin/repository/AdminSettingRepository.java`
+- `db/migration/V20260610150000__create_admin_settings.sql`
+- `auth/api/TenantApi.java`의 `listPlanQuotas()`
+- `auth/service/TenantService.java`의 `listPlanQuotas()` 구현
 
-- Entity: `com.synapse.platform.audit.entity.AuditLog`
-- 주요 필드:
-  - `action`
-  - `userId`
-  - `resourceType`
-  - `resourceId`
-  - `createdAt`
-- Repository:
-  - `AuditLogRepository`
-  - 현재 action/userId 필터와 retention delete만 있음.
-  - 최근 활동용 `findAll(Pageable)` 또는 명시 query 사용 가능.
+DTO는 record 기반으로 구성했고, SpotBugs 경고 방지를 위해 list 필드는 방어 복사한다.
 
-### notifications
+## API Draft
+### GET `/api/v1/admin/settings`
+Admin 설정 화면 초기 로딩용 API.
 
-- Entity: `com.synapse.platform.notification.entity.Notification`
-- 주요 필드:
-  - `channel`
-  - `status`
-  - `notificationType`
-  - `sentAt`
-  - `createdAt`
-- Repository:
-  - `NotificationRepository`
-  - 현재 사용자별 inbox/count 중심.
-  - admin usage summary용 전체 sent count query 추가 가능.
+응답 포함 항목:
+- `planQuotas`
+- `featureFlags`
+- `rateLimit`
+- `updatedAt`
 
-### subscriptions / payment_history
+### PUT `/api/v1/admin/settings`
+피처 플래그와 rate limit 저장 API.
 
-- Entity:
-  - `Subscription`
-  - `PaymentHistory`
-- Repository:
-  - `SubscriptionRepository`
-  - `PaymentHistoryRepository`
-- active subscription count나 plan distribution은 산출 가능.
+요청 포함 항목:
+- `featureFlags`
+- `rateLimit.apiRequestsPerMinute`
 
-## 설계 방향
+응답:
+- 저장 후 최신 `AdminSettingsResponse`
 
-- 새 API:
-  - `GET /api/v1/admin/analytics/summary`
-- 새 패키지 후보:
-  - `com.synapse.platform.admin.controller`
-  - `com.synapse.platform.admin.service`
-  - `com.synapse.platform.admin.dto`
-- 읽기 전용 API로 시작한다.
-- cross-service 값은 임의 숫자를 반환하지 않는다.
-  - 예: AI token, storage, learning usage 등
-  - `status: NOT_CONNECTED`, `source: learning-ai` 같은 상태로 반환.
-- pending items는 이번 작업에서 실제 처리 시스템이 없으면 `NOT_IMPLEMENTED` 상태로 반환하거나 빈 목록을 반환한다.
-- 프론트가 mock을 걷어낼 수 있도록 응답 필드 이름을 안정적으로 설계한다.
+## Risk Notes
+- `plan_quotas` 값을 수정 가능하게 열면 billing/auth 계약과 직접 충돌할 수 있어 이번 범위에서는 제외한다.
+- Feature flag key를 프론트 표시 문구로 저장하면 한글 문구 변경 때 데이터 호환성이 깨질 수 있다.
+- Rate limit 값을 저장만 하고 적용하지 않으면 운영자가 오해할 수 있다. 응답 필드 또는 문서에서 "설정 저장 API" 범위임을 명확히 해야 한다.
+- `V18__seed_plan_quotas.sql`는 빈 유지 파일로 보이며, plan quota seed는 V2에서 처리된 상태다.
 
-## 테스트 방향
+## Verification
+통과한 검증:
 
-- Controller test
-  - admin 인증 시 200
-  - 일반 사용자/미인증 접근 시 403/401
-  - 응답 JSON shape 검증
-- Service test
-  - user/tenant/notification/audit/subscription repository 결과를 summary DTO로 조합
-  - `NOT_CONNECTED` usage item이 fake numeric value 없이 내려오는지 검증
-- Repository test
-  - count query가 status/window 조건을 제대로 반영하는지 검증
-  - soft-delete 포함 native count와 plan/payment/notification/audit query를 실제 DB 매핑으로 검증
-- 구조 테스트
-  - `PlatformModuleStructureTest`
-- 전체 검증
-  - `clean build`
+```powershell
+.\gradlew.bat test --tests "*AdminSettings*"
+.\gradlew.bat test --tests "*AdminSecurityIntegrationTest"
+.\gradlew.bat test --tests "*AdminSettings*" --tests "*PlatformModuleStructureTest"
+.\gradlew.bat clean build
+```
 
-## 주의사항
+전체 빌드에서 checkstyle, 전체 테스트, jacoco coverage verification, spotbugs가 통과했다.
 
-- `TASK_platform.md`는 최초 개발 목록 문서이므로 수정하지 않는다.
-- env/profile/gitops/shared 프로젝트는 이번 작업에서 수정하지 않는다.
-- 프론트 코드는 이번 작업 범위가 아니다.
-- A-6 중 설정/피처 플래그와 데이터 요청은 후속 작업으로 분리한다.
-- DAU/MAU 표현은 "정식 analytics"가 아니라 `users.last_login_at` 기준 platform-local 지표임을 문서와 응답 source에 남긴다.
-- `*.today` 지표는 최근 24시간이 아니라 `generatedAt` 날짜의 00:00 이후 기준이다.
+## Do Not Touch
+- `TASK_platform.md`
+- `.env`
+- Spring profile 설정
+- 실행 포트 설정
+- gitops/shared 프로젝트
+- frontend 프로젝트

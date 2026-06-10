@@ -55,7 +55,8 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
              where notification.userId = :userId
                and notification.channel = com.synapse.platform.notification.entity.NotificationChannel.EMAIL
                and notification.status = com.synapse.platform.notification.entity.NotificationStatus.SENT
+               and notification.notificationType <> 'PASSWORD_RESET_CODE'
                and notification.sentAt >= :dayStart
-            """)
+             """)
     long countTodayEmailByUserId(UUID userId, Instant dayStart);
 }

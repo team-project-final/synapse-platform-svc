@@ -247,6 +247,11 @@ class OAuthUserResolverTest {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
             }
 
+            @Override
+            public void resetPassword(UUID userId, String newPassword) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
             private UserInfo toUserInfo(User user) {
                 return new UserInfo(user.getId(), user.getEmail(), user.getDisplayName(), user.getDefaultTenantId());
             }

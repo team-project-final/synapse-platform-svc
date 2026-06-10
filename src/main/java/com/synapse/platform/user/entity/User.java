@@ -169,6 +169,12 @@ public class User {
         updatedAt = passwordChangedAt;
     }
 
+    public void resetPassword(String passwordHash) {
+        changePassword(passwordHash);
+        failedLoginCount = 0;
+        lockedUntil = null;
+    }
+
     public UUID getId() {
         return id;
     }

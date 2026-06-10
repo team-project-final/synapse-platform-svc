@@ -58,6 +58,14 @@ class NotificationRepositoryTest {
         sentEmail.markSent();
         repository.save(sentEmail);
 
+        Notification passwordResetCodeEmail = notification(
+                UUID.randomUUID(),
+                userId,
+                NotificationChannel.EMAIL,
+                "PASSWORD_RESET_CODE");
+        passwordResetCodeEmail.markSent();
+        repository.save(passwordResetCodeEmail);
+
         Notification pendingEmail = notification(UUID.randomUUID(), userId, NotificationChannel.EMAIL);
         repository.save(pendingEmail);
 
@@ -173,11 +181,19 @@ class NotificationRepositoryTest {
     }
 
     private static Notification notification(UUID eventId, UUID userId, NotificationChannel channel) {
+        return notification(eventId, userId, channel, "CARD_REVIEW_DUE");
+    }
+
+    private static Notification notification(
+            UUID eventId,
+            UUID userId,
+            NotificationChannel channel,
+            String notificationType) {
         return Notification.create(
                 eventId,
                 userId,
                 UUID.randomUUID(),
-                "CARD_REVIEW_DUE",
+                notificationType,
                 channel,
                 "Review due",
                 "A card is ready for review.");

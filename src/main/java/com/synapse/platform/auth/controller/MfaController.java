@@ -1,5 +1,7 @@
 package com.synapse.platform.auth.controller;
 
+import com.synapse.platform.auth.dto.MfaBackupCodeResponse;
+import com.synapse.platform.auth.dto.MfaBackupVerifyRequest;
 import com.synapse.platform.auth.exception.MfaVerificationException;
 import com.synapse.platform.auth.exception.UnauthorizedTokenException;
 import com.synapse.platform.auth.service.TotpService;
@@ -35,6 +37,22 @@ public class MfaController {
         boolean verified = totpService.verify(currentUserId(authentication), request.code());
         if (!verified) {
             throw new MfaVerificationException("Invalid MFA code");
+        }
+        return Map.of("verified", true);
+    }
+
+    @PostMapping("/backup-codes")
+    public MfaBackupCodeResponse generateBackupCodes(Authentication authentication) {
+        return new MfaBackupCodeResponse(totpService.generateBackupCodes(currentUserId(authentication)));
+    }
+
+    @PostMapping("/backup")
+    public Map<String, Boolean> verifyBackupCode(
+            Authentication authentication,
+            @Valid @RequestBody MfaBackupVerifyRequest request) {
+        boolean verified = totpService.verifyBackupCode(currentUserId(authentication), request.code());
+        if (!verified) {
+            throw new MfaVerificationException("Invalid MFA backup code");
         }
         return Map.of("verified", true);
     }

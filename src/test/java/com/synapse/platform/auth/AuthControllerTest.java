@@ -19,11 +19,14 @@ import com.synapse.platform.auth.service.EmailPasswordAuthService;
 import com.synapse.platform.auth.exception.UnauthorizedTokenException;
 import com.synapse.platform.auth.service.JwtTokenProvider;
 import com.synapse.platform.auth.service.LoginResult;
+import com.synapse.platform.auth.service.PasswordResetResult;
+import com.synapse.platform.auth.service.PasswordResetService;
 import com.synapse.platform.auth.service.RefreshTokenService;
 import com.synapse.platform.auth.service.SignupResult;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
 import com.synapse.platform.user.api.UserApi;
 import jakarta.servlet.http.Cookie;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.hamcrest.Matchers;
@@ -40,6 +43,7 @@ class AuthControllerTest {
     private final JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final EmailPasswordAuthService emailPasswordAuthService = mock(EmailPasswordAuthService.class);
+    private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
     private final UserApi userApi = mock(UserApi.class);
     private MockMvc mockMvc;
 
@@ -52,6 +56,7 @@ class AuthControllerTest {
                         jwtTokenProvider,
                         refreshTokenService,
                         emailPasswordAuthService,
+                        passwordResetService,
                         userApi,
                         "Lax",
                         false,
@@ -226,6 +231,70 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.userId").value(userId.toString()));
+    }
+
+    @Test
+    void passwordResetRequest_validEmail_shouldReturnAccepted() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/password-reset/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accepted").value(true));
+
+        verify(passwordResetService).request("user@example.com");
+    }
+
+    @Test
+    void passwordResetVerify_validCode_shouldReturnResetToken() throws Exception {
+        OffsetDateTime expiresAt = OffsetDateTime.parse("2026-06-10T12:15:00+09:00");
+        given(passwordResetService.verify("user@example.com", "123456"))
+                .willReturn(new PasswordResetResult("reset-token", expiresAt));
+
+        mockMvc.perform(post("/api/v1/auth/password-reset/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "code": "123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resetToken").value("reset-token"))
+                .andExpect(jsonPath("$.expiresAt").value("2026-06-10T12:15:00+09:00"));
+    }
+
+    @Test
+    void passwordResetConfirm_validToken_shouldReturnNoContent() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/password-reset/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "resetToken": "reset-token",
+                                  "newPassword": "Newpass1!"
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        verify(passwordResetService).confirm("reset-token", "Newpass1!");
+    }
+
+    @Test
+    void passwordResetConfirm_weakPassword_shouldReturnBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/password-reset/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "resetToken": "reset-token",
+                                  "newPassword": "password"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(passwordResetService);
     }
 
     @Test

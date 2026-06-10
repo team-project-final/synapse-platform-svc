@@ -391,6 +391,25 @@
 
 ---
 
+#### 2026-06-10 (수) - PLAT-070
+
+- **완료**:
+  - `origin/dev` 기준 `feature/PLAT-070-auth-recovery` 브랜치 생성.
+  - PLAT-070 작업문서 작성 및 PLAT-069 current 문서 archive.
+  - A-2 Auth 복구 플로우 보강: 비밀번호 재설정 요청/검증/확정 API 추가.
+  - MFA 백업 코드 발급/재발급/검증 API 추가.
+  - password reset code email을 notification 일일 quota에서 제외.
+  - reset code와 MFA backup code 원문 미저장, 만료/1회 사용/동시성 잠금 검증 보강.
+  - 검증 통과: auth recovery 단위/통합 테스트, notification repository/service 테스트, `clean build`.
+- **진행 중**:
+  - 실제 email 발송은 Kafka/SES 설정이 켜진 환경에서 연동 확인 필요.
+- **이슈**:
+  - 로그인 전 MFA challenge에서 backup code를 사용하려면 별도 challenge session 모델이 필요하다.
+- **다음**:
+  - PR 생성 후 review 대응.
+
+---
+
 ## 2026-06-09 PLAT-064 작업 기록
 
 - DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
@@ -403,6 +422,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-070 프론트 연동 백엔드 갭 A-2 구현** — Auth password reset API, MFA backup code API, notification quota 예외, 복구 플로우 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-067 프론트 연동 백엔드 갭 A-4 구현** — Billing payments/usage/receipt read API 추가, invoice metadata 저장, `TenantApi` plan quota 계약 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-09 | **PLAT-063 프론트 연동 백엔드 갭 A-1 구현** — User self-service API(`/users/me`, password, OAuth connection, delete) 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-09 | **W5 라이브 E2E 작업 진행** — #37 최신 gitops/shared 기준 해소 확인, platform Avro 벤더링 shared 정본 정렬, Auth/Billing·Notification 테스트 및 `clean build` 통과. platform P0 없음, cross-service P0는 engagement/learning 선결 |

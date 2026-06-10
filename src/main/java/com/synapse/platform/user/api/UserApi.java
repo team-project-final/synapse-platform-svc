@@ -36,4 +36,6 @@ public interface UserApi {
     LoginFailureResult recordFailedLogin(UUID userId, OffsetDateTime now);
 
     void recordSuccessfulLogin(UUID userId, OffsetDateTime now);
+
+    void resetPassword(UUID userId, String newPassword);
 }

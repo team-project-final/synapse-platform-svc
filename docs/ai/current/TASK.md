@@ -1,101 +1,97 @@
-# TASK - PLAT-069: Tenant 초대 API
+# TASK - PLAT-070: Auth 복구 플로우 보강
 
-> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-5 및 PLAT-068 후속 분리 항목. 프론트 `settings/tenant_settings_screen.dart`는 멤버 초대를 기대하지만, PLAT-068에서는 tenant 정보/멤버 목록/역할 변경/삭제까지만 구현하고 초대 API는 별도 작업으로 분리했다.
+> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-2. 프론트 `auth/password_reset_screen.dart`, `auth/mfa_screen.dart`가 비밀번호 재설정과 MFA 백업 코드 검증을 기대하지만, platform-svc는 현재 email/password 로그인, refresh, TOTP setup/verify까지만 제공한다.
 
 ## Task Metadata
 
 | 필드 | 내용 |
 |---|---|
-| Task ID | `PLAT-069` |
-| Title | Tenant 초대 API |
+| Task ID | `PLAT-070` |
+| Title | Auth 복구 플로우 보강 |
 | Owner | platform (김해준) |
 | Status | `DONE` |
 | Priority | `P1` |
-| Step Goal | OWNER/ADMIN 사용자가 본인 기본 tenant에 이메일 기반 멤버 초대를 생성하고, 프론트가 초대 생성 결과를 확인할 수 있게 한다. |
+| Step Goal | 사용자가 비밀번호를 잊었거나 TOTP 코드를 사용할 수 없을 때 안전하게 계정 접근을 복구할 수 있다. |
 | Done When | 아래 `Done When` 체크리스트 기준 |
 | Scope | 아래 `Scope` 기준 |
-| Dependencies | `BACKEND_GAP_platform.md` A-5, PLAT-068, `tenants`, `tenant_members`, `users`, `UserApi` |
+| Dependencies | `BACKEND_GAP_platform.md` A-2, `users`, `mfa_credentials`, `UserApi`, `PasswordEncoder`, notification/SES 발송 경계 |
 | Due Date | 2026-06-12 |
 
 ## Step Goal
 
-로그인 사용자가 본인 기본 tenant의 관리자 권한으로 이메일 초대를 생성한다.
-
-이번 작업의 1차 목표는 "프론트에서 초대 버튼을 실제 API에 연결할 수 있는 상태"를 만드는 것이다. 메일 발송은 notification/SES 경계가 있으므로 직접 결합하지 않고, 초대 레코드와 응답 계약을 먼저 고정한다.
+사용자가 email 기반 비밀번호 재설정 코드를 요청/검증/확정하고, MFA 백업 코드로 TOTP 대체 검증을 수행할 수 있다.
 
 ## Done When
 
-- [x] 기존 PLAT-068 current 문서를 archive한다.
-- [x] PLAT-069 작업 브랜치를 `dev`에서 생성한다.
-- [x] PLAT-069 작업문서를 작성한다.
-- [x] `tenant_invitations` 마이그레이션을 추가한다.
-- [x] `TenantInvitation` entity와 repository를 추가한다.
-- [x] `POST /api/v1/tenants/me/invitations`가 OWNER/ADMIN 권한으로 초대를 생성한다.
-- [x] 초대 대상 email은 정규화해서 저장한다.
-- [x] 초대 role은 `admin`, `member`, `viewer`만 허용한다.
-- [x] 이미 같은 tenant의 멤버인 사용자는 초대할 수 없다.
-- [x] 같은 tenant/email에 활성 초대가 있으면 409로 거절한다.
-- [x] 같은 tenant/email 동시 초대 생성 시 DB unique 충돌을 409로 변환한다.
-- [x] 초대 토큰은 원문을 저장하지 않고 hash만 저장한다.
-- [x] 응답에는 프론트가 표시할 수 있는 초대 id/email/role/status/expiresAt을 반환한다.
-- [x] 메일 발송은 이번 작업에서 직접 SES service를 주입하지 않는다.
-- [x] `TASK_platform.md`, env/profile, gitops/shared 프로젝트는 수정하지 않는다.
+- [x] 기존 PLAT-069 current 문서를 archive한다.
+- [x] PLAT-070 작업 브랜치를 `dev`에서 생성한다.
+- [x] PLAT-070 작업문서를 작성한다.
+- [x] 비밀번호 재설정 저장 모델을 추가한다.
+- [x] `POST /api/v1/auth/password-reset/request`가 email로 재설정 요청을 접수한다.
+- [x] 재설정 요청은 계정 존재 여부를 노출하지 않고 동일 응답을 반환한다.
+- [x] `POST /api/v1/auth/password-reset/verify`가 email+code를 검증하고 단기 reset token을 반환한다.
+- [x] `POST /api/v1/auth/password-reset/confirm`이 reset token으로 새 비밀번호를 저장한다.
+- [x] reset code/token은 원문 저장 없이 hash로 저장한다.
+- [x] reset code/token은 만료와 1회 사용을 강제한다.
+- [x] 비밀번호 변경 후 기존 refresh/session을 무효화한다.
+- [x] MFA 백업 코드 저장 모델을 추가한다.
+- [x] TOTP 활성화 사용자가 백업 코드를 발급/재발급할 수 있다.
+- [x] `POST /api/v1/auth/mfa/backup`이 백업 코드를 1회성으로 검증한다.
+- [x] 백업 코드는 원문 저장 없이 `PasswordEncoder` hash로 저장하고 사용 시 `used_at`을 남긴다.
 - [x] controller/service/repository/security 테스트가 통과한다.
 - [x] `PlatformModuleStructureTest`와 `clean build`가 통과한다.
+- [x] `TASK_platform.md`, env/profile, gitops/shared 프로젝트는 수정하지 않는다.
 
 ## Scope
 
 ### In Scope
 
-- `POST /api/v1/tenants/me/invitations`
-- tenant 초대 저장 테이블 추가
-- tenant 초대 entity/repository 추가
-- 초대 생성 request/response DTO 추가
-- PLAT-068 `TenantSelfServiceController`에 초대 endpoint 추가
-- PLAT-068 `TenantSelfServiceService`의 tenant context/manager 권한 정책 재사용
-- 이메일 정규화
-- role 검증
-- 이미 멤버인 email 차단
-- 활성 초대 중복 처리
-- token 생성 및 hash 저장
-- controller/service/repository/security 테스트 추가
+- 비밀번호 재설정 요청/검증/확정 API
+- 비밀번호 재설정 code/token 저장 테이블
+- reset code/token hash 저장
+- reset code notification-send Kafka 발행
+- 계정 존재 여부 비노출 응답
+- 만료/시도 횟수/1회 사용 정책
+- 비밀번호 확정 후 session/refresh 무효화 이벤트
+- MFA 백업 코드 발급/재발급/검증 API
+- MFA 백업 코드 저장 테이블
+- 백업 코드 `PasswordEncoder` hash 저장 및 1회 사용 처리
+- controller/service/repository/security 테스트
 
 ### Conditional Scope
 
-- `GET /api/v1/tenants/me/invitations`
-- `DELETE /api/v1/tenants/me/invitations/{invitationId}`
-- 초대 재전송 API
+- email 실제 발송 연결
+- reset request rate limit
+- MFA 백업 코드 목록 조회
 
 조건:
 
-- 프론트 초대 목록 표시가 바로 필요하면 목록 조회까지 포함한다.
-- 초대 취소/재전송은 저장 모델이 안정화된 뒤 후속 작업으로 분리해도 된다.
+- notification/SES의 공개 발송 경계가 명확하면 이번 작업에 email 발송 연결까지 포함한다.
+- 발송 경계가 모듈 내부 구현체 직접 주입만 가능한 상태라면 notification 내부 구현체를 직접 주입하지 않는다. 이번 구현은 `NotificationSend` Kafka 이벤트 발행으로 연결한다.
+- rate limit은 DB 기반 attempt count로 최소 구현 가능하면 포함하고, Redis 기반 분산 제한은 후속으로 분리한다.
 
 ### Out of Scope
 
-- 초대 수락 API
-- 가입/로그인 시 초대 자동 수락 흐름
-- SES 직접 발송 구현
-- notification 내부 service 직접 주입
-- admin tenant API 변경
-- billing plan 변경
-- tenant switch API
+- 로그인 플로우 전체 MFA challenge 재설계
+- OAuth provider 계정 복구
+- SMS/전화번호 인증
+- WebAuthn/passkey
 - 프론트 화면 수정
+- notification 내부 service 직접 주입
 - `TASK_platform.md` 수정
 - env/profile/gitops/shared 수정
 
 ## API Contract
 
-### 초대 생성
+### 비밀번호 재설정 코드 요청
 
-`POST /api/v1/tenants/me/invitations`
+`POST /api/v1/auth/password-reset/request`
 
 요청 후보:
 
 ```json
 {
-  "email": "new-user@example.com",
-  "role": "member"
+  "email": "user@example.com"
 }
 ```
 
@@ -103,106 +99,250 @@
 
 ```json
 {
-  "id": "f00ac14e-e1d3-43b6-b7de-6cc79801bfa9",
-  "email": "new-user@example.com",
-  "role": "member",
-  "status": "pending",
-  "expiresAt": "2026-06-17T09:00:00+09:00",
-  "createdAt": "2026-06-10T09:00:00+09:00"
+  "accepted": true
+}
+```
+
+정책:
+
+- 인증 불필요
+- 계정이 없어도 동일 응답
+- 계정이 `active`가 아니면 code 생성/발송하지 않되 동일 응답
+- email은 trim + lower-case 정규화
+- code 원문은 저장하지 않고 `PasswordEncoder` 결과만 저장
+- code 만료 후보: 10분
+
+### 비밀번호 재설정 코드 검증
+
+`POST /api/v1/auth/password-reset/verify`
+
+요청 후보:
+
+```json
+{
+  "email": "user@example.com",
+  "code": "123456"
+}
+```
+
+응답 후보:
+
+```json
+{
+  "resetToken": "one-time-reset-token",
+  "expiresAt": "2026-06-10T10:20:00+09:00"
+}
+```
+
+정책:
+
+- code가 맞으면 reset token 원문을 1회 반환한다.
+- reset token 원문은 DB에 저장하지 않고 hash만 저장한다.
+- 검증 실패 횟수 제한 후보: 5회
+- 검증 성공 후 code는 `verified` 상태로 전환한다.
+
+### 비밀번호 재설정 확정
+
+`POST /api/v1/auth/password-reset/confirm`
+
+요청 후보:
+
+```json
+{
+  "resetToken": "one-time-reset-token",
+  "newPassword": "Newpass1!"
+}
+```
+
+응답:
+
+- `204 No Content`
+
+정책:
+
+- reset token 만료/사용 여부 확인
+- 새 비밀번호 정책은 기존 email/password 요청 정책과 맞춘다.
+- 확정 후 user password hash 업데이트
+- 확정 후 reset token used 처리
+- 확정 후 `UserSessionsRevocationRequested` 발행으로 refresh/session 무효화
+
+### MFA 백업 코드 발급
+
+`POST /api/v1/auth/mfa/backup-codes`
+
+응답 후보:
+
+```json
+{
+  "codes": ["ABCD-EFGH", "IJKL-MNOP"]
 }
 ```
 
 정책:
 
 - 인증 필요
-- 요청자는 tenant `owner` 또는 `admin`
-- tenant는 로그인 사용자의 `defaultTenantId` 기준
-- path/body로 tenant id를 받지 않는다.
-- 허용 role: `admin`, `member`, `viewer`
-- `owner` 초대는 허용하지 않는다.
-- email은 trim + lower-case 정규화
-- 이미 같은 tenant의 member인 email은 409
-- 같은 tenant/email에 만료되지 않은 pending 초대가 있으면 409
-- 같은 tenant/email의 pending 초대가 이미 만료됐으면 기존 초대를 `expired`로 바꾸고 새 초대를 생성
-- 같은 tenant/email 동시 요청으로 DB pending unique index가 충돌하면 409
-- token 원문은 응답/DB에 저장하지 않는다.
+- TOTP credential이 active인 사용자만 가능
+- 재발급 시 기존 미사용 백업 코드는 폐기 또는 used 처리
+- 원문 코드는 응답 시 1회만 노출하고 DB에는 `PasswordEncoder` hash만 저장
+- TOTP secret 재설정 시 기존 미사용 백업 코드는 used 처리
+
+### MFA 백업 코드 검증
+
+`POST /api/v1/auth/mfa/backup`
+
+요청 후보:
+
+```json
+{
+  "code": "ABCD-EFGH"
+}
+```
+
+응답 후보:
+
+```json
+{
+  "verified": true
+}
+```
+
+정책:
+
+- 인증 필요
+- 미사용 백업 코드만 허용
+- 성공 시 해당 code를 즉시 used 처리
+- 실패 시 `MfaVerificationException`과 동일 계열 오류
 
 ## Data Model
 
-추가 후보:
+추가 후보 1: `password_reset_requests`
 
-- `tenant_invitations`
-  - `id UUID PRIMARY KEY`
-  - `tenant_id UUID NOT NULL`
-  - `email VARCHAR(255) NOT NULL`
-  - `role VARCHAR(20) NOT NULL`
-  - `token_hash VARCHAR(64) NOT NULL`
-  - `status VARCHAR(20) NOT NULL`
-  - `invited_by UUID NOT NULL`
-  - `expires_at TIMESTAMPTZ NOT NULL`
-  - `accepted_at TIMESTAMPTZ`
-  - `created_at TIMESTAMPTZ NOT NULL`
-  - `updated_at TIMESTAMPTZ NOT NULL`
+- `id UUID PRIMARY KEY`
+- `user_id UUID NOT NULL`
+- `email VARCHAR(255) NOT NULL`
+- `code_hash VARCHAR(255) NOT NULL`
+- `reset_token_hash VARCHAR(64)`
+- `status VARCHAR(20) NOT NULL`
+- `attempts INT NOT NULL DEFAULT 0`
+- `expires_at TIMESTAMPTZ NOT NULL`
+- `verified_at TIMESTAMPTZ`
+- `used_at TIMESTAMPTZ`
+- `created_at TIMESTAMPTZ NOT NULL`
+- `updated_at TIMESTAMPTZ NOT NULL`
 
-인덱스/제약 후보:
+추가 후보 2: `mfa_backup_codes`
 
-- `idx_tenant_invitations_tenant_status` on `(tenant_id, status)`
-- `idx_tenant_invitations_email` on `(email)`
-- pending 중복 방지용 partial unique index:
-  - `(tenant_id, email)` where `status = 'pending'`
+- `id UUID PRIMARY KEY`
+- `user_id UUID NOT NULL`
+- `code_hash VARCHAR(255) NOT NULL`
+- `used_at TIMESTAMPTZ`
+- `created_at TIMESTAMPTZ NOT NULL`
 
-마이그레이션 이름 후보:
+인덱스 후보:
 
-- `V20260610110000__create_tenant_invitations.sql`
+- `idx_password_reset_requests_email_status`
+- `idx_password_reset_requests_token_hash`
+- `idx_mfa_backup_codes_user_id`
+- `uq_mfa_backup_codes_code_hash`
 
 ## Design Notes
 
-- API 위치는 기존 PLAT-068과 동일하게 `/api/v1/tenants/**`로 둔다.
-- 구현 위치는 tenant/tenant_members 소유권이 있는 `auth` 모듈로 둔다.
-- `TenantSelfServiceController`에 endpoint를 추가하고, service 정책은 기존 tenant context와 manager role 검증을 재사용한다.
-- 초대 생성은 tenant membership insert가 아니다. 초대 수락 전까지 `tenant_members`에 추가하지 않는다.
-- 메일 발송은 이번 작업에서 직접 결합하지 않는다. 추후 outbox/Kafka notification event 또는 별도 application boundary로 연결한다.
-- 초대 토큰 원문은 생성 시점에만 사용 가능해야 하며, DB에는 hash만 저장한다.
-- 프론트가 당장 필요한 것은 초대 생성 성공/실패와 pending 상태 표시다.
+- 비밀번호 재설정은 `auth` 모듈 책임으로 둔다.
+- 실제 password hash 변경은 user aggregate 소유이므로 `UserApi` 공개 계약 확장 또는 user service boundary를 통해 처리한다.
+- 기존 `UserService.changeMyPassword(...)`는 로그인 사용자의 현재 비밀번호 검증용이므로 reset confirm에 그대로 쓰지 않는다.
+- reset request는 계정 enumeration 방지를 위해 항상 동일 응답을 반환한다.
+- MFA backup code는 `mfa_credentials`와 같은 auth 영역에 둔다.
+- email 발송은 notification 내부 service를 직접 주입하지 않는다. 이번 구현은 auth에서 `NotificationSend` Kafka 이벤트를 발행하고, notification consumer/SES 설정이 켜진 환경에서 실제 email 발송을 수행한다.
+- `PASSWORD_RESET_CODE` email은 일반 알림 일일 발송 quota와 분리해 reset code 발송이 조용히 skip되지 않고 일반 알림 quota도 소모하지 않게 한다.
 
 ## Implementation Checklist
 
-- [x] 기존 PLAT-068 current 문서 archive 완료
-- [x] PLAT-069 작업 브랜치 생성
-- [x] PLAT-069 작업문서 작성
-- [x] migration 추가
-- [x] `TenantInvitation` entity 추가
-- [x] `TenantInvitationRepository` 추가
-- [x] request/response DTO 추가
-- [x] `TenantSelfServiceException` 초대 관련 오류 추가
-- [x] `TenantSelfServiceService.createInvitation(...)` 추가
-- [x] `TenantSelfServiceController` 초대 생성 endpoint 추가
-- [x] 이미 멤버인 email 검증 추가
-- [x] 활성 초대 중복 정책 구현
-- [x] 동시 pending insert 충돌 409 변환 구현
-- [x] token hash 처리 구현
-- [x] controller test 추가
-- [x] service test 추가
-- [x] repository integration test 추가
+- [x] 기존 PLAT-069 current 문서 archive 완료
+- [x] PLAT-070 작업 브랜치 생성
+- [x] PLAT-070 작업문서 작성
+- [x] 비밀번호 재설정 migration 추가
+- [x] MFA 백업 코드 migration 추가
+- [x] 비밀번호 재설정 entity/repository 추가
+- [x] MFA 백업 코드 entity/repository 추가
+- [x] password reset request/response DTO 추가
+- [x] MFA backup request/response DTO 추가
+- [x] `AuthController` password reset endpoint 추가
+- [x] `MfaController` backup endpoint 추가
+- [x] password reset service 추가
+- [x] MFA backup service 추가 또는 `TotpService` 보강
+- [x] `UserApi` password reset용 계약 보강
+- [x] 계정 존재 비노출 테스트 추가
+- [x] code/token hash/만료/1회 사용 테스트 추가
+- [x] backup code 1회 사용 테스트 추가
+- [x] password reset email quota bypass 테스트 추가
 - [x] security integration test 추가
 - [x] `PlatformModuleStructureTest` 통과
 - [x] `clean build` 통과
 
+## Implementation Result
+
+- `V20260610123000__create_auth_recovery_tables.sql`
+  - `password_reset_requests`
+  - `mfa_backup_codes`
+- `AuthController`
+  - `POST /api/v1/auth/password-reset/request`
+  - `POST /api/v1/auth/password-reset/verify`
+  - `POST /api/v1/auth/password-reset/confirm`
+- `MfaController`
+  - `POST /api/v1/auth/mfa/backup-codes`
+  - `POST /api/v1/auth/mfa/backup`
+- `PasswordResetService`
+  - active password-login 사용자만 reset request 저장
+  - request 응답 account enumeration 방지
+  - code TTL 10분
+  - reset token TTL 15분
+  - 실패 시도 5회 제한
+  - reset code는 `PasswordEncoder` 결과 저장
+  - reset token은 SHA-256 hash 저장
+  - 트랜잭션 커밋 후 reset code sender 호출
+  - confirm 후 `UserApi.resetPassword(...)`
+- `KafkaPasswordResetCodeSender`
+  - `NotificationSend` EMAIL 이벤트 발행
+  - notification 내부 `SesEmailService` 직접 주입 없음
+  - `PASSWORD_RESET_CODE` email은 notification 일일 quota 예외
+- `TotpService`
+  - TOTP active 사용자만 backup code 발급
+  - backup code 10개 발급
+  - 기존 미사용 backup code 사용 처리 후 재발급
+  - TOTP secret 재설정 시 기존 미사용 backup code 사용 처리
+  - 재발급 시 `mfa_credentials` row pessimistic lock
+  - backup code는 `PasswordEncoder` hash 저장
+  - 성공 검증 시 즉시 `used_at` 처리
+- `UserApi` / `UserService`
+  - reset password 전용 boundary 추가
+  - password hash 변경
+  - failed login lock 해제
+  - `UserSessionsRevocationRequested` 발행
+- `SecurityConfig`
+  - password reset 3개 endpoint permitAll
+  - MFA backup endpoint는 인증 필요 유지
+
+## Known Follow-up
+
+- 실제 email 발송은 `synapse.kafka.enabled=true`와 SES 설정이 켜진 환경에서 동작한다.
+- 운영/스테이징 배포 전 notification-send topic, notification consumer, SES 설정을 함께 확인해야 한다.
+- 현재 `POST /api/v1/auth/mfa/backup`은 인증 필요 endpoint다. 로그인 전 MFA challenge에서 backup code를 쓰려면 별도 challenge session 모델이 필요하다.
+
 ## Verification Plan
 
 ```powershell
-.\gradlew.bat test --tests "*TenantSelfServiceControllerTest"
-.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"
-.\gradlew.bat test --tests "*TenantInvitationRepositoryTest"
-.\gradlew.bat test --tests "*TenantSelfServiceSecurityIntegrationTest"
+.\gradlew.bat test --tests "*PasswordReset*"
+.\gradlew.bat test --tests "*Mfa*"
+.\gradlew.bat test --tests "*AuthControllerTest"
 .\gradlew.bat test --tests "*PlatformModuleStructureTest"
 .\gradlew.bat clean build
 ```
 
 ## Verification Result
 
-- `.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"` 통과
-- 리뷰 보강 후 `.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"` 통과
-- `.\gradlew.bat test --tests "*TenantSelfServiceControllerTest" --tests "*TenantSelfServiceSecurityIntegrationTest" --tests "*TenantInvitationRepositoryTest"` 통과
-- `.\gradlew.bat test --tests "*PlatformModuleStructureTest"` 통과
-- `.\gradlew.bat clean build` 통과
+- `.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*TotpServiceTest" --tests "*AuthControllerTest" --tests "*MfaControllerTest" --tests "*UserServiceTest" --tests "*PasswordResetRequestRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest"`: PASS
+- `.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*KafkaPasswordResetCodeSenderTest" --tests "*TotpServiceTest" --tests "*MfaCredentialRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest" --tests "*PasswordResetRequestRepositoryLockingTest"`: PASS
+- `.\gradlew.bat test --tests "*AuthRecoverySecurityIntegrationTest"`: PASS
+- `.\gradlew.bat test --tests "*PlatformModuleStructureTest"`: PASS
+- `.\gradlew.bat clean build`: PASS
+- Windows Kafka temp directory deletion warning appears during shutdown, but Gradle result is `BUILD SUCCESSFUL`.

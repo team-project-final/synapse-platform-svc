@@ -1,125 +1,172 @@
-# HANDOFF - PLAT-069: Tenant 초대 API
+# HANDOFF - PLAT-070: Auth 복구 플로우 보강
 
 ## 한줄 요약
 
-PLAT-068에서 분리한 tenant member 초대 API를 구현할 차례다. 우선 `POST /api/v1/tenants/me/invitations`와 `tenant_invitations` 저장 모델을 만든다.
+루트 `docs/BACKEND_GAP_platform.md` A-2 작업이다. 비밀번호 재설정 3단계 API와 MFA 백업 코드 발급/검증 API 구현 및 검증이 완료됐다.
 
 ## 현재 상태
 
 - 작업 브랜치 생성 완료
-- PLAT-068 current 문서 archive 완료
-- PLAT-069 작업문서 작성 완료
-- 초대 생성 API 구현 완료
-- 동시 pending 초대 insert 충돌 409 변환 완료
-- targeted test 통과
-- `clean build` 통과
+- PLAT-069 current 문서 archive 완료
+- PLAT-070 작업문서 작성 완료
+- 비밀번호 재설정 API 구현 완료
+- MFA 백업 코드 발급/검증 API 구현 완료
+- controller/service/repository/security 테스트 완료
+- `PlatformModuleStructureTest` 완료
+- `clean build` 완료
 
 ## 작업 위치
 
 - Repo: `synapse-platform-svc`
-- Branch: `feature/PLAT-069-tenant-invitations`
+- Branch: `feature/PLAT-070-auth-recovery`
 - Base: `dev`
 - 작업문서: `docs/ai/current`
-- 이전 current archive: `docs/ai/archive/20260610-plat-068-completed`
+- 이전 current archive: `docs/ai/archive/20260610-plat-069-completed`
 
-## 구현 목표
+## 구현 결과
 
-1. 초대 저장 모델 추가
-   - `tenant_invitations`
-   - pending/accepted/expired/cancelled 상태 관리
-   - email, role, token hash, invitedBy, expiresAt 저장
+1. 비밀번호 재설정 API
+   - `POST /api/v1/auth/password-reset/request`
+   - `POST /api/v1/auth/password-reset/verify`
+   - `POST /api/v1/auth/password-reset/confirm`
+   - code/token hash 저장
+   - 계정 존재 여부 비노출
+   - 만료/시도 횟수/1회 사용
+   - password 변경 후 session revocation
 
-2. 초대 생성 API 추가
-   - `POST /api/v1/tenants/me/invitations`
-   - 로그인 사용자의 기본 tenant 기준
-   - owner/admin만 허용
-   - role은 `admin`, `member`, `viewer`만 허용
+2. MFA 백업 코드 API
+   - `POST /api/v1/auth/mfa/backup-codes`
+   - `POST /api/v1/auth/mfa/backup`
+   - TOTP active 사용자만 발급
+   - backup code `PasswordEncoder` hash 저장
+   - 검증 성공 시 1회 사용 처리
+   - TOTP secret 재설정 시 기존 미사용 backup code 폐기
 
-3. 중복/멤버 검증 추가
-   - 이미 같은 tenant 멤버인 email 차단
-   - 같은 tenant/email에 활성 pending 초대가 있으면 409로 중복 차단
-   - 같은 tenant/email 동시 생성 시 DB unique 충돌을 409로 변환
-   - 만료된 초대가 있으면 새 초대 가능
+3. 발송 경계
+   - notification 내부 SES service 직접 주입 금지
+   - `NotificationSend` Kafka 이벤트 발행으로 reset code 전달
+   - notification consumer/SES 설정이 켜진 환경에서 실제 email 발송
+   - `PASSWORD_RESET_CODE` email은 일반 notification 일일 quota 예외 및 quota 집계 제외
 
-4. 메일 발송 경계 유지
-   - 이번 작업에서는 SES 직접 발송을 구현하지 않는다.
-   - auth service에서 notification 내부 service를 직접 주입하지 않는다.
-   - 후속으로 outbox/Kafka notification event 또는 공개 notification boundary를 검토한다.
+## 주요 파일
 
-## 예상 파일
+- `src/main/resources/db/migration/V20260610123000__create_auth_recovery_tables.sql`
+- `src/main/java/com/synapse/platform/auth/entity/PasswordResetRequest.java`
+- `src/main/java/com/synapse/platform/auth/entity/MfaBackupCode.java`
+- `src/main/java/com/synapse/platform/auth/repository/PasswordResetRequestRepository.java`
+- `src/main/java/com/synapse/platform/auth/repository/MfaBackupCodeRepository.java`
+- `src/main/java/com/synapse/platform/auth/service/PasswordResetService.java`
+- `src/main/java/com/synapse/platform/auth/service/PasswordResetCodeSender.java`
+- `src/main/java/com/synapse/platform/auth/service/KafkaPasswordResetCodeSender.java`
+- `src/main/java/com/synapse/platform/auth/service/NoopPasswordResetCodeSender.java`
+- `src/main/java/com/synapse/platform/auth/service/TotpService.java`
+- `src/main/java/com/synapse/platform/auth/controller/AuthController.java`
+- `src/main/java/com/synapse/platform/auth/controller/MfaController.java`
+- `src/main/java/com/synapse/platform/user/api/UserApi.java`
+- `src/main/java/com/synapse/platform/user/service/UserService.java`
 
-- `src/main/resources/db/migration/V20260610110000__create_tenant_invitations.sql`
-- `src/main/java/com/synapse/platform/auth/entity/TenantInvitation.java`
-- `src/main/java/com/synapse/platform/auth/repository/TenantInvitationRepository.java`
-- `src/main/java/com/synapse/platform/auth/dto/request/CreateTenantInvitationRequest.java`
-- `src/main/java/com/synapse/platform/auth/dto/response/TenantInvitationResponse.java`
-- `src/main/java/com/synapse/platform/auth/service/TenantSelfServiceException.java`
-- `src/main/java/com/synapse/platform/auth/service/TenantSelfServiceService.java`
-- `src/main/java/com/synapse/platform/auth/controller/TenantSelfServiceController.java`
+테스트:
 
-테스트 후보:
-
-- `src/test/java/com/synapse/platform/auth/controller/TenantSelfServiceControllerTest.java`
-- `src/test/java/com/synapse/platform/auth/service/TenantSelfServiceServiceTest.java`
-- `src/test/java/com/synapse/platform/auth/repository/TenantInvitationRepositoryTest.java`
-- `src/test/java/com/synapse/platform/auth/controller/TenantSelfServiceSecurityIntegrationTest.java`
+- `src/test/java/com/synapse/platform/auth/controller/AuthControllerTest.java`
+- `src/test/java/com/synapse/platform/auth/controller/MfaControllerTest.java`
+- `src/test/java/com/synapse/platform/auth/service/PasswordResetServiceTest.java`
+- `src/test/java/com/synapse/platform/auth/service/KafkaPasswordResetCodeSenderTest.java`
+- `src/test/java/com/synapse/platform/auth/service/TotpServiceTest.java`
+- `src/test/java/com/synapse/platform/auth/repository/PasswordResetRequestRepositoryLockingTest.java`
+- `src/test/java/com/synapse/platform/auth/repository/MfaCredentialRepositoryLockingTest.java`
+- `src/test/java/com/synapse/platform/auth/repository/MfaBackupCodeRepositoryLockingTest.java`
+- `src/test/java/com/synapse/platform/auth/config/AuthRecoverySecurityIntegrationTest.java`
+- `src/test/java/com/synapse/platform/PlatformModuleStructureTest.java`
 
 ## API 후보
 
-요청:
+비밀번호 재설정 요청:
 
 ```http
-POST /api/v1/tenants/me/invitations
-Authorization: Bearer <token>
-Content-Type: application/json
+POST /api/v1/auth/password-reset/request
 ```
 
 ```json
 {
-  "email": "new-user@example.com",
-  "role": "member"
+  "email": "user@example.com"
 }
 ```
 
-응답:
+비밀번호 재설정 코드 검증:
+
+```http
+POST /api/v1/auth/password-reset/verify
+```
 
 ```json
 {
-  "id": "uuid",
-  "email": "new-user@example.com",
-  "role": "member",
-  "status": "pending",
-  "expiresAt": "2026-06-17T09:00:00+09:00",
-  "createdAt": "2026-06-10T09:00:00+09:00"
+  "email": "user@example.com",
+  "code": "123456"
+}
+```
+
+비밀번호 재설정 확정:
+
+```http
+POST /api/v1/auth/password-reset/confirm
+```
+
+```json
+{
+  "resetToken": "one-time-reset-token",
+  "newPassword": "Newpass1!"
+}
+```
+
+MFA 백업 코드 발급:
+
+```http
+POST /api/v1/auth/mfa/backup-codes
+Authorization: Bearer <token>
+```
+
+MFA 백업 코드 검증:
+
+```http
+POST /api/v1/auth/mfa/backup
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "code": "ABCD-EFGH"
 }
 ```
 
 ## 검증 명령
 
 ```powershell
-.\gradlew.bat test --tests "*TenantSelfServiceControllerTest"
-.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"
-.\gradlew.bat test --tests "*TenantInvitationRepositoryTest"
-.\gradlew.bat test --tests "*TenantSelfServiceSecurityIntegrationTest"
+.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*TotpServiceTest" --tests "*AuthControllerTest" --tests "*MfaControllerTest" --tests "*UserServiceTest" --tests "*PasswordResetRequestRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest"
+.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*KafkaPasswordResetCodeSenderTest" --tests "*TotpServiceTest" --tests "*MfaCredentialRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest" --tests "*PasswordResetRequestRepositoryLockingTest"
+.\gradlew.bat test --tests "*NotificationServiceTest"
+.\gradlew.bat test --tests "*AuthRecoverySecurityIntegrationTest"
 .\gradlew.bat test --tests "*PlatformModuleStructureTest"
 .\gradlew.bat clean build
 ```
 
-현재 통과:
+결과:
 
-- `.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"`
-- 리뷰 보강 후 `.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"`
-- `.\gradlew.bat test --tests "*TenantSelfServiceControllerTest" --tests "*TenantSelfServiceSecurityIntegrationTest" --tests "*TenantInvitationRepositoryTest"`
-- `.\gradlew.bat test --tests "*PlatformModuleStructureTest"`
-- `.\gradlew.bat clean build`
+- 위 명령 모두 PASS
+- `clean build`는 `BUILD SUCCESSFUL`
+- Windows Kafka temp directory deletion warning은 shutdown 중 출력되지만 빌드 실패 원인은 아님
+
+## 후속 작업
+
+- 운영/스테이징에서 notification-send topic, notification consumer, SES 설정 확인
+- 로그인 전 MFA backup challenge가 필요하면 별도 challenge session 모델 설계 필요
 
 ## 금지/주의
 
 - `TASK_platform.md` 수정 금지
 - env/profile 수정 금지
 - gitops/shared 수정 금지
-- admin tenant API 회귀 금지
-- billing plan/status 변경 금지
-- 초대 수락 API를 이번 작업에 섞지 말 것
 - notification 내부 service를 auth에서 직접 주입하지 말 것
+- password reset request에서 계정 존재 여부를 노출하지 말 것
+- reset code/token/backup code 원문을 DB에 저장하지 말 것
+- PR 생성 전 `docs/rules/13-git-rules.md` 전체 확인
 - PR 본문 작성 시 UTF-8 body file 사용

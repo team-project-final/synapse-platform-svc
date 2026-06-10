@@ -177,6 +177,17 @@ public class UserService implements UserApi {
         user.recordSuccessfulLogin(now);
     }
 
+    @Override
+    @Transactional
+    public void resetPassword(UUID userId, String newPassword) {
+        User user = findUser(userId);
+        if (!user.hasPassword()) {
+            throw UserSelfServiceException.passwordLoginUnavailable();
+        }
+        user.resetPassword(passwordEncoder.encode(newPassword));
+        eventPublisher.publishEvent(new UserSessionsRevocationRequested(userId));
+    }
+
     @Transactional(readOnly = true)
     public UserProfileResponse getMyProfile(UUID userId) {
         User user = findUser(userId);

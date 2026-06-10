@@ -265,6 +265,25 @@ class UserServiceTest {
     }
 
     @Test
+    void resetPassword_shouldUpdateHashClearLockAndRevokeSessions() {
+        UUID userId = UUID.randomUUID();
+        OffsetDateTime now = OffsetDateTime.parse("2026-06-10T12:00:00+09:00");
+        User user = user(userId);
+        for (int count = 0; count < 5; count++) {
+            user.recordFailedLogin(now);
+        }
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(passwordEncoder.encode("Newpass1!")).willReturn("$2a$new");
+
+        userService.resetPassword(userId, "Newpass1!");
+
+        assertThat(user.getPasswordHash()).isEqualTo("$2a$new");
+        assertThat(user.getFailedLoginCount()).isZero();
+        assertThat(user.getLockedUntil()).isNull();
+        verify(eventPublisher).publishEvent(new UserSessionsRevocationRequested(userId));
+    }
+
+    @Test
     void deleteMyAccount_shouldSoftDeleteAndRevokeSessions() {
         UUID userId = UUID.randomUUID();
         User user = user(userId);

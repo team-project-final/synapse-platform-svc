@@ -39,6 +39,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 
     implementation("org.springframework.modulith:spring-modulith-starter-core")
 
@@ -58,7 +59,10 @@ dependencies {
 
     implementation("org.springframework.kafka:spring-kafka")
     implementation("org.apache.avro:avro:1.12.0")
-    implementation("io.confluent:kafka-avro-serializer:7.7.0")
+    implementation("io.confluent:kafka-avro-serializer:7.7.0") {
+        // SpringDoc 3.x provides swagger-annotations-jakarta; Confluent's older annotations jar conflicts at runtime.
+        exclude(group = "io.swagger.core.v3", module = "swagger-annotations")
+    }
 
     implementation("com.google.firebase:firebase-admin:9.4.1")
     implementation("software.amazon.awssdk:sesv2:2.26.29")

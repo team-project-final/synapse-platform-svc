@@ -1,172 +1,89 @@
-# HANDOFF - PLAT-070: Auth 복구 플로우 보강
+# HANDOFF - PLAT-071: Admin 대시보드 분석 API
 
-## 한줄 요약
+## 상태
 
-루트 `docs/BACKEND_GAP_platform.md` A-2 작업이다. 비밀번호 재설정 3단계 API와 MFA 백업 코드 발급/검증 API 구현 및 검증이 완료됐다.
-
-## 현재 상태
-
-- 작업 브랜치 생성 완료
-- PLAT-069 current 문서 archive 완료
-- PLAT-070 작업문서 작성 완료
-- 비밀번호 재설정 API 구현 완료
-- MFA 백업 코드 발급/검증 API 구현 완료
-- controller/service/repository/security 테스트 완료
-- `PlatformModuleStructureTest` 완료
-- `clean build` 완료
-
-## 작업 위치
-
-- Repo: `synapse-platform-svc`
-- Branch: `feature/PLAT-070-auth-recovery`
+- Branch: `feature/PLAT-071-admin-analytics`
 - Base: `dev`
-- 작업문서: `docs/ai/current`
-- 이전 current archive: `docs/ai/archive/20260610-plat-069-completed`
+- Current task: PLAT-071 구현 완료
+- Implementation: DONE
+- Verification: PASS
 
-## 구현 결과
+## 구현 완료 내용
 
-1. 비밀번호 재설정 API
-   - `POST /api/v1/auth/password-reset/request`
-   - `POST /api/v1/auth/password-reset/verify`
-   - `POST /api/v1/auth/password-reset/confirm`
-   - code/token hash 저장
-   - 계정 존재 여부 비노출
-   - 만료/시도 횟수/1회 사용
-   - password 변경 후 session revocation
+- `GET /api/v1/admin/analytics/summary` 추가.
+- `AdminAnalyticsController`, `AdminAnalyticsService`, `AdminAnalyticsSummaryResponse` 추가.
+- admin 모듈은 각 도메인의 named interface API만 사용하도록 유지.
+- 사용자 지표:
+  - total, active, suspended, deleted
+  - newToday
+  - DAU/MAU 후보 지표
+  - source: `USERS_LAST_LOGIN_AT`
+  - total/deleted는 soft-delete 행 포함
+  - newToday/DAU는 `generatedAt` 날짜 00:00 이후 기준
+- 테넌트 지표:
+  - total, active, suspended
+  - plan별 count
+- platform-local usage:
+  - 오늘 발송/실패 알림
+  - 활성 구독 수
+  - 오늘 결제 성공 수/금액
+  - 오늘 audit activity 수
+  - `*.today` 지표는 최근 24시간이 아니라 `generatedAt` 날짜 00:00 이후 기준
+- cross-service usage:
+  - AI token, storage는 fake value 없이 `NOT_CONNECTED`
+- pending item:
+  - GDPR data request는 `NOT_IMPLEMENTED`
+  - report는 `NOT_CONNECTED`
+- recent activity:
+  - `audit_logs.created_at DESC` 기준 최근 5개
 
-2. MFA 백업 코드 API
-   - `POST /api/v1/auth/mfa/backup-codes`
-   - `POST /api/v1/auth/mfa/backup`
-   - TOTP active 사용자만 발급
-   - backup code `PasswordEncoder` hash 저장
-   - 검증 성공 시 1회 사용 처리
-   - TOTP secret 재설정 시 기존 미사용 backup code 폐기
+## 추가된 공개 API
 
-3. 발송 경계
-   - notification 내부 SES service 직접 주입 금지
-   - `NotificationSend` Kafka 이벤트 발행으로 reset code 전달
-   - notification consumer/SES 설정이 켜진 환경에서 실제 email 발송
-   - `PASSWORD_RESET_CODE` email은 일반 notification 일일 quota 예외 및 quota 집계 제외
+- `user::api`
+  - `UserAnalyticsApi`
+  - `UserAnalyticsSnapshot`
+- `auth::tenant-api`
+  - `TenantAnalyticsApi`
+  - `TenantAnalyticsSnapshot`
+- `billing::api`
+  - `BillingAnalyticsApi`
+  - `BillingAnalyticsSnapshot`
+- `notification::api`
+  - `NotificationAnalyticsApi`
+  - `NotificationAnalyticsSnapshot`
+- `audit::api`
+  - `AuditAnalyticsApi`
+  - `AuditAnalyticsSnapshot`
+  - `RecentAuditActivity`
 
-## 주요 파일
-
-- `src/main/resources/db/migration/V20260610123000__create_auth_recovery_tables.sql`
-- `src/main/java/com/synapse/platform/auth/entity/PasswordResetRequest.java`
-- `src/main/java/com/synapse/platform/auth/entity/MfaBackupCode.java`
-- `src/main/java/com/synapse/platform/auth/repository/PasswordResetRequestRepository.java`
-- `src/main/java/com/synapse/platform/auth/repository/MfaBackupCodeRepository.java`
-- `src/main/java/com/synapse/platform/auth/service/PasswordResetService.java`
-- `src/main/java/com/synapse/platform/auth/service/PasswordResetCodeSender.java`
-- `src/main/java/com/synapse/platform/auth/service/KafkaPasswordResetCodeSender.java`
-- `src/main/java/com/synapse/platform/auth/service/NoopPasswordResetCodeSender.java`
-- `src/main/java/com/synapse/platform/auth/service/TotpService.java`
-- `src/main/java/com/synapse/platform/auth/controller/AuthController.java`
-- `src/main/java/com/synapse/platform/auth/controller/MfaController.java`
-- `src/main/java/com/synapse/platform/user/api/UserApi.java`
-- `src/main/java/com/synapse/platform/user/service/UserService.java`
-
-테스트:
-
-- `src/test/java/com/synapse/platform/auth/controller/AuthControllerTest.java`
-- `src/test/java/com/synapse/platform/auth/controller/MfaControllerTest.java`
-- `src/test/java/com/synapse/platform/auth/service/PasswordResetServiceTest.java`
-- `src/test/java/com/synapse/platform/auth/service/KafkaPasswordResetCodeSenderTest.java`
-- `src/test/java/com/synapse/platform/auth/service/TotpServiceTest.java`
-- `src/test/java/com/synapse/platform/auth/repository/PasswordResetRequestRepositoryLockingTest.java`
-- `src/test/java/com/synapse/platform/auth/repository/MfaCredentialRepositoryLockingTest.java`
-- `src/test/java/com/synapse/platform/auth/repository/MfaBackupCodeRepositoryLockingTest.java`
-- `src/test/java/com/synapse/platform/auth/config/AuthRecoverySecurityIntegrationTest.java`
-- `src/test/java/com/synapse/platform/PlatformModuleStructureTest.java`
-
-## API 후보
-
-비밀번호 재설정 요청:
-
-```http
-POST /api/v1/auth/password-reset/request
-```
-
-```json
-{
-  "email": "user@example.com"
-}
-```
-
-비밀번호 재설정 코드 검증:
-
-```http
-POST /api/v1/auth/password-reset/verify
-```
-
-```json
-{
-  "email": "user@example.com",
-  "code": "123456"
-}
-```
-
-비밀번호 재설정 확정:
-
-```http
-POST /api/v1/auth/password-reset/confirm
-```
-
-```json
-{
-  "resetToken": "one-time-reset-token",
-  "newPassword": "Newpass1!"
-}
-```
-
-MFA 백업 코드 발급:
-
-```http
-POST /api/v1/auth/mfa/backup-codes
-Authorization: Bearer <token>
-```
-
-MFA 백업 코드 검증:
-
-```http
-POST /api/v1/auth/mfa/backup
-Authorization: Bearer <token>
-```
-
-```json
-{
-  "code": "ABCD-EFGH"
-}
-```
-
-## 검증 명령
+## 검증 결과
 
 ```powershell
-.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*TotpServiceTest" --tests "*AuthControllerTest" --tests "*MfaControllerTest" --tests "*UserServiceTest" --tests "*PasswordResetRequestRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest"
-.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*KafkaPasswordResetCodeSenderTest" --tests "*TotpServiceTest" --tests "*MfaCredentialRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest" --tests "*PasswordResetRequestRepositoryLockingTest"
-.\gradlew.bat test --tests "*NotificationServiceTest"
-.\gradlew.bat test --tests "*AuthRecoverySecurityIntegrationTest"
+.\gradlew.bat test --tests "*AdminAnalytics*" --tests "*UserAnalyticsServiceTest" --tests "*TenantAnalyticsServiceTest" --tests "*BillingAnalyticsServiceTest" --tests "*NotificationAnalyticsServiceTest" --tests "*AuditAnalyticsServiceTest" --tests "*AdminSecurityIntegrationTest"
+.\gradlew.bat test --tests "*UserRepositoryAnalyticsTest" --tests "*TenantRepositoryAnalyticsTest" --tests "*BillingRepositoryTest" --tests "*NotificationRepositoryTest" --tests "*AuditLogPostgresSchemaTest"
 .\gradlew.bat test --tests "*PlatformModuleStructureTest"
+.\gradlew.bat spotbugsMain
 .\gradlew.bat clean build
 ```
 
 결과:
 
-- 위 명령 모두 PASS
-- `clean build`는 `BUILD SUCCESSFUL`
-- Windows Kafka temp directory deletion warning은 shutdown 중 출력되지만 빌드 실패 원인은 아님
+- PASS
+- Windows Kafka temp directory deletion warning은 shutdown 시점 경고이며 Gradle 결과는 `BUILD SUCCESSFUL`.
 
-## 후속 작업
+## 다음 단계
 
-- 운영/스테이징에서 notification-send topic, notification consumer, SES 설정 확인
-- 로그인 전 MFA backup challenge가 필요하면 별도 challenge session 모델 설계 필요
+1. 작업 내용 리뷰.
+2. 필요 시 리뷰 피드백 반영.
+3. PR 준비.
+4. 후속 작업 후보:
+   - PLAT-072 Admin 시스템 설정/피처 플래그 API
+   - PLAT-073 Admin GDPR/data request API
 
-## 금지/주의
+## 주의사항
 
-- `TASK_platform.md` 수정 금지
-- env/profile 수정 금지
-- gitops/shared 수정 금지
-- notification 내부 service를 auth에서 직접 주입하지 말 것
-- password reset request에서 계정 존재 여부를 노출하지 말 것
-- reset code/token/backup code 원문을 DB에 저장하지 말 것
-- PR 생성 전 `docs/rules/13-git-rules.md` 전체 확인
-- PR 본문 작성 시 UTF-8 body file 사용
+- `TASK_platform.md` 수정하지 않음.
+- env/profile/gitops/shared 수정하지 않음.
+- frontend 수정은 이번 작업 범위가 아님.
+- DAU/MAU는 정식 analytics event가 아니라 `users.last_login_at` 기준 후보 지표.
+- AI token/storage 등 타 서비스 정본이 필요한 값은 `NOT_CONNECTED`로 내려준다.

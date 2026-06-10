@@ -1,7 +1,9 @@
 package com.synapse.platform.user.repository;
 
 import com.synapse.platform.user.entity.User;
+import com.synapse.platform.user.entity.UserStatus;
 import jakarta.persistence.LockModeType;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -21,4 +23,16 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
     boolean existsByEmail(String email);
 
     boolean existsByUsername(String username);
+
+    long countByStatus(UserStatus status);
+
+    long countByCreatedAtGreaterThanEqual(OffsetDateTime createdAt);
+
+    long countByStatusAndLastLoginAtGreaterThanEqual(UserStatus status, OffsetDateTime lastLoginAt);
+
+    @Query(value = "select count(*) from users", nativeQuery = true)
+    long countAllIncludingSoftDeleted();
+
+    @Query(value = "select count(*) from users where deleted_at is not null or status = 'deleted'", nativeQuery = true)
+    long countDeletedIncludingSoftDeleted();
 }

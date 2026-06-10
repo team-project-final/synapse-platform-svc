@@ -34,6 +34,10 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
             NotificationChannel channel,
             NotificationStatus status);
 
+    long countByStatusAndSentAtGreaterThanEqual(NotificationStatus status, Instant sentAt);
+
+    long countByStatusAndCreatedAtGreaterThanEqual(NotificationStatus status, Instant createdAt);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update Notification notification

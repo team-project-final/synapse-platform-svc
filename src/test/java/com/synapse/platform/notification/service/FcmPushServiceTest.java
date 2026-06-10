@@ -61,6 +61,51 @@ class FcmPushServiceTest {
     }
 
     @Test
+    void sendToUser_partialFailure_shouldReturnSuccessCountAndRecordFailureMetric() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(deviceTokenRepository.findByUserId(userId))
+                .willReturn(List.of(deviceToken("token-1", true), deviceToken("token-2", true)));
+        given(batchResponse.getFailureCount()).willReturn(1);
+        given(batchResponse.getSuccessCount()).willReturn(1);
+        given(firebaseMessaging.sendEachForMulticast(any())).willReturn(batchResponse);
+
+        try (MockedStatic<FirebaseMessaging> firebase = Mockito.mockStatic(FirebaseMessaging.class)) {
+            firebase.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessaging);
+
+            int sent = service().sendToUser(userId, "Title", "Body", Map.of());
+
+            assertThat(sent).isEqualTo(1);
+            assertThat(meterRegistry.get("notification.send")
+                    .tags("channel", "fcm", "result", "success").counter().count())
+                    .isEqualTo(1.0);
+            assertThat(meterRegistry.get("notification.send")
+                    .tags("channel", "fcm", "result", "failure").counter().count())
+                    .isEqualTo(1.0);
+        }
+    }
+
+    @Test
+    void sendToUser_allTokensFailed_shouldThrowAndRecordFailureMetric() throws Exception {
+        UUID userId = UUID.randomUUID();
+        given(deviceTokenRepository.findByUserId(userId))
+                .willReturn(List.of(deviceToken("token-1", true), deviceToken("token-2", true)));
+        given(batchResponse.getFailureCount()).willReturn(2);
+        given(batchResponse.getSuccessCount()).willReturn(0);
+        given(firebaseMessaging.sendEachForMulticast(any())).willReturn(batchResponse);
+
+        try (MockedStatic<FirebaseMessaging> firebase = Mockito.mockStatic(FirebaseMessaging.class)) {
+            firebase.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessaging);
+
+            assertThatThrownBy(() -> service().sendToUser(userId, "Title", "Body", Map.of()))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("delivered to 0 of 2 tokens");
+            assertThat(meterRegistry.get("notification.send")
+                    .tags("channel", "fcm", "result", "failure").counter().count())
+                    .isEqualTo(2.0);
+        }
+    }
+
+    @Test
     void sendToUser_noActiveDevices_shouldReturnZeroWithoutCallingFirebase() throws Exception {
         UUID userId = UUID.randomUUID();
         given(deviceTokenRepository.findByUserId(userId))

@@ -1,61 +1,132 @@
-# CONTEXT
+# PLAT-072 Context
 
-> 현재 판단에 필요한 상태만 기록합니다.
-> 태스크 완료 시 archive로 이동 후 초기화합니다.
+## Current State
+- `dev`는 PR #85 merge 이후 최신 상태다.
+- PLAT-071 Admin analytics summary API는 merge 완료됐다.
+- 현재 작업 브랜치: `feature/PLAT-072-admin-settings`
+- PLAT-072 Admin settings API 구현과 검증이 완료됐다.
 
-## 현재 확정된 것
+## Requirement Source
+Root 문서 `C:\workspace\team_project_2\docs\BACKEND_GAP_platform.md` A-6에는 Admin 대시보드 보강 항목이 남아 있다.
 
-- **방향**: D-002 **Option 1** — Confluent Avro + Schema Registry (이전 JSON CloudEvent 방향 폐기). [[D-029]]
-- **머지**: feature/PLAT-015 → PR(base: dev). dev→main 릴리스는 별도/본인 처리.
-- **Outbox**: 유지 (user-registered 유실 방지). payload는 Avro-bytes → JSON DTO로 교체, 발행 시 SpecificRecord 재구성.
-- **shared 정합 전략**: 벤더링본을 보정본으로 즉시 사용 + **동일 내용 shared PR 병행**. [[D-030]]
-- **단일 출처**: 이벤트 필드/네임스페이스 = synapse-shared `src/main/avro/`. 변경은 shared PR.
-- **로컬 Schema Registry**: 외부 `http://localhost:8086`, compose 내부 `http://schema-registry:8081`.
+| 기대 동작 | 제안 엔드포인트 | 상태 |
+|---|---|---|
+| DAU/MAU, 시스템 사용량, 최근 활동 | `GET /api/v1/admin/analytics/*` | PLAT-071 완료 |
+| 시스템 설정/피처 플래그 | `GET`, `PUT /api/v1/admin/settings` | 이번 작업 |
+| GDPR 데이터 요청 처리 | `GET`, `POST /api/v1/admin/data-requests` | 다음 후보 |
 
-### 확정 스키마 (벤더링 + shared PR 공통 — 보정본)
+## Frontend Context
+프론트의 Admin System Settings 화면은 아직 mock 기반이다.
 
-`src/main/avro/platform/UserRegistered.avsc` (namespace `com.synapse.platform`):
+파일:
+- `C:\workspace\team_project_2\synapse-frontend\lib\services\platform\features\admin\presentation\screens\admin_screens\admin_system_settings_screen.dart`
+
+화면 구조:
+- Plan Quota
+- Feature Flags
+- Rate Limit
+
+프론트 mock 피처 플래그:
+- `AI 카드 자동 생성`
+- `소셜 로그인 (Google)`
+- `소셜 로그인 (GitHub)`
+- `실시간 협업 편집`
+- `베타: 음성 복습`
+
+프론트 mock rate limit:
+- `100`
+
+## Backend Context
+Admin 관련 기존 코드:
+- `src/main/java/com/synapse/platform/admin/controller/AdminAnalyticsController.java`
+- `src/main/java/com/synapse/platform/admin/service/AdminAnalyticsService.java`
+- `src/main/java/com/synapse/platform/admin/dto/AdminAnalyticsSummaryResponse.java`
+- `src/main/java/com/synapse/platform/user/controller/AdminUserController.java`
+- `src/main/java/com/synapse/platform/billing/controller/AdminTenantController.java`
+- `src/main/java/com/synapse/platform/audit/controller/AuditLogController.java`
+
+Admin 보안:
+- `src/main/java/com/synapse/platform/auth/config/SecurityConfig.java`
+- `/api/v1/admin/**`는 `ROLE_ADMIN` 필요
+- Admin 컨트롤러들은 `@PreAuthorize("hasRole('ADMIN')")` 패턴 사용
+
+Plan quota 관련 기존 코드:
+- `src/main/java/com/synapse/platform/auth/entity/PlanQuota.java`
+- `src/main/java/com/synapse/platform/auth/repository/PlanQuotaRepository.java`
+- `src/main/java/com/synapse/platform/auth/api/TenantApi.java`
+- `src/main/java/com/synapse/platform/auth/api/PlanQuotaInfo.java`
+- `src/main/resources/db/migration/V2__init_tenants_and_plans.sql`
+- `src/main/resources/db/migration/V18__seed_plan_quotas.sql`
+
+## Design Decision
+이번 작업의 핵심 결정은 다음과 같다.
+
+- Plan quota는 조회 전용이다.
+- 피처 플래그와 rate limit만 `PUT /api/v1/admin/settings`로 저장한다.
+- 피처 플래그 key는 영문 stable key로 저장한다.
+- 화면 표시용 label은 응답에 포함할 수 있지만 저장 기준은 key다.
+- Admin 모듈은 auth 내부 repository/entity가 아니라 `auth::tenant-api`의 `TenantApi.listPlanQuotas()`만 사용한다.
+- 실제 기능 on/off 적용과 실제 rate limit enforcement는 별도 작업이다.
+- 환경 변수, profile, 포트 설정은 건드리지 않는다.
+
+## Proposed Backend Shape
+패키지는 기존 Admin analytics 작업과 같은 `com.synapse.platform.admin` 하위를 우선 사용한다.
+
+구현 파일:
+- `admin/controller/AdminSettingsController.java`
+- `admin/service/AdminSettingsService.java`
+- `admin/dto/AdminSettingsResponse.java`
+- `admin/dto/AdminSettingsUpdateRequest.java`
+- `admin/entity/AdminSetting.java`
+- `admin/repository/AdminSettingRepository.java`
+- `db/migration/V20260610150000__create_admin_settings.sql`
+- `auth/api/TenantApi.java`의 `listPlanQuotas()`
+- `auth/service/TenantService.java`의 `listPlanQuotas()` 구현
+
+DTO는 record 기반으로 구성했고, SpotBugs 경고 방지를 위해 list 필드는 방어 복사한다.
+
+## API Draft
+### GET `/api/v1/admin/settings`
+Admin 설정 화면 초기 로딩용 API.
+
+응답 포함 항목:
+- `planQuotas`
+- `featureFlags`
+- `rateLimit`
+- `updatedAt`
+
+### PUT `/api/v1/admin/settings`
+피처 플래그와 rate limit 저장 API.
+
+요청 포함 항목:
+- `featureFlags`
+- `rateLimit.apiRequestsPerMinute`
+
+응답:
+- 저장 후 최신 `AdminSettingsResponse`
+
+## Risk Notes
+- `plan_quotas` 값을 수정 가능하게 열면 billing/auth 계약과 직접 충돌할 수 있어 이번 범위에서는 제외한다.
+- Feature flag key를 프론트 표시 문구로 저장하면 한글 문구 변경 때 데이터 호환성이 깨질 수 있다.
+- Rate limit 값을 저장만 하고 적용하지 않으면 운영자가 오해할 수 있다. 응답 필드 또는 문서에서 "설정 저장 API" 범위임을 명확히 해야 한다.
+- `V18__seed_plan_quotas.sql`는 빈 유지 파일로 보이며, plan quota seed는 V2에서 처리된 상태다.
+
+## Verification
+통과한 검증:
+
+```powershell
+.\gradlew.bat test --tests "*AdminSettings*"
+.\gradlew.bat test --tests "*AdminSecurityIntegrationTest"
+.\gradlew.bat test --tests "*AdminSettings*" --tests "*PlatformModuleStructureTest"
+.\gradlew.bat clean build
 ```
-공통메타: eventId(string), tenantId(string), occurredAt(long, timestamp-millis), traceparent(["null","string"] default null)
-도메인:   userId(string), email(string), displayName(string)
-```
-> shared 원본 대비 변경: **displayName 추가**, **eventId/occurredAt 추가**, registeredAt(string) → occurredAt(long)로 대체.
 
-`src/main/avro/platform/NotificationSend.avsc` (namespace `com.synapse.platform` — 구 `com.synapse.event.platform`에서 정정):
-```
-공통메타: eventId, tenantId, occurredAt, traceparent
-도메인:   userId(string), notificationType(string), channels(array<string> default []),
-          title(string), body(string),
-          emailSubject(["null","string"] default null), emailHtmlBody(["null","string"] default null),
-          data(map<string> default {})
-```
-> shared 원본 대비 변경: **namespace 정정**, **eventId/occurredAt 추가**, DRAFT/봉투 doc 제거.
+전체 빌드에서 checkstyle, 전체 테스트, jacoco coverage verification, spotbugs가 통과했다.
 
-## 현재 미결 사항
-
-- shared `.avsc` 보정안(위)의 **team-lead 최종 비준** — engagement(UserRegistered 소비자)에 영향. 병행 PR로 제기.
-- learning-ai NotificationSend 발행(이슈 #32) 완료 전까지 notification-send-v1 **끝단 E2E는 미검증** (platform 자가 발행으로 라운드트립만 검증 가능).
-
-## 현재 검증된 것
-
-- avro 1.12.0 ↔ kafka-avro-serializer 7.7.0 조합은 `generateAvroJava` + `./gradlew check`로 통과 확인.
-- `./gradlew test --tests '*ModuleStructureTest'` 통과 — 생성 Avro 클래스 import가 Modulith 경계를 깨지 않음.
-- synapse-shared 로컬 Kafka/Schema Registry 기동 후 `bash scripts/kafka-e2e-test.sh --scenarios` 통과(PASS 5 / FAIL 0). 단, 해당 스크립트는 현재 JSON CloudEvent transport smoke 성격.
-- `kafka-avro-console-producer/consumer`로 `platform.auth.user-registered-v1` Avro value 수신 확인. `timestamp-millis` console produce에는 `avro.use.logical.type.converters=true` 필요.
-
-## 활성 제약
-
-- bare typed record만 (data:bytes 중첩 봉투 금지)
-- 멱등성 키 = 레코드 `eventId`
-- 역직렬화 실패 → 로그 + skip + DLQ (크래시 금지)
-- JWT RS256 / Refresh Token DB+Redis / 모듈 순환 의존 금지 / 신규 코드 커버리지 80%+
-- 메시지 key = tenantId, subject = `<topic>-value`, 호환 BACKWARD
-
-## 참고할 공식 문서
-
-- synapse-shared `docs/guides/EVENT_CONTRACT_STANDARD.md` (v2, Avro)
-- synapse-shared `docs/designs/D-002_SCHEMA_FAMILY_DECISION.md` (Option 1)
-- synapse-shared `docs/work-orders/W4_KAFKA_WORKORDER.md` §P1-1
-- synapse-shared `src/main/avro/platform/*.avsc` (벤더링 원본)
-- synapse-shared `scripts/kafka-e2e-test.sh`, `scripts/create-kafka-topics.sh`
-- docs/rules/08-kafka-event.md
+## Do Not Touch
+- `TASK_platform.md`
+- `.env`
+- Spring profile 설정
+- 실행 포트 설정
+- gitops/shared 프로젝트
+- frontend 프로젝트

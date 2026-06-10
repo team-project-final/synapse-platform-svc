@@ -3,12 +3,15 @@ package com.synapse.platform.auth.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.auth.service.JwtTokenProvider;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
+import com.synapse.platform.user.api.UserApi;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -21,15 +24,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String ERROR_CODE = "PLAT-002";
+    private static final String SERVER_ERROR_CODE = "PLAT-999";
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
+    private final UserApi userApi;
 
     public JwtAuthenticationFilter(
             JwtTokenProvider jwtTokenProvider,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            UserApi userApi) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.objectMapper = objectMapper;
+        this.userApi = userApi;
     }
 
     @Override
@@ -50,7 +58,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 writeUnauthorizedResponse(request, response);
                 return;
             }
+            UUID userId = jwtTokenProvider.getUserId(token);
             authentication = jwtTokenProvider.getAuthentication(token);
+            if (!isLoginAllowed(userId, request, response)) {
+                return;
+            }
         } catch (RuntimeException exception) {
             SecurityContextHolder.clearContext();
             writeUnauthorizedResponse(request, response);
@@ -76,16 +88,53 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private void writeUnauthorizedResponse(
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
-        HttpStatus status = HttpStatus.UNAUTHORIZED;
+        writeProblemResponse(
+                request,
+                response,
+                HttpStatus.UNAUTHORIZED,
+                ERROR_CODE,
+                "Invalid or expired token");
+    }
+
+    private boolean isLoginAllowed(
+            UUID userId,
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException {
+        try {
+            if (!userApi.isLoginAllowed(userId)) {
+                SecurityContextHolder.clearContext();
+                writeUnauthorizedResponse(request, response);
+                return false;
+            }
+            return true;
+        } catch (RuntimeException exception) {
+            SecurityContextHolder.clearContext();
+            log.error("Failed to verify login state for user {}", userId, exception);
+            writeProblemResponse(
+                    request,
+                    response,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    SERVER_ERROR_CODE,
+                    "Internal server error");
+            return false;
+        }
+    }
+
+    private void writeProblemResponse(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            HttpStatus status,
+            String errorCode,
+            String detail) throws IOException {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         objectMapper.writeValue(response.getWriter(), new GlobalExceptionHandler.ErrorResponse(
-                "https://api.synapse.app/errors/" + ERROR_CODE,
+                "https://api.synapse.app/errors/" + errorCode,
                 status.getReasonPhrase(),
                 status.value(),
-                "Invalid or expired token",
-                ERROR_CODE,
+                detail,
+                errorCode,
                 traceId(request)));
     }
 

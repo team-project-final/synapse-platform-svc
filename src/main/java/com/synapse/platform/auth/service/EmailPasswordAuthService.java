@@ -1,6 +1,5 @@
 package com.synapse.platform.auth.service;
 
-import com.synapse.platform.auth.AuthRoles;
 import com.synapse.platform.auth.event.UserEventPublisher;
 import com.synapse.platform.auth.entity.Tenant;
 import com.synapse.platform.auth.entity.TenantMember;
@@ -111,7 +110,7 @@ public class EmailPasswordAuthService {
         }
 
         userApi.recordSuccessfulLogin(credential.id(), now);
-        String accessToken = jwtTokenProvider.createAccessToken(credential.id(), AuthRoles.DEFAULT_USER_ROLES);
+        String accessToken = jwtTokenProvider.createAccessToken(credential.id(), userApi.findRoles(credential.id()));
         String refreshToken = jwtTokenProvider.createRefreshToken(credential.id());
         refreshTokenService.save(credential.id(), refreshToken);
         return new LoginResult(accessToken, refreshToken);

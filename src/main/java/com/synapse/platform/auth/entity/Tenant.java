@@ -88,8 +88,34 @@ public class Tenant {
         return status;
     }
 
+    public String getTenantType() {
+        return tenantType;
+    }
+
+    public String getRegion() {
+        return region;
+    }
+
+    public String getSettings() {
+        return settings;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void updateName(String name) {
+        this.name = name;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void updateSettings(String settings) {
+        this.settings = settings;
+        this.updatedAt = OffsetDateTime.now();
     }
 
     public void activatePlan(String planCode) {

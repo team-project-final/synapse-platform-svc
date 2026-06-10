@@ -64,22 +64,30 @@ public class FcmPushService {
                 .build();
 
         Timer.Sample sample = Timer.start(meterRegistry);
+        BatchResponse response;
         try {
-            BatchResponse response = sendWithRetry(message);
+            response = sendWithRetry(message);
             sample.stop(meterRegistry.timer(LATENCY_METRIC, "channel", CHANNEL));
-            int success = response.getSuccessCount();
-            int failure = response.getFailureCount();
-            meterRegistry.counter(METRIC, "channel", CHANNEL, "result", "success").increment(success);
-            if (failure > 0) {
-                meterRegistry.counter(METRIC, "channel", CHANNEL, "result", "failure").increment(failure);
-                log.warn("FCM partial failure for user {}: {}/{} succeeded", userId, success, tokens.size());
-            }
-            return success;
         } catch (Exception exception) {
             sample.stop(meterRegistry.timer(LATENCY_METRIC, "channel", CHANNEL));
             meterRegistry.counter(METRIC, "channel", CHANNEL, "result", "error").increment();
             throw new RuntimeException("FCM multicast failed for user " + userId, exception);
         }
+
+        int success = response.getSuccessCount();
+        int failure = response.getFailureCount();
+        if (success > 0) {
+            meterRegistry.counter(METRIC, "channel", CHANNEL, "result", "success").increment(success);
+        }
+        if (failure > 0) {
+            meterRegistry.counter(METRIC, "channel", CHANNEL, "result", "failure").increment(failure);
+            log.warn("FCM delivery failure for user {}: {}/{} succeeded", userId, success, tokens.size());
+        }
+        if (success == 0 && failure > 0) {
+            throw new RuntimeException(
+                    "FCM multicast delivered to 0 of " + tokens.size() + " tokens for user " + userId);
+        }
+        return success;
     }
 
     private BatchResponse sendWithRetry(MulticastMessage message) throws Exception {

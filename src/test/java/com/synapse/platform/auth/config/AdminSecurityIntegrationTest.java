@@ -7,16 +7,33 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.synapse.platform.admin.dto.AdminAnalyticsSummaryResponse;
+import com.synapse.platform.admin.dto.AdminAnalyticsSummaryResponse.PendingItem;
+import com.synapse.platform.admin.dto.AdminAnalyticsSummaryResponse.TenantsSummary;
+import com.synapse.platform.admin.dto.AdminAnalyticsSummaryResponse.UsageItem;
+import com.synapse.platform.admin.dto.AdminAnalyticsSummaryResponse.UsersSummary;
+import com.synapse.platform.admin.dto.AdminSettingsResponse;
+import com.synapse.platform.admin.dto.AdminSettingsResponse.FeatureFlagItem;
+import com.synapse.platform.admin.dto.AdminSettingsResponse.PlanQuotaItem;
+import com.synapse.platform.admin.dto.AdminSettingsResponse.RateLimitSettings;
+import com.synapse.platform.admin.dto.AdminSettingsUpdateRequest;
+import com.synapse.platform.admin.service.AdminAnalyticsService;
+import com.synapse.platform.admin.service.AdminSettingsService;
 import com.synapse.platform.billing.service.AdminTenantService;
 import com.synapse.platform.user.dto.request.AdminUserSearchRequest;
 import com.synapse.platform.user.service.AdminUserService;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -33,6 +50,12 @@ class AdminSecurityIntegrationTest {
 
     @MockitoBean
     private AdminTenantService adminTenantService;
+
+    @MockitoBean
+    private AdminAnalyticsService adminAnalyticsService;
+
+    @MockitoBean
+    private AdminSettingsService adminSettingsService;
 
     private MockMvc mockMvc;
 
@@ -86,5 +109,81 @@ class AdminSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         verify(adminTenantService).listTenants(0, 20);
+    }
+
+    @Test
+    void adminAnalytics_nonAdmin_shouldReturnForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/analytics/summary")
+                        .with(user("user").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminAnalytics_admin_shouldReturnOk() throws Exception {
+        given(adminAnalyticsService.getSummary()).willReturn(summary());
+
+        mockMvc.perform(get("/api/v1/admin/analytics/summary")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminSettings_nonAdmin_shouldReturnForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/settings")
+                        .with(user("user").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminSettings_adminGet_shouldReturnOk() throws Exception {
+        given(adminSettingsService.getSettings()).willReturn(settings());
+
+        mockMvc.perform(get("/api/v1/admin/settings")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminSettings_adminPut_shouldReturnOk() throws Exception {
+        given(adminSettingsService.updateSettings(any(AdminSettingsUpdateRequest.class))).willReturn(settings());
+
+        mockMvc.perform(put("/api/v1/admin/settings")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "featureFlags": [
+                                    {"key": "githubSocialLogin", "enabled": true}
+                                  ],
+                                  "rateLimit": {"apiRequestsPerMinute": 100}
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    private static AdminAnalyticsSummaryResponse summary() {
+        return new AdminAnalyticsSummaryResponse(
+                OffsetDateTime.parse("2026-06-10T10:00:00+09:00"),
+                new UsersSummary(0, 0, 0, 0, 0, 0, 0, "USERS_LAST_LOGIN_AT"),
+                new TenantsSummary(0, 0, 0, Map.of()),
+                List.of(new UsageItem("ai.tokens.monthly", "AI 토큰", null, "tokens", "NOT_CONNECTED", "learning-ai")),
+                List.of(new PendingItem("data-requests", "GDPR 요청", null, "INFO", "NOT_IMPLEMENTED")),
+                List.of());
+    }
+
+    private static AdminSettingsResponse settings() {
+        return new AdminSettingsResponse(
+                List.of(new PlanQuotaItem(
+                        "free",
+                        "Free",
+                        1000,
+                        500,
+                        100000000L,
+                        100000L,
+                        10,
+                        1)),
+                List.of(new FeatureFlagItem("aiCardAutoGeneration", "AI 카드 자동 생성", true)),
+                new RateLimitSettings(100),
+                OffsetDateTime.parse("2026-06-10T10:00:00Z"));
     }
 }

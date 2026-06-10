@@ -228,7 +228,9 @@ class EmailPasswordAuthServiceTest {
                         1,
                         null)));
         given(passwordEncoder.matches("P@ssw0rd!", "$2a$10$hash")).willReturn(true);
-        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("access-token");
+        given(userApi.findRoles(userId)).willReturn(List.of("ROLE_USER", "ROLE_ADMIN"));
+        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER", "ROLE_ADMIN")))
+                .willReturn("access-token");
         given(jwtTokenProvider.createRefreshToken(userId)).willReturn("refresh-token");
 
         LoginResult result = emailPasswordAuthService.login("user@example.com", "P@ssw0rd!");

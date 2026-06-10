@@ -1,6 +1,6 @@
 package com.synapse.platform.auth.service;
 
-import com.synapse.platform.auth.AuthRoles;
+import com.synapse.platform.user.api.UserApi;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -20,6 +20,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final UserApi userApi;
     private final String clientRedirectUri;
     private final String sameSite;
     private final boolean secure;
@@ -27,11 +28,13 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     public OAuth2SuccessHandler(
             JwtTokenProvider jwtTokenProvider,
             RefreshTokenService refreshTokenService,
+            UserApi userApi,
             @Value("${app.oauth2.redirect-uri}") String clientRedirectUri,
             @Value("${app.cookie.same-site}") String sameSite,
             @Value("${app.cookie.secure}") boolean secure) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.refreshTokenService = refreshTokenService;
+        this.userApi = userApi;
         this.clientRedirectUri = clientRedirectUri;
         this.sameSite = sameSite;
         this.secure = secure;
@@ -44,7 +47,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication) throws IOException {
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         UUID userId = UUID.fromString(String.valueOf(oAuth2User.getAttributes().get("userId")));
-        String accessToken = jwtTokenProvider.createAccessToken(userId, AuthRoles.DEFAULT_USER_ROLES);
+        String accessToken = jwtTokenProvider.createAccessToken(userId, userApi.findRoles(userId));
         String refreshToken = jwtTokenProvider.createRefreshToken(userId);
         String deviceFingerprint = request.getHeader("X-Device-Fingerprint");
         String ipAddress = request.getRemoteAddr();

@@ -148,6 +148,26 @@ class NotificationServiceTest {
     }
 
     @Test
+    void processNotificationSend_passwordResetCodeEmail_shouldBypassDailyEmailLimit() {
+        UUID userId = UUID.randomUUID();
+        NotificationSend event = event(userId, List.of("EMAIL"), "PASSWORD_RESET_CODE");
+        given(sesEmailServiceProvider.getIfAvailable()).willReturn(sesEmailService);
+        given(notificationRepository.findByEventIdAndChannel(
+                UUID.fromString(event.getEventId().toString()),
+                NotificationChannel.EMAIL))
+                .willReturn(Optional.empty());
+        given(notificationRepository.save(any(Notification.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        service().processNotificationSend(event);
+
+        verify(notificationRepository, never()).countTodayEmailByUserId(any(), any());
+        verify(sesEmailService).sendToUser(userId, "Review due email", "<p>A card is ready.</p>");
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, Mockito.atLeastOnce()).save(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().getStatus()).isEqualTo(NotificationStatus.SENT);
+    }
+
+    @Test
     void processNotificationSend_disabledFcmChannel_shouldSkipWithoutSavingRecord() {
         UUID userId = UUID.randomUUID();
         NotificationSend event = event(userId, List.of("FCM"));
@@ -164,13 +184,17 @@ class NotificationServiceTest {
     }
 
     private static NotificationSend event(UUID userId, List<String> channels) {
+        return event(userId, channels, "AI_CARDS_READY");
+    }
+
+    private static NotificationSend event(UUID userId, List<String> channels, String notificationType) {
         return NotificationSend.newBuilder()
                 .setEventId(UUID.randomUUID().toString())
                 .setTenantId(UUID.randomUUID().toString())
                 .setOccurredAt(1717000000000L)
                 .setTraceparent(null)
                 .setUserId(userId.toString())
-                .setNotificationType("AI_CARDS_READY")
+                .setNotificationType(notificationType)
                 .setChannels(channels)
                 .setTitle("Review due")
                 .setBody("A card is ready.")

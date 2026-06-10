@@ -11,14 +11,19 @@ import com.stripe.model.StripeObject;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 import com.stripe.param.checkout.SessionCreateParams;
+import com.synapse.platform.auth.api.PlanQuotaInfo;
 import com.synapse.platform.auth.api.TenantApi;
+import com.synapse.platform.auth.api.TenantInfo;
 import com.synapse.platform.billing.config.StripeProperties;
+import com.synapse.platform.billing.dto.request.CheckoutSessionRequest;
+import com.synapse.platform.billing.dto.response.BillingReceiptResponse;
+import com.synapse.platform.billing.dto.response.BillingUsageResponse;
+import com.synapse.platform.billing.dto.response.CheckoutSessionResponse;
+import com.synapse.platform.billing.dto.response.PaymentHistoryPageResponse;
 import com.synapse.platform.billing.entity.PaymentHistory;
 import com.synapse.platform.billing.entity.PlanCode;
 import com.synapse.platform.billing.entity.Subscription;
 import com.synapse.platform.billing.entity.SubscriptionStatus;
-import com.synapse.platform.billing.dto.request.CheckoutSessionRequest;
-import com.synapse.platform.billing.dto.response.CheckoutSessionResponse;
 import com.synapse.platform.billing.dto.response.SubscriptionResponse;
 import com.synapse.platform.billing.exception.BillingException;
 import com.synapse.platform.billing.repository.PaymentHistoryRepository;
@@ -27,7 +32,9 @@ import com.synapse.platform.billing.repository.SubscriptionRepository;
 import com.synapse.platform.user.api.UserApi;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -117,6 +124,32 @@ public class BillingService {
                 .orElseThrow(() -> new BillingException("BILLING-003", 404, "No active subscription found"));
     }
 
+    public PaymentHistoryPageResponse getPayments(UUID userId, Pageable pageable) {
+        UUID tenantId = resolveTenantId(userId);
+        return PaymentHistoryPageResponse.from(paymentHistoryRepository.findByTenantId(tenantId, pageable));
+    }
+
+    public BillingReceiptResponse getReceipt(UUID userId, UUID paymentId) {
+        UUID tenantId = resolveTenantId(userId);
+        return paymentHistoryRepository.findByIdAndTenantId(paymentId, tenantId)
+                .map(BillingReceiptResponse::from)
+                .orElseThrow(() -> new BillingException("BILLING-007", 404, "Payment not found"));
+    }
+
+    public BillingUsageResponse getUsage(UUID userId) {
+        UUID tenantId = resolveTenantId(userId);
+        Optional<Subscription> activeSubscription =
+                subscriptionRepository.findByTenantIdAndStatus(tenantId, SubscriptionStatus.ACTIVE);
+        String planCode = activeSubscription
+                .map(subscription -> subscription.getPlanCode().value())
+                .orElseGet(() -> tenantApi.findById(tenantId)
+                        .map(TenantInfo::plan)
+                        .orElseThrow(() -> new BillingException("BILLING-008", 404, "Tenant not found")));
+        PlanQuotaInfo quota = tenantApi.findPlanQuota(planCode)
+                .orElseThrow(() -> new BillingException("BILLING-009", 500, "Plan quota not found"));
+        return BillingUsageResponse.of(tenantId, planCode, activeSubscription.orElse(null), quota);
+    }
+
     private void handleCheckoutCompleted(Event event) {
         Session session = (Session) deserialize(event);
         UUID tenantId = UUID.fromString(session.getMetadata().get("tenant_id"));
@@ -141,6 +174,9 @@ public class BillingService {
                         subscription.getTenantId(),
                         subscription.getId(),
                         paymentIntentId,
+                        invoice.getId(),
+                        invoice.getHostedInvoiceUrl(),
+                        invoice.getInvoicePdf(),
                         invoice.getAmountPaid() == null ? 0 : invoice.getAmountPaid().intValue(),
                         invoice.getCurrency() == null ? "usd" : invoice.getCurrency(),
                         "succeeded",

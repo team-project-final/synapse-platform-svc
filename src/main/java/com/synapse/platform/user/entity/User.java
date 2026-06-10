@@ -158,6 +158,23 @@ public class User {
         updatedAt = now;
     }
 
+    public void updateProfile(String displayName) {
+        this.displayName = displayName;
+        updatedAt = OffsetDateTime.now();
+    }
+
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+        passwordChangedAt = OffsetDateTime.now();
+        updatedAt = passwordChangedAt;
+    }
+
+    public void resetPassword(String passwordHash) {
+        changePassword(passwordHash);
+        failedLoginCount = 0;
+        lockedUntil = null;
+    }
+
     public UUID getId() {
         return id;
     }

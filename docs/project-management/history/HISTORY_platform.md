@@ -337,12 +337,139 @@
   - 미해결 이슈 0(코드). 열린 이슈는 dev 반영 완료분으로 dev→main 릴리스 시 자동 close. #62(W5 라이브 E2E)는 W5 작업.
 - **주간 요약**: W4 종료 — Step 9(E2E)·Step 10(알림 안정화) 완료(2/2). 추가로 CI 안정화(flaky 2건 근본 수정), KAFKA_ENABLED 게이트, Kafka security.protocol, Flyway 표준, 룰 4.6, minikube 로컬 환경까지 처리. dev 11+커밋 미릴리스(dev→main 대기).
 
+### W5 (2026-06-08 ~ 06-12)
+
+| 구분 | 내용 | 상태 | 시작일 | 완료일 | 비고 |
+|------|------|------|--------|--------|------|
+| W5 작업 로그 | 라이브 E2E 및 staging 검증 | In Progress | 2026-06-09 | — | #62 라이브 E2E, #37 staging health/profile 정합 |
+| W5 작업 로그 | 프론트 연동 백엔드 갭 구현 | In Progress | 2026-06-09 | — | A-1/A-3/A-4 완료, A-2/A-5/A-6 후속. 7번/B 타 서비스 항목 제외 |
+
+**W5 진행 상태**: 라이브 E2E 재검증 대기 + 프론트 연동 백엔드 갭 구현 진행 중
+
+#### 2026-06-09 (화)
+
+- **완료**:
+  - W5 PRD/WORKFLOW와 열린 이슈 #62/#37 확인.
+  - `origin/dev` 기준 `feature/PLAT-062-w5-live-e2e` 브랜치 생성.
+  - 기존 `docs/ai/current` W4 Kafka 문서를 archive로 이동하고 W5 실행용 `TASK.md`, `CONTEXT.md`, `HANDOFF.md` 작성.
+  - synapse-gitops/synapse-shared 최신 main fast-forward 및 platform 관련 W5 문서/overlay/Avro 정본 확인.
+  - #37 staging datasource 정합 확인: 최신 gitops overlay가 `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`를 주입하고 shared 문서가 platform-svc staging Healthy를 기록.
+  - platform `UserRegistered.avsc`, `NotificationSend.avsc`를 shared 최신 정본과 동일하게 정렬.
+  - 검증 통과: `generateAvroJava`, `AuthBillingE2ETest`, notification 테스트 묶음, `clean build`(286 tests, failures 0).
+  - `origin/dev` 기준 `feature/PLAT-063-frontend-backend-gap` 브랜치 생성.
+  - 루트 `docs/BACKEND_GAP_platform.md` 기준 프론트 연동 백엔드 갭 작업 문서 작성. `TASK_platform.md`는 원본 개발 목록으로 유지.
+  - A-1 User 셀프서비스 API 구현: 내 프로필 조회/수정, 비밀번호 변경, OAuth 연결 조회/해제, 본인 계정 삭제.
+  - 검증 통과: User/OAuthConnection 테스트, Modulith 구조 테스트, `clean build`.
+- **진행 중**:
+  - #62 cross-service live 알림 E2E는 engagement/learning P0 선결 후 재실행 필요.
+  - A-2~A-6 프론트 연동 백엔드 갭은 후속 구현 필요.
+- **이슈**:
+  - 프론트엔드 결제 UI는 아직 미연동이므로 결제 검증은 백엔드 Stripe Test Mode 기준으로 설명해야 한다.
+  - 로그아웃 전용 HTTP endpoint 없음. 현재 토큰 무효화는 `RefreshTokenService.delete(userId)` 및 세션 무효화 이벤트 경로만 존재.
+  - shared W5 Day1 기준 P0는 platform이 아니라 engagement `UserRegistered` reader(F1), learning-ai `NotificationSend` writer(F2/F3).
+- **다음**:
+  - #62 코멘트/보고 후, engagement/learning P0 머지 이후 cross-service live E2E 재실행.
+
 ---
+
+#### 2026-06-10 (수)
+
+- **완료**:
+  - `origin/dev` 기준 `feature/PLAT-067-billing-read-apis` 브랜치 생성.
+  - PLAT-067 작업문서 작성 및 PLAT-066 current 문서 archive.
+  - A-4 Billing 보강 구현: 결제 이력 조회, 사용량/플랜 한도 조회, 영수증/인보이스 조회 API 추가.
+  - `payment_history`에 Stripe invoice id/url/pdf url 메타데이터 nullable 컬럼 추가.
+  - `TenantApi` named interface로 `plan_quotas` 조회 계약을 추가해 billing 모듈 경계를 유지.
+  - `invoice.paid` Webhook 저장 로직에 invoice 메타데이터 반영.
+  - 검증 통과: Billing controller/service/repository/security 테스트, PlatformModuleStructureTest, `clean build`.
+- **진행 중**:
+  - A-2 Auth 보강, A-5 Tenant 셀프관리, A-6 Admin 대시보드 보강은 후속.
+- **이슈**:
+  - 실제 note/card/storage/AI 사용량 정본은 platform 단독 소관이 아니므로 이번 API는 `NOT_CONNECTED` source와 plan quota 한도만 반환.
+- **다음**:
+  - 작업 내용 리뷰 후 PR 준비.
+
+---
+
+#### 2026-06-10 (수) - PLAT-070
+
+- **완료**:
+  - `origin/dev` 기준 `feature/PLAT-070-auth-recovery` 브랜치 생성.
+  - PLAT-070 작업문서 작성 및 PLAT-069 current 문서 archive.
+  - A-2 Auth 복구 플로우 보강: 비밀번호 재설정 요청/검증/확정 API 추가.
+  - MFA 백업 코드 발급/재발급/검증 API 추가.
+  - password reset code email을 notification 일일 quota에서 제외.
+  - reset code와 MFA backup code 원문 미저장, 만료/1회 사용/동시성 잠금 검증 보강.
+  - 검증 통과: auth recovery 단위/통합 테스트, notification repository/service 테스트, `clean build`.
+- **진행 중**:
+  - 실제 email 발송은 Kafka/SES 설정이 켜진 환경에서 연동 확인 필요.
+- **이슈**:
+  - 로그인 전 MFA challenge에서 backup code를 사용하려면 별도 challenge session 모델이 필요하다.
+- **다음**:
+  - PR 생성 후 review 대응.
+
+---
+
+#### 2026-06-10 (수) - PLAT-071
+
+- **완료**:
+  - `origin/dev` 기준 `feature/PLAT-071-admin-analytics` 브랜치 생성.
+  - PLAT-071 작업문서 작성 및 PLAT-070 current 문서 archive.
+  - A-6 Admin 대시보드 보강 1차: `GET /api/v1/admin/analytics/summary` API 추가.
+  - 사용자/테넌트/구독/알림/감사로그 기준 platform-local 운영 요약을 반환하도록 구현.
+  - `*.today` 지표를 최근 24시간이 아닌 `generatedAt` 날짜 00:00 이후 기준으로 정리.
+  - 사용자 total/deleted는 soft-delete 행 포함 native count 기준으로 정리.
+  - AI token/storage 등 cross-service 정본이 필요한 값은 fake count 없이 `NOT_CONNECTED`로 반환.
+  - admin 모듈은 각 도메인 named interface API만 사용하도록 Modulith 경계를 유지.
+  - repository query 통합 테스트 보강: user/tenant/billing/notification/audit analytics query 검증.
+  - 검증 통과: Admin analytics 단위/보안 테스트, repository query 테스트, PlatformModuleStructureTest, `clean build`.
+- **진행 중**:
+  - Admin 시스템 설정/피처 플래그 API와 GDPR/data request API는 후속 작업으로 분리.
+- **이슈**:
+  - DAU/MAU는 별도 analytics event가 아니라 `users.last_login_at` 기준 후보 지표.
+  - learning/knowledge 정본 사용량은 해당 서비스 계약 확정 후 연결 필요.
+- **다음**:
+  - 작업 내용 리뷰 후 PR 준비.
+
+---
+
+#### 2026-06-10 (수) - PLAT-072
+
+- **완료**:
+  - `feature/PLAT-072-admin-settings` 브랜치에서 A-6 Admin 대시보드 보강 2차 구현.
+  - `GET /api/v1/admin/settings`, `PUT /api/v1/admin/settings` API 추가.
+  - Plan quota는 수정 없이 `TenantApi.listPlanQuotas()` 공개 계약으로 조회하도록 정리.
+  - 피처 플래그와 API 요청 제한 설정 저장용 `admin_settings` 테이블 추가.
+  - feature flag key는 영문 stable key로 저장하고, `apiRequestsPerMinute`는 `1..10000` 범위 검증.
+  - admin settings service/controller/security 테스트 추가 및 보강.
+  - 검증 통과: `*AdminSettings*`, `AdminSecurityIntegrationTest`, `PlatformModuleStructureTest`, `clean build`.
+- **진행 중**:
+  - GDPR/data request API는 후속 PLAT-073 후보.
+- **이슈**:
+  - 이번 작업은 설정 저장까지만 포함하며 실제 feature flag 적용과 rate limit enforcement는 별도 작업.
+- **다음**:
+  - 작업 내용 리뷰 후 PR 준비.
+
+---
+
+## 2026-06-09 PLAT-064 작업 기록
+
+- DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
+- 삭제되지 않은 기존 사용자에게 `ROLE_USER`를 백필하고, 신규 이메일/비밀번호 및 OAuth 가입 시 기본 `ROLE_USER`를 저장하도록 정리했다.
+- 로그인, OAuth 성공, refresh 재발급 access token 발급 시 DB role을 읽어 JWT `roles` claim에 반영하도록 변경했다.
+- 운영/로컬 최초 어드민은 자동 seed/profile 없이 승인된 DB 작업으로 `ROLE_ADMIN`을 부여하는 절차를 문서화했다.
+- `TASK_platform.md`는 최초 개발 목록 문서이므로 수정하지 않았다.
 
 ## 변경 이력
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-072 프론트 연동 백엔드 갭 A-6 2차 구현** — Admin settings API 추가, `admin_settings` 저장소, `TenantApi.listPlanQuotas()` quota 조회 계약, settings/security 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
+| 2026-06-10 | **PLAT-071 프론트 연동 백엔드 갭 A-6 1차 구현** — Admin analytics summary API 추가, user/tenant/billing/notification/audit 공개 API 기반 집계, today 지표 00:00 기준 및 soft-delete 포함 user total 정리, cross-service 값 `NOT_CONNECTED` 처리. `TASK_platform.md` 미수정. `clean build` 통과 |
+| 2026-06-10 | **PLAT-070 프론트 연동 백엔드 갭 A-2 구현** — Auth password reset API, MFA backup code API, notification quota 예외, 복구 플로우 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
+| 2026-06-10 | **PLAT-067 프론트 연동 백엔드 갭 A-4 구현** — Billing payments/usage/receipt read API 추가, invoice metadata 저장, `TenantApi` plan quota 계약 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
+| 2026-06-09 | **PLAT-063 프론트 연동 백엔드 갭 A-1 구현** — User self-service API(`/users/me`, password, OAuth connection, delete) 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
+| 2026-06-09 | **W5 라이브 E2E 작업 진행** — #37 최신 gitops/shared 기준 해소 확인, platform Avro 벤더링 shared 정본 정렬, Auth/Billing·Notification 테스트 및 `clean build` 통과. platform P0 없음, cross-service P0는 engagement/learning 선결 |
 | 2026-06-05 | **Step 10 완료** — 알림 안정화(FCM/SES 재시도 + Micrometer 메트릭, PLAT-028, PR #64, P0 0건). KAFKA_ENABLED 게이트(이슈 #59, PLAT-026, PR #61). Flyway 버전 표준(이슈 #65, PLAT-030, PR #66). 룰 4.6(PR #60). **W4 종료(2/2)** |
 | 2026-06-04 | **Step 9 완료** — 인증/결제 E2E(PLAT-023, PR #57, Testcontainers PG 5시나리오). Kafka security.protocol 배선(이슈 #51, PLAT-022, PR #54). JWT flaky 결정적 수정(PLAT-021, PR #55). #52(팀장 audit S6) 리뷰+spotbugs 수정. minikube 로컬 환경 구축. gap 이슈 #56 등록(billing ON CONFLICT H2 미검증) |
 | 2026-06-04 | 이슈 #47 대응 — `dev-smoke` CI에 Docker Hub 로그인 스텝 추가(`ci(infra)`, PLAT-017, PR #49, 머지). EmbeddedKafka 통합 테스트 flaky 수정(consumer `auto-offset-reset: earliest`, PLAT-018, PR #50, 머지). JWT 변조 테스트 flaky 발견(PLAT-021로 수정). 브랜치 정리(main fast-forward, orphan docs/PLAT-016 삭제) |

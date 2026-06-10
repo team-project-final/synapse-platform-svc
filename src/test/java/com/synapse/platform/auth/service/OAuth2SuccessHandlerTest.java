@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import com.synapse.platform.user.api.UserApi;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,11 +30,15 @@ class OAuth2SuccessHandlerTest {
         TestingAuthenticationToken authentication = new TestingAuthenticationToken(user, null);
         JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
         RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
-        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("access-token");
+        UserApi userApi = mock(UserApi.class);
+        given(userApi.findRoles(userId)).willReturn(List.of("ROLE_USER", "ROLE_ADMIN"));
+        given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER", "ROLE_ADMIN")))
+                .willReturn("access-token");
         given(jwtTokenProvider.createRefreshToken(userId)).willReturn("refresh-token");
         OAuth2SuccessHandler handler = new OAuth2SuccessHandler(
                 jwtTokenProvider,
                 refreshTokenService,
+                userApi,
                 "http://localhost:3000/auth/callback",
                 "Lax",
                 false);
@@ -76,11 +81,14 @@ class OAuth2SuccessHandlerTest {
         TestingAuthenticationToken authentication = new TestingAuthenticationToken(user, null);
         JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
         RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
+        UserApi userApi = mock(UserApi.class);
+        given(userApi.findRoles(userId)).willReturn(List.of("ROLE_USER"));
         given(jwtTokenProvider.createAccessToken(userId, List.of("ROLE_USER"))).willReturn("access-token");
         given(jwtTokenProvider.createRefreshToken(userId)).willReturn("refresh-token");
         OAuth2SuccessHandler handler = new OAuth2SuccessHandler(
                 jwtTokenProvider,
                 refreshTokenService,
+                userApi,
                 "http://localhost:3000/auth/callback",
                 "Lax",
                 false);

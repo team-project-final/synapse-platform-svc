@@ -2,19 +2,19 @@
   "type": "record",
   "name": "NotificationSend",
   "namespace": "com.synapse.platform",
-  "doc": "Notification dispatch request consumed by platform-svc (FCM/email).",
+  "doc": "Notification dispatch request consumed by platform-svc (FCM/email). 정본 = platform-svc reader·engagement writer와 필드 단위 동일 (2026-06-08 정렬). 구 DRAFT(com.synapse.event.platform, 공통 메타 없음)는 폐기 — record full-name 불일치로 Avro 스키마 해석 자체가 거부됨(W5 Day1 F2 실측). 발행자(learning-ai 등)는 반드시 이 namespace/필드를 그대로 사용할 것.",
   "fields": [
-    {"name": "eventId", "type": "string"},
-    {"name": "tenantId", "type": "string"},
-    {"name": "occurredAt", "type": "long"},
-    {"name": "traceparent", "type": ["null", "string"], "default": null},
-    {"name": "userId", "type": "string"},
-    {"name": "notificationType", "type": "string"},
-    {"name": "channels", "type": {"type": "array", "items": "string"}, "default": []},
-    {"name": "title", "type": "string"},
-    {"name": "body", "type": "string"},
-    {"name": "emailSubject", "type": ["null", "string"], "default": null},
-    {"name": "emailHtmlBody", "type": ["null", "string"], "default": null},
-    {"name": "data", "type": {"type": "map", "values": "string"}, "default": {}}
+    {"name": "eventId", "type": "string", "doc": "Unique event ID (UUID) — idempotency key (common meta)"},
+    {"name": "tenantId", "type": "string", "doc": "테넌트 (UUID 문자열, common meta)"},
+    {"name": "occurredAt", "type": "long", "doc": "Event emission time, epoch millis — 평문 long (common meta)"},
+    {"name": "traceparent", "type": ["null", "string"], "default": null, "doc": "W3C trace context (common meta, optional)"},
+    {"name": "userId", "type": "string", "doc": "알림 수신자 (UUID 문자열)"},
+    {"name": "notificationType", "type": "string", "doc": "알림 유형 (예: AI_CARDS_READY, USER_WELCOME)"},
+    {"name": "channels", "type": {"type": "array", "items": "string"}, "default": [], "doc": "발송 채널 (예: FCM, EMAIL)"},
+    {"name": "title", "type": "string", "doc": "알림 제목"},
+    {"name": "body", "type": "string", "doc": "알림 본문"},
+    {"name": "emailSubject", "type": ["null", "string"], "default": null, "doc": "이메일 제목 (EMAIL 채널 시)"},
+    {"name": "emailHtmlBody", "type": ["null", "string"], "default": null, "doc": "이메일 HTML 본문 (EMAIL 채널 시)"},
+    {"name": "data", "type": {"type": "map", "values": "string"}, "default": {}, "doc": "부가 메타데이터 (예: noteId, cardCount)"}
   ]
 }

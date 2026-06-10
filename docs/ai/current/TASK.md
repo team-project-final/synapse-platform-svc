@@ -1,79 +1,160 @@
-# TASK — W4 선행: Kafka 이벤트 계약 표준 적용 (Avro + Schema Registry)
+# PLAT-072 Admin 시스템 설정/피처 플래그 API
 
-> 출처: synapse-shared W4_KAFKA_WORKORDER §P1-1 / 이슈 #43, #30
-> 표준: synapse-shared `docs/guides/EVENT_CONTRACT_STANDARD.md` (D-002 **Option 1** 채택안)
+## Task ID
+PLAT-072
 
-## 상태
+## Title
+Admin 시스템 설정/피처 플래그 API 구현
 
-- Phase: Worker 구현/로컬 검증 완료 → Director 리뷰 및 PR 대기
-- 담당 Agent: Director(설계/분해/리뷰) → Worker(구현)
-- 시작일: 2026-05-29
-- 목표 완료일: 2026-06-02 (W4 2일차, EOD)
-- 최근 검증: 2026-06-01 `generateAvroJava`, `ModuleStructureTest`, `check`, synapse-shared `--scenarios`, `kafka-avro-console-consumer` 수신 확인
+## Owner
+platform
 
----
+## Status
+DONE
+
+## Priority
+P2
 
 ## Step Goal
-
-platform-svc의 Kafka 직렬화를 **수동 Avro 바이트(data:bytes 중첩 봉투)** 에서 **Confluent `KafkaAvroSerializer/Deserializer` + Schema Registry**(bare typed record)로 전환하여, 전 서비스가 synapse-shared의 단일 `.avsc` 계약으로 메시지를 주고받게 한다.
+관리자가 Admin 시스템 설정 화면에서 플랜 할당량을 조회하고 피처 플래그와 API 요청 제한 설정을 저장한다.
 
 ## Done When
-
-- [x] 직렬화를 Confluent Avro + Schema Registry로 전환 (수동 bytes/`PlatformAvroEvents` 제거)
-- [x] 네임스페이스 `com.synapse.event.platform` → `com.synapse.platform` 정렬
-- [x] 발행: `platform.auth.user-registered-v1` = `UserRegistered`(userId, email, displayName + 공통메타 eventId/tenantId/occurredAt)
-- [x] 소비: `platform.notification.notification-send-v1` = `NotificationSend` → FCM/이메일 발송 (notificationType=AI_CARDS_READY 포함)
-- [x] 멱등성: 같은 `eventId` 재수신 시 1회만 처리 (중복 발송 없음)
-- [x] `bash scripts/kafka-e2e-test.sh --scenarios` 통과 (synapse-shared 레포, 로컬 Kafka+Schema Registry 기동)
-- [x] 로컬 `kafka-avro-console-consumer`로 user-registered-v1 수신 확인
-- [x] `./gradlew check` 통과 (신규/변경 코드 커버리지 80%+)
-- [ ] feature/PLAT-015 → **PR(base: dev)** 생성
-
-> 외부 E2E 참고: `scripts/kafka-e2e-test.sh`는 CRLF 때문에 직접 실행이 실패하여, 파일 수정 없이 실행 시 `tr -d '\r'`로 정규화해 수행했다. 해당 스크립트는 현재 JSON CloudEvent transport smoke이며, Avro 검증은 별도 `kafka-avro-console-producer/consumer`로 `platform.auth.user-registered-v1`에서 수행했다.
+- [x] `GET /api/v1/admin/settings`가 현재 시스템 설정을 반환한다.
+- [x] `PUT /api/v1/admin/settings`가 피처 플래그와 API 요청 제한 설정을 저장한 뒤 최신 설정을 반환한다.
+- [x] 응답에 플랜 할당량, 피처 플래그, API 요청 제한 값이 포함된다.
+- [x] 플랜 할당량은 기존 `plan_quotas` 데이터를 조회 전용으로 사용한다.
+- [x] 피처 플래그와 API 요청 제한 값은 platform 소유 저장소에 영속화한다.
+- [x] `/api/v1/admin/settings`는 `ROLE_ADMIN`만 접근 가능하다.
+- [x] 일반 사용자 또는 미인증 요청은 기존 Admin 보안 정책대로 차단된다.
+- [x] 입력 검증 실패 시 400 응답과 명확한 에러 메시지를 반환한다.
+- [x] 단위 테스트, 컨트롤러 테스트, 보안 통합 테스트를 추가하거나 보강한다.
+- [x] `./gradlew.bat test --tests "*AdminSettings*"` 또는 동등한 단일 테스트가 통과한다.
+- [x] `./gradlew.bat clean build`가 통과한다.
+- [x] `docs/project-management/history/HISTORY_platform.md`에 작업 이력을 남긴다.
 
 ## Scope
 
-- In Scope:
-  - 직렬화 전환(Producer/Consumer config), `.avsc` 벤더링 + 코드생성, Outbox payload 형식 교체
-  - UserRegistered 발행 경로, NotificationSend 소비 경로(audit + notification 양쪽)
-  - shared `.avsc` 임시 보정(displayName/eventId/occurredAt, NotificationSend namespace) + **병행 shared PR**
-- Out of Scope:
-  - `learning.ai.cards-generated-v1` 소비 (D-001로 철회 — HTTP 처리)
-  - CardReviewDue/LevelUp/BadgeEarned 알림 소비 (W4 후속, 별도 작업)
-  - dev → main 릴리스 머지 (PR base는 dev; dev→main은 별도/본인 처리)
-  - shared 라이브러리 발행 메커니즘 (표준 §6, team-lead 소관)
+### In Scope
+- Admin 설정 조회/저장 API 추가
+- `com.synapse.platform.admin` 하위 controller/service/dto 구성
+- 피처 플래그 및 rate limit 설정 저장용 DB migration/entity/repository 추가
+- 기존 `TenantApi` 기반 플랜 quota 조회 모델 구성
+- `ROLE_ADMIN` 인가 검증
+- 테스트 코드 작성
+- 현재 작업문서 갱신 및 PLAT-071 문서 archive 보관
 
-## Instructions (10단계 워크플로 매핑)
+### Out of Scope
+- GDPR 데이터 요청 API (`/api/v1/admin/data-requests`, PLAT-073 후보)
+- 실제 런타임 feature flag enforcement
+- 실제 rate limiting filter/gateway enforcement
+- `plan_quotas` 수정 API 또는 quota 값 변경
+- frontend 코드 수정
+- gateway/gitops/shared 프로젝트 수정
+- `.env`, profile, 실행 포트 설정 변경
+- `TASK_platform.md` 신규 항목 추가
 
-1. ① TASK/표준 확인 — EVENT_CONTRACT_STANDARD.md(v2, Avro) + 카탈로그 §2
-2. ④ 스키마 = `.avsc` 벤더링(보정본) → `src/main/avro/platform/` (CONTEXT 확정본 사용)
-3. ⑥ build.gradle.kts: avro 플러그인 1.9.1 + avro 1.12.0 + kafka-avro-serializer 7.7.0, `generateAvroJava`
-4. ⑦ Producer config: `eventKafkaTemplate` → `KafkaAvroSerializer`, schema.registry.url, auto.register.schemas
-5. ⑦ Consumer config: `KafkaAvroDeserializer`(ErrorHandlingDeserializer 래핑 유지) + specific.avro.reader=true, group `platform-svc-group`
-   - `@KafkaListener(groupId=...)` 하드코딩도 `platform-svc-group`으로 정렬
-   - DLQ용 KafkaTemplate/Recoverer는 GenericRecord 전용이 아니라 Object/SpecificRecord를 수용하도록 전환
-6. ⑧ `UserEventPublisher`/`OutboxEventPublisher`: 생성된 `UserRegistered` SpecificRecord 발행 (Outbox 유지, payload JSON 교체)
-   - Outbox `eventKey`와 최종 Kafka key는 tenantId
-7. ⑧ `AuditLogService`/`NotificationService`: GenericRecord 수동 디코딩 → SpecificRecord 필드 접근, eventId 멱등
-8. ⑧ `PlatformAvroEvents` 및 수동 인코딩/디코딩 전면 제거
-9. ⑨ application.yml 표준 Kafka 설정 적용 (key=tenantId, acks=all)
-10. ⑩ 테스트 전면 재작성(Embedded Kafka + mock Schema Registry) + `./gradlew check` → PR
+## Dependencies
+- Root 요구사항: `C:\workspace\team_project_2\docs\BACKEND_GAP_platform.md` A-6
+- 선행 작업: PLAT-071 Admin analytics summary API
+- 기존 Admin 보안: `/api/v1/admin/**` `ROLE_ADMIN`
+- 기존 quota 데이터: `plan_quotas`, `PlanQuotaInfo`, `TenantApi`
+- 프론트 화면: `admin_system_settings_screen.dart`
 
-## Constraints (이 작업 한정)
+## Due Date
+2026-06-12
 
-- 벤더링 `.avsc`는 **shared 병행 PR과 항상 동일 내용 유지** (drift 금지 — 머지 즉시 동기화)
-- bare typed record만 사용 — `data:bytes` 중첩 봉투 **금지**
-- 역직렬화 실패 → 에러 로그 + skip (크래시/무한재시도 금지, DLQ 유지)
-- 멱등성 키 = 레코드의 `eventId` (envelope.id 아님 — 봉투 폐기)
-- 모듈 경계 유지 (audit/notification/auth), ApplicationModules.verify() 통과
-- PR 생성은 Director 리뷰 및 사용자 커밋 승인 이후 진행. Worker Done When은 구현/검증 결과 보고까지.
-- synapse-shared 기반 외부 E2E는 로컬 Kafka/Schema Registry/shared 레포가 준비된 경우 수행하고, 불가 시 실행 불가 사유를 결과에 기록
+## Requirement Context
+Root `BACKEND_GAP_platform.md`의 A-6 Admin 대시보드 보강 항목 중 PLAT-071에서 분석 요약 API는 처리했다. 남은 platform 소관 항목은 시스템 설정/피처 플래그와 GDPR 데이터 요청이다.
 
-## Duration
+이번 작업은 먼저 프론트의 Admin System Settings 화면을 연결하기 위한 `GET`/`PUT /api/v1/admin/settings`를 구현한다.
 
-1.5 ~ 2일 (Worker 구현 + Director 리뷰 + 로컬 E2E)
+## Frontend Contract
+프론트 화면은 현재 mock 상태이며 다음 설정 묶음을 기대한다.
 
-## Assignee / Reviewer
+- Plan Quota
+- Feature Flags
+- Rate Limit
 
-- Assignee(구현): Worker(Codex)
-- Reviewer(설계/코드): Director(Claude) / 최종 @team-lead(계약 영향)
+초기 백엔드 응답은 아래 형태를 기준으로 한다. 구현 중 기존 DTO 스타일에 맞춰 필드명은 조정할 수 있으나, 프론트가 바로 붙을 수 있게 의미는 유지한다.
+
+```json
+{
+  "planQuotas": [
+    {
+      "planCode": "free",
+      "displayName": "Free",
+      "maxNotes": 1000,
+      "maxCards": 5000,
+      "maxStorageBytes": 1073741824,
+      "maxAiTokensMonthly": 100000,
+      "maxAiCardGenerationsMonthly": 100,
+      "maxUsersPerTenant": 5
+    }
+  ],
+  "featureFlags": [
+    {
+      "key": "aiCardAutoGeneration",
+      "label": "AI 카드 자동 생성",
+      "enabled": true
+    }
+  ],
+  "rateLimit": {
+    "apiRequestsPerMinute": 100
+  },
+  "updatedAt": "2026-06-10T00:00:00Z"
+}
+```
+
+`PUT` 요청은 운영 중 영향이 큰 plan quota를 제외하고, 피처 플래그와 rate limit만 저장한다.
+
+```json
+{
+  "featureFlags": [
+    {
+      "key": "aiCardAutoGeneration",
+      "enabled": true
+    }
+  ],
+  "rateLimit": {
+    "apiRequestsPerMinute": 100
+  }
+}
+```
+
+## Design Notes
+- Plan quota는 billing/auth 쪽 기존 계약과 연결되어 있어 이번 작업에서는 조회 전용으로 둔다.
+- Admin 모듈은 Modulith 경계를 지키기 위해 auth 내부 repository/entity 대신 `TenantApi.listPlanQuotas()`를 사용한다.
+- 피처 플래그와 rate limit은 현재 platform 내부 저장 스키마가 없으므로 migration을 추가한다.
+- 설정 key는 프론트 표시 문구가 아니라 안정적인 영문 key를 기준으로 저장한다.
+- 기본값은 코드 상수 또는 seed migration으로 제공하되, 운영 설정 변경 후에는 DB 값이 우선이다.
+- `apiRequestsPerMinute`는 `1..10000` 범위로 검증한다.
+- rate limit 저장은 이번 범위에 포함하지만 실제 요청 제한 적용은 별도 작업으로 남긴다.
+
+## Test Plan
+- `AdminSettingsServiceTest`
+  - 기본 설정 조회
+  - 저장된 설정 우선 조회
+  - 알 수 없는 feature flag key 거부
+  - rate limit 범위 검증
+- `AdminSettingsControllerTest`
+  - `GET /api/v1/admin/settings`
+  - `PUT /api/v1/admin/settings`
+  - validation error 400
+- `AdminSecurityIntegrationTest` 보강
+  - 미인증 401/403
+  - 일반 사용자 403
+  - admin 200
+- 빌드 검증
+  - `./gradlew.bat test --tests "*AdminSettings*"`
+  - `./gradlew.bat clean build`
+
+## Working Notes
+- 현재 브랜치: `feature/PLAT-072-admin-settings`
+- 기준 브랜치: `dev`
+- PLAT-071 current 문서는 `docs/ai/archive/20260610-plat-071-completed/`에 보관했다.
+- `TASK_platform.md`는 최초 개발 목록 문서이므로 수정하지 않았다.
+- 검증 통과:
+  - `./gradlew.bat test --tests "*AdminSettings*"`
+  - `./gradlew.bat test --tests "*AdminSecurityIntegrationTest"`
+  - `./gradlew.bat test --tests "*AdminSettings*" --tests "*PlatformModuleStructureTest"`
+  - `./gradlew.bat clean build`

@@ -21,6 +21,7 @@ public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
     private static final int DAILY_EMAIL_LIMIT = 10;
+    private static final String PASSWORD_RESET_CODE = "PASSWORD_RESET_CODE";
 
     private final NotificationRepository notificationRepository;
     private final ObjectProvider<FcmPushService> fcmPushServiceProvider;
@@ -85,7 +86,7 @@ public class NotificationService {
                 log.info("SES channel not configured - skipping for user {}", userId);
                 return;
             }
-            if (isDailyEmailLimitExceeded(userId)) {
+            if (isDailyEmailLimitEnforced(notificationType) && isDailyEmailLimitExceeded(userId)) {
                 log.warn("Daily email limit exceeded for user {}: eventId={}", userId, eventId);
                 return;
             }
@@ -127,6 +128,10 @@ public class NotificationService {
     private boolean isDailyEmailLimitExceeded(UUID userId) {
         Instant dayStart = LocalDate.now(ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant();
         return notificationRepository.countTodayEmailByUserId(userId, dayStart) >= DAILY_EMAIL_LIMIT;
+    }
+
+    private boolean isDailyEmailLimitEnforced(String notificationType) {
+        return !PASSWORD_RESET_CODE.equals(notificationType);
     }
 
     private void dispatchFcm(

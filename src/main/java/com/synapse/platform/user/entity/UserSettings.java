@@ -54,7 +54,33 @@ public class UserSettings {
         return settings;
     }
 
+    public void updateLocale(String locale) {
+        this.locale = locale;
+        updatedAt = OffsetDateTime.now();
+    }
+
+    public void updateNotificationPrefs(String notificationPrefs) {
+        if (notificationPrefs == null || notificationPrefs.isBlank()) {
+            this.notificationPrefs = "{}";
+        } else {
+            this.notificationPrefs = notificationPrefs;
+        }
+        updatedAt = OffsetDateTime.now();
+    }
+
     public UUID getUserId() {
         return userId;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public String getTheme() {
+        return theme;
+    }
+
+    public String getNotificationPrefs() {
+        return notificationPrefs;
     }
 }

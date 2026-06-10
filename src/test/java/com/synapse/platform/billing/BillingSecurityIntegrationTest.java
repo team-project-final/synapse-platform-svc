@@ -2,6 +2,7 @@ package com.synapse.platform.billing;
 
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -46,6 +47,18 @@ class BillingSecurityIntegrationTest {
                                   "cancelUrl": "https://app.example.com/cancel"
                                 }
                                 """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void paymentReadApis_withoutAuthenticationReturnUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/billing/payments"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/billing/usage"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/billing/payments/{id}/receipt", java.util.UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
     }
 

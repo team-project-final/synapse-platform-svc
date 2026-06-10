@@ -15,8 +15,11 @@ import com.stripe.exception.ApiException;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 import com.stripe.param.checkout.SessionCreateParams;
+import com.synapse.platform.auth.api.PlanQuotaInfo;
 import com.synapse.platform.auth.api.TenantApi;
+import com.synapse.platform.auth.api.TenantInfo;
 import com.synapse.platform.billing.config.StripeProperties;
+import com.synapse.platform.billing.entity.PaymentHistory;
 import com.synapse.platform.billing.entity.PlanCode;
 import com.synapse.platform.billing.entity.Subscription;
 import com.synapse.platform.billing.entity.SubscriptionStatus;
@@ -29,12 +32,16 @@ import com.synapse.platform.billing.service.BillingService;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Answers;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 class BillingServiceTest {
 
@@ -239,7 +246,17 @@ class BillingServiceTest {
 
         billingService.handleWebhook(payload.getBytes(StandardCharsets.UTF_8), signature(payload));
 
-        verify(paymentHistoryRepository).save(any());
+        ArgumentCaptor<PaymentHistory> paymentCaptor = ArgumentCaptor.forClass(PaymentHistory.class);
+        verify(paymentHistoryRepository).save(paymentCaptor.capture());
+        assertThat(paymentCaptor.getValue())
+                .satisfies(payment -> {
+                    assertThat(payment.getTenantId()).isEqualTo(tenantId);
+                    assertThat(payment.getStripePaymentIntentId()).isEqualTo("pi_test");
+                    assertThat(payment.getStripeInvoiceId()).isEqualTo("in_test");
+                    assertThat(payment.getInvoiceUrl()).isEqualTo("https://invoice.stripe.test/in_test");
+                    assertThat(payment.getInvoicePdfUrl()).isEqualTo("https://invoice.stripe.test/in_test.pdf");
+                    assertThat(payment.isReceiptAvailable()).isTrue();
+                });
     }
 
     @Test
@@ -309,6 +326,129 @@ class BillingServiceTest {
                 .isEqualTo("BILLING-003");
     }
 
+    @Test
+    void getPayments_returnsUsersDefaultTenantPayments() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        PaymentHistory payment = PaymentHistory.of(
+                tenantId,
+                UUID.randomUUID(),
+                "pi_test",
+                "in_test",
+                "https://invoice.stripe.test/in_test",
+                "https://invoice.stripe.test/in_test.pdf",
+                999,
+                "usd",
+                "succeeded",
+                OffsetDateTime.parse("2026-06-09T06:30:00Z"));
+        PageRequest pageable = PageRequest.of(0, 20);
+        given(userApi.findById(userId)).willReturn(Optional.of(new UserInfo(
+                userId, "billing@example.com", "Billing User", tenantId)));
+        given(paymentHistoryRepository.findByTenantId(tenantId, pageable))
+                .willReturn(new PageImpl<>(List.of(payment), pageable, 1));
+
+        assertThat(billingService.getPayments(userId, pageable))
+                .satisfies(response -> {
+                    assertThat(response.totalElements()).isOne();
+                    assertThat(response.items()).singleElement()
+                            .satisfies(item -> {
+                                assertThat(item.amount()).isEqualTo(999);
+                                assertThat(item.receiptAvailable()).isTrue();
+                            });
+                });
+    }
+
+    @Test
+    void getReceipt_hidesOtherTenantPaymentsAsNotFound() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        UUID paymentId = UUID.randomUUID();
+        given(userApi.findById(userId)).willReturn(Optional.of(new UserInfo(
+                userId, "billing@example.com", "Billing User", tenantId)));
+        given(paymentHistoryRepository.findByIdAndTenantId(paymentId, tenantId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> billingService.getReceipt(userId, paymentId))
+                .isInstanceOf(BillingException.class)
+                .extracting("errorCode")
+                .isEqualTo("BILLING-007");
+    }
+
+    @Test
+    void getReceipt_returnsStoredInvoiceMetadata() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        UUID paymentId = UUID.randomUUID();
+        PaymentHistory payment = PaymentHistory.of(
+                tenantId,
+                UUID.randomUUID(),
+                "pi_test",
+                "in_test",
+                "https://invoice.stripe.test/in_test",
+                "https://invoice.stripe.test/in_test.pdf",
+                999,
+                "usd",
+                "succeeded",
+                OffsetDateTime.parse("2026-06-09T06:30:00Z"));
+        given(userApi.findById(userId)).willReturn(Optional.of(new UserInfo(
+                userId, "billing@example.com", "Billing User", tenantId)));
+        given(paymentHistoryRepository.findByIdAndTenantId(paymentId, tenantId)).willReturn(Optional.of(payment));
+
+        assertThat(billingService.getReceipt(userId, paymentId))
+                .satisfies(response -> {
+                    assertThat(response.stripePaymentIntentId()).isEqualTo("pi_test");
+                    assertThat(response.stripeInvoiceId()).isEqualTo("in_test");
+                    assertThat(response.invoiceUrl()).isEqualTo("https://invoice.stripe.test/in_test");
+                    assertThat(response.available()).isTrue();
+                });
+    }
+
+    @Test
+    void getUsage_returnsActiveSubscriptionPlanQuotaWithoutConnectedUsageCounts() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Subscription subscription = Subscription.create(tenantId, PlanCode.PRO, "cus_test");
+        subscription.activate(
+                "sub_test",
+                OffsetDateTime.parse("2026-06-09T00:00:00Z"),
+                OffsetDateTime.parse("2026-07-09T00:00:00Z"));
+        given(userApi.findById(userId)).willReturn(Optional.of(new UserInfo(
+                userId, "billing@example.com", "Billing User", tenantId)));
+        given(subscriptionRepository.findByTenantIdAndStatus(tenantId, SubscriptionStatus.ACTIVE))
+                .willReturn(Optional.of(subscription));
+        given(tenantApi.findPlanQuota("pro")).willReturn(Optional.of(proQuota()));
+
+        assertThat(billingService.getUsage(userId))
+                .satisfies(response -> {
+                    assertThat(response.tenantId()).isEqualTo(tenantId);
+                    assertThat(response.planCode()).isEqualTo("pro");
+                    assertThat(response.subscriptionStatus()).isEqualTo("ACTIVE");
+                    assertThat(response.quotas().maxNotes()).isEqualTo(50000);
+                    assertThat(response.usage().notes().used()).isNull();
+                    assertThat(response.usage().notes().limit()).isEqualTo(50000L);
+                    assertThat(response.usage().notes().source()).isEqualTo("NOT_CONNECTED");
+                });
+    }
+
+    @Test
+    void getUsage_withoutActiveSubscriptionFallsBackToTenantPlan() {
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        given(userApi.findById(userId)).willReturn(Optional.of(new UserInfo(
+                userId, "billing@example.com", "Billing User", tenantId)));
+        given(subscriptionRepository.findByTenantIdAndStatus(tenantId, SubscriptionStatus.ACTIVE))
+                .willReturn(Optional.empty());
+        given(tenantApi.findById(tenantId)).willReturn(Optional.of(new TenantInfo(tenantId, "free", "active")));
+        given(tenantApi.findPlanQuota("free")).willReturn(Optional.of(new PlanQuotaInfo(
+                "free", "Free", 1000, 500, 100000000L, 100000L, 10, 1)));
+
+        assertThat(billingService.getUsage(userId))
+                .satisfies(response -> {
+                    assertThat(response.planCode()).isEqualTo("free");
+                    assertThat(response.subscriptionStatus()).isNull();
+                    assertThat(response.quotas().maxCards()).isEqualTo(500);
+                });
+    }
+
     private void assertCheckoutSessionPrice(PlanCode planCode, String expectedPriceId) throws Exception {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
@@ -336,6 +476,10 @@ class BillingServiceTest {
         String signedPayload = timestamp + "." + payload;
         String signature = Webhook.Util.computeHmacSha256(WEBHOOK_SECRET, signedPayload);
         return "t=" + timestamp + ",v1=" + signature;
+    }
+
+    private static PlanQuotaInfo proQuota() {
+        return new PlanQuotaInfo("pro", "Pro", 50000, 50000, 10000000000L, 5000000L, 500, 1);
     }
 
     private static String checkoutCompletedPayload(UUID tenantId, PlanCode planCode, String eventId) {
@@ -408,6 +552,8 @@ class BillingServiceTest {
                       "object": "invoice",
                       "amount_paid": 1200,
                       "currency": "usd",
+                      "hosted_invoice_url": "https://invoice.stripe.test/in_test",
+                      "invoice_pdf": "https://invoice.stripe.test/in_test.pdf",
                       "parent": {
                         "type": "subscription_details",
                         "subscription_details": {

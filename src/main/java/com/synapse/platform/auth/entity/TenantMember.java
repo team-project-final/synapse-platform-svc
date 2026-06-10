@@ -50,4 +50,12 @@ public class TenantMember {
     public String getRole() {
         return role;
     }
+
+    public OffsetDateTime getJoinedAt() {
+        return joinedAt;
+    }
+
+    public void changeRole(String role) {
+        this.role = role;
+    }
 }

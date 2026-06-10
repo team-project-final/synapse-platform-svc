@@ -20,6 +20,7 @@ import com.synapse.platform.user.api.OAuthUserCreateCommand;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.api.UserLoginCredential;
+import com.synapse.platform.user.api.UserSummary;
 import com.synapse.platform.user.entity.User;
 import com.synapse.platform.user.entity.UserSettings;
 import com.synapse.platform.user.repository.UserRepository;
@@ -29,6 +30,8 @@ import com.synapse.platform.global.crypto.FieldEncryptor;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -172,6 +175,11 @@ class OAuthUserResolverTest {
             }
 
             @Override
+            public List<UserSummary> findSummariesByIds(Collection<UUID> userIds) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
             public Optional<UserLoginCredential> findLoginCredentialByEmail(String email) {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
             }
@@ -188,6 +196,26 @@ class OAuthUserResolverTest {
 
             @Override
             public boolean existsByUsername(String username) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public boolean hasPasswordLogin(UUID userId) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public List<String> findRoles(UUID userId) {
+                return List.of("ROLE_USER");
+            }
+
+            @Override
+            public String getNotificationPreferences(UUID userId) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public String updateNotificationPreferences(UUID userId, String notificationPreferences) {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
             }
 
@@ -216,6 +244,11 @@ class OAuthUserResolverTest {
 
             @Override
             public void recordSuccessfulLogin(UUID userId, OffsetDateTime now) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
+            }
+
+            @Override
+            public void resetPassword(UUID userId, String newPassword) {
                 throw new UnsupportedOperationException("Not used by OAuth tests");
             }
 

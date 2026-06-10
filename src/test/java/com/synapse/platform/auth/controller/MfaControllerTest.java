@@ -2,6 +2,7 @@ package com.synapse.platform.auth.controller;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.auth.service.TotpService;
 import com.synapse.platform.global.exception.GlobalExceptionHandler;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,6 +99,54 @@ class MfaControllerTest {
                         .principal(new TestingAuthenticationToken(userId.toString(), null))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("code", "000000"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("PLAT-003"));
+    }
+
+    @Test
+    void backupCodes_authenticatedUser_shouldReturnGeneratedCodes() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(totpService.generateBackupCodes(userId))
+                .willReturn(List.of("ABCD-EFGH", "JKLM-NPQR"));
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/mfa/backup-codes")
+                        .principal(new TestingAuthenticationToken(userId.toString(), null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.codes[0]").value("ABCD-EFGH"))
+                .andExpect(jsonPath("$.codes[1]").value("JKLM-NPQR"));
+
+        verify(totpService).generateBackupCodes(userId);
+    }
+
+    @Test
+    void backup_validCode_shouldReturnOk() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(totpService.verifyBackupCode(userId, "ABCD-EFGH")).willReturn(true);
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/mfa/backup")
+                        .principal(new TestingAuthenticationToken(userId.toString(), null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", "ABCD-EFGH"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.verified").value(true));
+    }
+
+    @Test
+    void backup_invalidCode_shouldReturnBadRequestProblem() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        given(totpService.verifyBackupCode(userId, "BAD-CODE")).willReturn(false);
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/mfa/backup")
+                        .principal(new TestingAuthenticationToken(userId.toString(), null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", "BAD-CODE"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.code").value("PLAT-003"));

@@ -4,16 +4,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.synapse.platform.audit.entity.AuditLog;
 import com.synapse.platform.audit.repository.AuditLogRepository;
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
@@ -65,6 +70,11 @@ class AuditLogPostgresSchemaTest {
                 .migrate();
     }
 
+    @BeforeEach
+    void cleanUp() {
+        jdbcTemplate.update("DELETE FROM audit_logs");
+    }
+
     @Test
     void auditLogSchema_shouldValidateAndPersistWithPostgresTypes() {
         AuditLog saved = auditLogRepository.saveAndFlush(AuditLog.of(
@@ -81,12 +91,38 @@ class AuditLogPostgresSchemaTest {
         assertThat(columnType("ip_address")).isEqualTo("character varying");
     }
 
+    @Test
+    void analyticsQueries_shouldCountTodayRowsAndReturnRecentRowsNewestFirst() {
+        OffsetDateTime dayStart = OffsetDateTime.parse("2026-06-10T00:00:00Z");
+        auditLogRepository.saveAllAndFlush(List.of(
+                auditLog("OLD_ACTIVITY", dayStart.minusSeconds(1)),
+                auditLog("TODAY_ACTIVITY", dayStart.plusHours(1)),
+                auditLog("LATEST_ACTIVITY", dayStart.plusHours(2))));
+
+        assertThat(auditLogRepository.countByCreatedAtGreaterThanEqual(dayStart)).isEqualTo(2);
+        assertThat(auditLogRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 2)).getContent())
+                .extracting(AuditLog::getAction)
+                .containsExactly("LATEST_ACTIVITY", "TODAY_ACTIVITY");
+    }
+
     private String columnType(String columnName) {
         return jdbcTemplate.queryForObject("""
                 SELECT data_type
                 FROM information_schema.columns
                 WHERE table_name = 'audit_logs' AND column_name = ?
                 """, String.class, columnName);
+    }
+
+    private static AuditLog auditLog(String action, OffsetDateTime createdAt) {
+        AuditLog auditLog = AuditLog.of(
+                UUID.randomUUID(),
+                action,
+                UUID.randomUUID(),
+                "USER",
+                UUID.randomUUID().toString(),
+                "{}");
+        ReflectionTestUtils.setField(auditLog, "createdAt", createdAt);
+        return auditLog;
     }
 
     private static String postgresJdbcUrl() {

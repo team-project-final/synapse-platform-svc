@@ -49,6 +49,20 @@ class JwtTokenProviderTest {
     }
 
     @Test
+    void createAccessToken_adminRole_shouldContainEngagementCompatibleRoleAlias() {
+        // Given
+        UUID userId = UUID.randomUUID();
+
+        // When
+        String token = tokenProvider.createAccessToken(userId, List.of("ROLE_USER", "ROLE_ADMIN"));
+
+        // Then
+        Jws<Claims> parsed = parse(token);
+        assertThat(parsed.getPayload().get("roles", List.class))
+                .containsExactly("ROLE_USER", "ROLE_ADMIN", "ADMIN");
+    }
+
+    @Test
     void createRefreshToken_validUser_shouldContainRefreshTypeWithoutRoles() {
         // Given
         UUID userId = UUID.randomUUID();
@@ -205,6 +219,32 @@ class JwtTokenProviderTest {
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
                 .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN");
+    }
+
+    @Test
+    void getAuthentication_bareAdminRole_shouldNormalizeToSpringAuthority() {
+        // Given
+        UUID userId = UUID.randomUUID();
+        String token = Jwts.builder()
+                .header()
+                .add("kid", properties.kid())
+                .and()
+                .subject(userId.toString())
+                .issuer(properties.issuer())
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(Instant.now().plusSeconds(60)))
+                .claim("type", "ACCESS")
+                .claim("roles", List.of("ADMIN"))
+                .signWith(properties.rsaPrivateKey(), Jwts.SIG.RS256)
+                .compact();
+
+        // When
+        Authentication authentication = tokenProvider.getAuthentication(token);
+
+        // Then
+        assertThat(authentication.getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_ADMIN");
     }
 
     private Jws<Claims> parse(String token) {

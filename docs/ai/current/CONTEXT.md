@@ -1,107 +1,120 @@
-# PLAT-091 Context
+# PLAT-086 Context
 
 ## Current State
-- #84 OpenAPI/SpringDoc PR #92는 `dev`에 merge 완료됐다.
-- #84 이슈는 닫혔다.
-- 현재 작업 브랜치: `fix/PLAT-091-oauth-provider-column`
+- #84 OpenAPI/SpringDoc PR #92는 `dev`에 merge 완료됐고 이슈도 닫혔다.
+- #91 OAuth provider 컬럼 정합 PR #93은 `dev`에 merge 완료됐다.
+- 현재 작업 브랜치: `fix/PLAT-086-admin-role-contract`
 - 기준 브랜치: `dev`
-- #91 조사는 완료됐고, 코드/마이그레이션 수정은 불필요하다고 판단했다.
+- 현재 작업 대상 이슈: #86 `[F8] 관리자 ADMIN role 발급 메커니즘 부재 - 모더레이션 E2E 차단`
 
 ## Issue Summary
-#91은 팀장님 로컬 checkout에서 발견된 untracked migration 파일 때문에 등록된 이슈다.
+#86은 W5 관리자 모더레이션 E2E가 platform의 ADMIN role 발급 메커니즘 부재로 차단된다는 문제다.
 
-발견된 파일명:
+이슈 본문은 origin/main 실측 기준으로 아래 문제를 지적했다.
 
-```text
-src/main/resources/db/migration/V28__rename_oauth_provider_id_column.sql
-```
+1. role 저장소가 없다.
+2. 모든 사용자가 고정 일반 role만 받는다.
+3. ADMIN 승격 경로가 없다.
+4. platform은 `ROLE_ADMIN`, engagement는 `ADMIN`을 기대해 문자열 계약이 맞지 않을 수 있다.
 
-파일 의도:
+현재 `dev`는 이슈 작성 당시보다 앞서 있다. role 저장소와 기본 role 부여는 이미 구현되어 있으므로, 작업 시작 전 stale 항목과 실제 잔여 갭을 분리해야 한다.
 
-```sql
-ALTER TABLE oauth_identities RENAME COLUMN provider_id TO provider_user_id;
-DROP INDEX IF EXISTS uq_oauth_provider_user;
-CREATE UNIQUE INDEX uq_oauth_provider_user ON oauth_identities(provider, provider_user_id);
-```
+## Verified Platform Evidence
 
-이슈의 핵심은 두 가지다.
-
-1. `V28__allow_multiple_refresh_tokens.sql`이 이미 있으므로 rename 파일도 V28이면 Flyway version conflict가 발생한다.
-2. 공식 schema가 `provider_id`인데 entity가 `provider_user_id`를 기대한다면 OAuth 경로가 깨질 수 있다.
-
-## Verified Local Evidence
-
-현재 `dev` 기준 repo에서 확인한 내용:
+현재 `dev` 기준으로 확인한 내용:
 
 | 항목 | 확인 결과 |
 |---|---|
-| OAuth entity | `OAuthIdentity.providerUserId`는 `@Column(name = "provider_id")` |
-| 초기 DDL | `V3__init_users_and_auth.sql`이 `provider_id` 생성 |
-| unique index | `uq_oauth_provider_user ON oauth_identities(provider, provider_id)` |
-| schema test | `OAuthIdentitySchemaTest`가 `provider_id` 사용, `provider_user_id` 미사용을 검증 |
-| tracked rename migration | 없음 |
-| tracked V28 | `V28__allow_multiple_refresh_tokens.sql`만 존재 |
+| role schema | `user_roles(user_id, role)` 테이블 존재 |
+| allowed roles | `ROLE_USER`, `ROLE_ADMIN` |
+| 기존 사용자 백필 | 삭제되지 않은 사용자에게 `ROLE_USER` 부여 |
+| 신규 이메일 가입 | 기본 `ROLE_USER` 저장 |
+| 신규 OAuth 가입 | 기본 `ROLE_USER` 저장 |
+| role 조회 | `UserService.findRoles(UUID)`가 DB role 조회 |
+| fallback | role row가 없으면 `ROLE_USER` 반환 |
+| 로그인 access token | DB role로 JWT 발급 |
+| OAuth success token | DB role로 JWT 발급 |
+| refresh access token | DB role로 JWT 재발급 |
+| admin endpoint | Spring Security `hasRole('ADMIN')`, 즉 `ROLE_ADMIN` 필요 |
+| 수동 관리자 부여 | `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md` 존재 |
 
-초기 판단:
-- 현재 공식 코드 기준으로는 `provider_id` 유지가 의도된 상태일 가능성이 높다.
-- 따라서 rename migration을 바로 추가하면 기존 테스트 의도와 충돌할 수 있다.
-- 먼저 테스트와 git tracked 파일 기준으로 "실제 schema gap 없음"을 확정하는 것이 우선이다.
+관련 파일:
+- `src/main/resources/db/migration/V20260609140528__create_user_roles.sql`
+- `src/main/java/com/synapse/platform/user/entity/UserRole.java`
+- `src/main/java/com/synapse/platform/user/repository/UserRoleRepository.java`
+- `src/main/java/com/synapse/platform/user/service/UserService.java`
+- `src/main/java/com/synapse/platform/auth/service/JwtTokenProvider.java`
+- `src/main/java/com/synapse/platform/auth/service/EmailPasswordAuthService.java`
+- `src/main/java/com/synapse/platform/auth/service/OAuth2SuccessHandler.java`
+- `src/main/java/com/synapse/platform/auth/controller/AuthController.java`
+- `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`
 
-최종 판단:
-- 현재 공식 코드 기준 `provider_id` 유지가 맞다.
-- `provider_user_id` rename migration은 추가하지 않는다.
-- repo에는 V28 중복이 없고, DB 통합 테스트와 전체 빌드가 통과했다.
+## Engagement Evidence
 
-## Relevant Files
+engagement repo는 확인만 했다. 수정하지 않는다.
 
-Entity:
-- `src/main/java/com/synapse/platform/auth/entity/OAuthIdentity.java`
+확인 내용:
+- `CurrentUser.requireAdmin()`은 JWT `roles` claim 컬렉션에 `ADMIN`이 있는지 검사한다.
+- 단일 `role` claim이 `ADMIN`인 경우도 허용한다.
+- 테스트 token도 `List.of("ADMIN")`을 사용한다.
 
-Repository:
-- `src/main/java/com/synapse/platform/auth/repository/OAuthIdentityRepository.java`
+관련 파일:
+- `C:\workspace\team_project_2\synapse-engagement-svc\src\main\java\com\synapse\engagement\shared\CurrentUser.java`
+- `C:\workspace\team_project_2\synapse-engagement-svc\src\test\java\com\synapse\engagement\shared\CurrentUserTests.java`
+- `C:\workspace\team_project_2\synapse-engagement-svc\src\test\java\com\synapse\engagement\community\api\ReportControllerWebMvcTest.java`
 
-Migrations:
-- `src/main/resources/db/migration/V3__init_users_and_auth.sql`
-- `src/main/resources/db/migration/V20__add_oauth_identity_access_token.sql`
-- `src/main/resources/db/migration/V28__allow_multiple_refresh_tokens.sql`
+## Remaining Gap
 
-Tests:
-- `src/test/java/com/synapse/platform/auth/entity/OAuthIdentitySchemaTest.java`
-- `src/test/java/com/synapse/platform/auth/controller/OAuth2LoginIntegrationTest.java`
-- `src/test/java/com/synapse/platform/auth/controller/OAuthConnectionControllerTest.java`
-- `src/test/java/com/synapse/platform/auth/service/OAuthConnectionServiceTest.java`
-- `src/test/java/com/synapse/platform/audit/AuditLogPostgresSchemaTest.java`
-- `src/test/java/com/synapse/platform/auth/service/RefreshTokenServiceTest.java`
-- `src/test/java/com/synapse/platform/billing/BillingRepositoryTest.java`
-- `src/test/java/com/synapse/platform/e2e/AuthBillingE2ETest.java`
-- `src/test/java/com/synapse/platform/notification/DeviceTokenIntegrationTest.java`
+현재 platform은 DB와 Spring Security 기준으로 `ROLE_ADMIN`을 사용한다. 이는 platform 내부 admin endpoint에는 맞다.
+
+하지만 engagement는 JWT에서 `ADMIN`을 찾는다. platform JWT가 `roles: ["ROLE_ADMIN"]`만 담으면 engagement 모더레이션 API가 이를 관리자 token으로 인정하지 못할 가능성이 있다.
+
+이번 작업에서는 다른 repo를 수정하지 않는 조건을 지키기 위해 platform JWT claim에서 호환 가능한 표현을 함께 제공하는 방향으로 처리했다.
+
+정리된 계약:
+- DB role 정본: `ROLE_USER`, `ROLE_ADMIN`
+- platform 내부 authority: `ROLE_USER`, `ROLE_ADMIN`
+- JWT `roles` claim: `ROLE_ADMIN` 원본 + engagement 호환 alias
+  - `ROLE_ADMIN` -> `ROLE_ADMIN`, `ADMIN`
+- token을 다시 platform 인증으로 읽을 때 bare alias는 Spring authority로 정규화한다.
+
+## Constraints
+
+- 다른 repo는 수정하지 않는다.
+- env/profile 설정은 수정하지 않는다.
+- 자동 seed admin 또는 bootstrap admin은 만들지 않는다.
+- 운영 DB는 직접 변경하지 않는다.
+- `TASK_platform.md`는 수정하지 않는다.
+- 현재 수동 관리자 부여 방향은 유지한다.
 
 ## Risk Notes
-- Flyway version conflict는 service boot와 DB integration test를 한 번에 막는 고위험 이슈다.
-- 반대로 불필요한 rename migration을 추가하면 현재 entity/test 의도와 충돌하고 OAuth 기존 DB와도 충돌할 수 있다.
-- 공식 repo에 없는 untracked 파일은 그대로 따라가지 않는다. 현재 repo와 팀장님 관리 문서/이슈 근거를 기준으로 판단한다.
-- 운영 DB에 이미 수동 rename이 적용된 경우는 repo migration만으로 단정하면 안 된다. 해당 경우는 운영 DB 상태 확인이 별도 필요하다.
+- JWT `roles` claim을 바꾸면 platform 자체 인증과 다른 서비스 인증 해석에 동시에 영향을 준다.
+- platform 내부 Spring Security는 `ROLE_ADMIN` 권한이 필요하므로, 내부 authority 변환이 깨지면 안 된다.
+- 단순히 DB role을 `ADMIN`으로 바꾸는 방식은 현재 check constraint와 기존 admin 보안 정책에 맞지 않는다.
+- 자동 admin seed는 운영 정책과 profile/env 제약을 건드릴 수 있어 이번 범위에서 제외한다.
 
-## Verification
+## Resolution
+- `JwtTokenProvider.createAccessToken()`에서 access token `roles` claim을 외부 서비스 호환 형태로 확장했다.
+- `JwtTokenProvider.getAuthentication()`의 authority 변환은 bare role alias를 Spring Security authority로 정규화하도록 보강했다.
+- 최초 어드민 부여 방식은 기존 런북의 DB 수동 grant로 유지했다.
+- engagement/shared/gitops/frontend/gateway repo는 수정하지 않았다.
+
+## Verification Direction
+필수 검증:
+- `UserServiceTest`
+- `JwtTokenProviderTest`
+- `EmailPasswordAuthServiceTest`
+- `OAuth2SuccessHandlerTest`
+- `AuthControllerTest`
+- `AdminSecurityIntegrationTest`
+- `AuditLogControllerTest`
+- `clean build`
+
+필요 시 추가 검증:
+- JWT claim에 `ROLE_ADMIN`과 engagement 호환 표현이 함께 들어가는지 디코드 테스트
+- `getAuthentication()`이 기존 `ROLE_ADMIN` authority를 유지하는지 테스트
+
 통과한 검증:
-
-```powershell
-.\gradlew.bat test --rerun-tasks --tests "*OAuthIdentitySchemaTest" --tests "*OAuth2LoginIntegrationTest" --tests "*OAuthConnectionControllerTest" --tests "*OAuthConnectionServiceTest"
-.\gradlew.bat test --rerun-tasks --tests "*AuditLogPostgresSchemaTest" --tests "*RefreshTokenServiceTest" --tests "*BillingRepositoryTest" --tests "*AuthBillingE2ETest" --tests "*DeviceTokenIntegrationTest"
-.\gradlew.bat clean build
-```
-
-`clean build` 중 Windows Kafka 테스트 임시파일 삭제 로그가 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`이다.
-
-## Resolution Direction
-1. code migration은 추가하지 않는다.
-2. HISTORY와 작업 문서에 조사 완료 근거를 남긴다.
-3. #91에는 "tracked repo 기준 schema gap 없음, V28 중복 없음, rename migration 불필요"로 코멘트를 남긴 뒤 close하면 된다.
-
-## Do Not Touch
-- shared/gitops/engagement/gateway/frontend repo
-- `.env`
-- profile 설정
-- 실행 포트 설정
-- `TASK_platform.md`
-- 팀장님 로컬의 untracked 파일
+- `.\gradlew.bat test --tests "*JwtTokenProviderTest"`
+- `.\gradlew.bat test --tests "*UserServiceTest" --tests "*EmailPasswordAuthServiceTest" --tests "*OAuth2SuccessHandlerTest" --tests "*AuthControllerTest" --tests "*AdminSecurityIntegrationTest" --tests "*AuditLogControllerTest"`
+- `.\gradlew.bat clean build`

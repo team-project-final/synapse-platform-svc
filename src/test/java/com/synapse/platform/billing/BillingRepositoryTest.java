@@ -191,6 +191,58 @@ class BillingRepositoryTest {
                 });
     }
 
+    @Test
+    void analyticsQueries_shouldCountActiveSubscriptionsAndSucceededPaymentsSinceDayStart() {
+        OffsetDateTime dayStart = OffsetDateTime.parse("2026-06-10T00:00:00Z");
+        UUID activeTenantId = createTenant();
+        UUID canceledTenantId = createTenant();
+        UUID paymentTenantId = createTenant();
+
+        subscriptionRepository.save(Subscription.create(activeTenantId, PlanCode.PRO, "cus_active"));
+        Subscription canceled = Subscription.create(canceledTenantId, PlanCode.TEAM, "cus_canceled");
+        canceled.cancel();
+        subscriptionRepository.save(canceled);
+
+        paymentHistoryRepository.save(PaymentHistory.of(
+                paymentTenantId,
+                null,
+                "pi_succeeded_today",
+                "in_succeeded_today",
+                "https://invoice.stripe.test/in_succeeded_today",
+                "https://invoice.stripe.test/in_succeeded_today.pdf",
+                1200,
+                "usd",
+                "succeeded",
+                dayStart.plusHours(1)));
+        paymentHistoryRepository.save(PaymentHistory.of(
+                paymentTenantId,
+                null,
+                "pi_succeeded_old",
+                "in_succeeded_old",
+                "https://invoice.stripe.test/in_succeeded_old",
+                "https://invoice.stripe.test/in_succeeded_old.pdf",
+                700,
+                "usd",
+                "succeeded",
+                dayStart.minusSeconds(1)));
+        paymentHistoryRepository.save(PaymentHistory.of(
+                paymentTenantId,
+                null,
+                "pi_failed_today",
+                "in_failed_today",
+                "https://invoice.stripe.test/in_failed_today",
+                "https://invoice.stripe.test/in_failed_today.pdf",
+                900,
+                "usd",
+                "failed",
+                dayStart.plusHours(2)));
+
+        assertThat(subscriptionRepository.countByStatus(SubscriptionStatus.ACTIVE)).isOne();
+        assertThat(paymentHistoryRepository.countByStatusAndPaidAtGreaterThanEqual("succeeded", dayStart)).isOne();
+        assertThat(paymentHistoryRepository.sumAmountByStatusAndPaidAtGreaterThanEqual("succeeded", dayStart))
+                .isEqualTo(1200);
+    }
+
     private PageRequest paymentPage() {
         return PageRequest.of(0, 20, Sort.by(
                 Sort.Order.desc("paidAt").nullsLast(),

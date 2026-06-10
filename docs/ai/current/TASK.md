@@ -1,44 +1,40 @@
-# TASK - PLAT-070: Auth 복구 플로우 보강
+# TASK - PLAT-071: Admin 대시보드 분석 API
 
-> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-2. 프론트 `auth/password_reset_screen.dart`, `auth/mfa_screen.dart`가 비밀번호 재설정과 MFA 백업 코드 검증을 기대하지만, platform-svc는 현재 email/password 로그인, refresh, TOTP setup/verify까지만 제공한다.
+> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-6. 프론트 `admin/admin_dashboard_screen.dart`가 DAU/MAU, 시스템 사용량, 긴급 처리 항목, 최근 활동을 기대하지만, platform-svc는 현재 관리자 사용자/테넌트/감사로그 CRUD만 제공한다.
 
 ## Task Metadata
 
 | 필드 | 내용 |
 |---|---|
-| Task ID | `PLAT-070` |
-| Title | Auth 복구 플로우 보강 |
+| Task ID | `PLAT-071` |
+| Title | Admin 대시보드 분석 API |
 | Owner | platform (김해준) |
 | Status | `DONE` |
-| Priority | `P1` |
-| Step Goal | 사용자가 비밀번호를 잊었거나 TOTP 코드를 사용할 수 없을 때 안전하게 계정 접근을 복구할 수 있다. |
+| Priority | `P2` |
+| Step Goal | 관리자가 관리자 대시보드에서 platform-svc가 보유한 사용자/테넌트/감사로그/알림 기준 운영 요약을 조회할 수 있다. |
 | Done When | 아래 `Done When` 체크리스트 기준 |
 | Scope | 아래 `Scope` 기준 |
-| Dependencies | `BACKEND_GAP_platform.md` A-2, `users`, `mfa_credentials`, `UserApi`, `PasswordEncoder`, notification/SES 발송 경계 |
+| Dependencies | `BACKEND_GAP_platform.md` A-6, `users`, `tenants`, `audit_logs`, `notifications`, `subscriptions`, 기존 admin security |
 | Due Date | 2026-06-12 |
 
 ## Step Goal
 
-사용자가 email 기반 비밀번호 재설정 코드를 요청/검증/확정하고, MFA 백업 코드로 TOTP 대체 검증을 수행할 수 있다.
+관리자가 관리자 대시보드에서 platform-svc가 보유한 사용자/테넌트/감사로그/알림 기준 운영 요약을 조회할 수 있다.
 
 ## Done When
 
-- [x] 기존 PLAT-069 current 문서를 archive한다.
-- [x] PLAT-070 작업 브랜치를 `dev`에서 생성한다.
-- [x] PLAT-070 작업문서를 작성한다.
-- [x] 비밀번호 재설정 저장 모델을 추가한다.
-- [x] `POST /api/v1/auth/password-reset/request`가 email로 재설정 요청을 접수한다.
-- [x] 재설정 요청은 계정 존재 여부를 노출하지 않고 동일 응답을 반환한다.
-- [x] `POST /api/v1/auth/password-reset/verify`가 email+code를 검증하고 단기 reset token을 반환한다.
-- [x] `POST /api/v1/auth/password-reset/confirm`이 reset token으로 새 비밀번호를 저장한다.
-- [x] reset code/token은 원문 저장 없이 hash로 저장한다.
-- [x] reset code/token은 만료와 1회 사용을 강제한다.
-- [x] 비밀번호 변경 후 기존 refresh/session을 무효화한다.
-- [x] MFA 백업 코드 저장 모델을 추가한다.
-- [x] TOTP 활성화 사용자가 백업 코드를 발급/재발급할 수 있다.
-- [x] `POST /api/v1/auth/mfa/backup`이 백업 코드를 1회성으로 검증한다.
-- [x] 백업 코드는 원문 저장 없이 `PasswordEncoder` hash로 저장하고 사용 시 `used_at`을 남긴다.
-- [x] controller/service/repository/security 테스트가 통과한다.
+- [x] 기존 PLAT-070 current 문서를 archive한다.
+- [x] PLAT-071 작업 브랜치를 `dev`에서 생성한다.
+- [x] PLAT-071 작업문서를 작성한다.
+- [x] `GET /api/v1/admin/analytics/summary` endpoint를 추가한다.
+- [x] 응답에 사용자 총계, 상태별 카운트, 신규 가입 수, DAU/MAU 후보 지표를 포함한다.
+- [x] 응답에 테넌트 총계, 상태별 카운트, 플랜별 카운트를 포함한다.
+- [x] 응답에 platform-local 시스템 사용량 요약을 포함한다.
+- [x] platform-svc 단독으로 산출할 수 없는 AI token/storage 등은 mock 값 대신 `NOT_CONNECTED` source 상태로 반환한다.
+- [x] 응답에 최근 활동을 `audit_logs` 기준으로 포함한다.
+- [x] `/api/v1/admin/analytics/**`는 관리자 권한만 접근할 수 있다.
+- [x] controller/service/repository 테스트가 통과한다.
+- [x] admin security integration test가 통과한다.
 - [x] `PlatformModuleStructureTest`와 `clean build`가 통과한다.
 - [x] `TASK_platform.md`, env/profile, gitops/shared 프로젝트는 수정하지 않는다.
 
@@ -46,303 +42,192 @@
 
 ### In Scope
 
-- 비밀번호 재설정 요청/검증/확정 API
-- 비밀번호 재설정 code/token 저장 테이블
-- reset code/token hash 저장
-- reset code notification-send Kafka 발행
-- 계정 존재 여부 비노출 응답
-- 만료/시도 횟수/1회 사용 정책
-- 비밀번호 확정 후 session/refresh 무효화 이벤트
-- MFA 백업 코드 발급/재발급/검증 API
-- MFA 백업 코드 저장 테이블
-- 백업 코드 `PasswordEncoder` hash 저장 및 1회 사용 처리
-- controller/service/repository/security 테스트
-
-### Conditional Scope
-
-- email 실제 발송 연결
-- reset request rate limit
-- MFA 백업 코드 목록 조회
-
-조건:
-
-- notification/SES의 공개 발송 경계가 명확하면 이번 작업에 email 발송 연결까지 포함한다.
-- 발송 경계가 모듈 내부 구현체 직접 주입만 가능한 상태라면 notification 내부 구현체를 직접 주입하지 않는다. 이번 구현은 `NotificationSend` Kafka 이벤트 발행으로 연결한다.
-- rate limit은 DB 기반 attempt count로 최소 구현 가능하면 포함하고, Redis 기반 분산 제한은 후속으로 분리한다.
+- Admin analytics summary 조회 API
+- 사용자/테넌트/구독/알림/감사로그 기준 platform-local 집계
+- DAU/MAU 후보 지표
+  - 기준: `users.last_login_at`
+  - DAU: `generatedAt` 날짜의 00:00 이후 로그인 사용자 수
+  - MAU: 최근 30일 로그인 사용자 수
+- 최근 활동 목록
+  - 기준: `audit_logs.created_at DESC`
+  - action, userId, resourceType, resourceId, createdAt 노출
+- 시스템 사용량 카드
+  - platform-local: notification sent count, active subscription count 등 실제 산출 가능한 값
+  - cross-service: AI token, storage 등은 `NOT_CONNECTED`
+- DTO/service/repository/controller 테스트
+- 관리자 권한 보호 테스트
+- current 작업 문서 및 HISTORY 로그 갱신
 
 ### Out of Scope
 
-- 로그인 플로우 전체 MFA challenge 재설계
-- OAuth provider 계정 복구
-- SMS/전화번호 인증
-- WebAuthn/passkey
-- 프론트 화면 수정
-- notification 내부 service 직접 주입
+- Admin 시스템 설정/피처 플래그 저장 API
+- Admin GDPR/data request API
+- 신고/모더레이션, 그룹, 게이미피케이션, 콘텐츠 관리 API
+- learning/knowledge/engagement 정본 데이터 직접 조회
+- gateway 라우팅 변경
+- frontend 코드 수정
 - `TASK_platform.md` 수정
 - env/profile/gitops/shared 수정
 
 ## API Contract
 
-### 비밀번호 재설정 코드 요청
+### 관리자 대시보드 요약
 
-`POST /api/v1/auth/password-reset/request`
+`GET /api/v1/admin/analytics/summary`
 
-요청 후보:
+인증:
 
-```json
-{
-  "email": "user@example.com"
-}
-```
+- `ROLE_ADMIN` 필요
+- 기존 `/api/v1/admin/**` 보안 정책을 따른다.
 
 응답 후보:
 
 ```json
 {
-  "accepted": true
+  "generatedAt": "2026-06-10T12:00:00+09:00",
+  "users": {
+    "total": 120,
+    "active": 116,
+    "suspended": 3,
+    "deleted": 1,
+    "newToday": 5,
+    "dau": 42,
+    "mau": 98,
+    "activitySource": "USERS_LAST_LOGIN_AT"
+  },
+  "tenants": {
+    "total": 40,
+    "active": 38,
+    "suspended": 2,
+    "plans": {
+      "free": 30,
+      "pro": 8,
+      "team": 2
+    }
+  },
+  "usage": [
+    {
+      "key": "notifications.sent.today",
+      "label": "오늘 발송 알림",
+      "value": 12,
+      "unit": "count",
+      "status": "OK",
+      "source": "notifications"
+    },
+    {
+      "key": "ai.tokens.monthly",
+      "label": "AI 토큰",
+      "value": null,
+      "unit": "tokens",
+      "status": "NOT_CONNECTED",
+      "source": "learning-ai"
+    }
+  ],
+  "pendingItems": [
+    {
+      "key": "data-requests",
+      "label": "GDPR 요청",
+      "count": null,
+      "severity": "INFO",
+      "status": "NOT_IMPLEMENTED"
+    }
+  ],
+  "recentActivities": [
+    {
+      "id": "f3ee2e5a-1c76-4a2b-b7f1-6fd7b030ce1e",
+      "action": "USER_LOGIN",
+      "userId": "8ad7f1f4-6d2a-46dd-87d2-2a1f9e040e5d",
+      "resourceType": "USER",
+      "resourceId": "8ad7f1f4-6d2a-46dd-87d2-2a1f9e040e5d",
+      "createdAt": "2026-06-10T11:50:00+09:00"
+    }
+  ]
 }
 ```
-
-정책:
-
-- 인증 불필요
-- 계정이 없어도 동일 응답
-- 계정이 `active`가 아니면 code 생성/발송하지 않되 동일 응답
-- email은 trim + lower-case 정규화
-- code 원문은 저장하지 않고 `PasswordEncoder` 결과만 저장
-- code 만료 후보: 10분
-
-### 비밀번호 재설정 코드 검증
-
-`POST /api/v1/auth/password-reset/verify`
-
-요청 후보:
-
-```json
-{
-  "email": "user@example.com",
-  "code": "123456"
-}
-```
-
-응답 후보:
-
-```json
-{
-  "resetToken": "one-time-reset-token",
-  "expiresAt": "2026-06-10T10:20:00+09:00"
-}
-```
-
-정책:
-
-- code가 맞으면 reset token 원문을 1회 반환한다.
-- reset token 원문은 DB에 저장하지 않고 hash만 저장한다.
-- 검증 실패 횟수 제한 후보: 5회
-- 검증 성공 후 code는 `verified` 상태로 전환한다.
-
-### 비밀번호 재설정 확정
-
-`POST /api/v1/auth/password-reset/confirm`
-
-요청 후보:
-
-```json
-{
-  "resetToken": "one-time-reset-token",
-  "newPassword": "Newpass1!"
-}
-```
-
-응답:
-
-- `204 No Content`
-
-정책:
-
-- reset token 만료/사용 여부 확인
-- 새 비밀번호 정책은 기존 email/password 요청 정책과 맞춘다.
-- 확정 후 user password hash 업데이트
-- 확정 후 reset token used 처리
-- 확정 후 `UserSessionsRevocationRequested` 발행으로 refresh/session 무효화
-
-### MFA 백업 코드 발급
-
-`POST /api/v1/auth/mfa/backup-codes`
-
-응답 후보:
-
-```json
-{
-  "codes": ["ABCD-EFGH", "IJKL-MNOP"]
-}
-```
-
-정책:
-
-- 인증 필요
-- TOTP credential이 active인 사용자만 가능
-- 재발급 시 기존 미사용 백업 코드는 폐기 또는 used 처리
-- 원문 코드는 응답 시 1회만 노출하고 DB에는 `PasswordEncoder` hash만 저장
-- TOTP secret 재설정 시 기존 미사용 백업 코드는 used 처리
-
-### MFA 백업 코드 검증
-
-`POST /api/v1/auth/mfa/backup`
-
-요청 후보:
-
-```json
-{
-  "code": "ABCD-EFGH"
-}
-```
-
-응답 후보:
-
-```json
-{
-  "verified": true
-}
-```
-
-정책:
-
-- 인증 필요
-- 미사용 백업 코드만 허용
-- 성공 시 해당 code를 즉시 used 처리
-- 실패 시 `MfaVerificationException`과 동일 계열 오류
-
-## Data Model
-
-추가 후보 1: `password_reset_requests`
-
-- `id UUID PRIMARY KEY`
-- `user_id UUID NOT NULL`
-- `email VARCHAR(255) NOT NULL`
-- `code_hash VARCHAR(255) NOT NULL`
-- `reset_token_hash VARCHAR(64)`
-- `status VARCHAR(20) NOT NULL`
-- `attempts INT NOT NULL DEFAULT 0`
-- `expires_at TIMESTAMPTZ NOT NULL`
-- `verified_at TIMESTAMPTZ`
-- `used_at TIMESTAMPTZ`
-- `created_at TIMESTAMPTZ NOT NULL`
-- `updated_at TIMESTAMPTZ NOT NULL`
-
-추가 후보 2: `mfa_backup_codes`
-
-- `id UUID PRIMARY KEY`
-- `user_id UUID NOT NULL`
-- `code_hash VARCHAR(255) NOT NULL`
-- `used_at TIMESTAMPTZ`
-- `created_at TIMESTAMPTZ NOT NULL`
-
-인덱스 후보:
-
-- `idx_password_reset_requests_email_status`
-- `idx_password_reset_requests_token_hash`
-- `idx_mfa_backup_codes_user_id`
-- `uq_mfa_backup_codes_code_hash`
 
 ## Design Notes
 
-- 비밀번호 재설정은 `auth` 모듈 책임으로 둔다.
-- 실제 password hash 변경은 user aggregate 소유이므로 `UserApi` 공개 계약 확장 또는 user service boundary를 통해 처리한다.
-- 기존 `UserService.changeMyPassword(...)`는 로그인 사용자의 현재 비밀번호 검증용이므로 reset confirm에 그대로 쓰지 않는다.
-- reset request는 계정 enumeration 방지를 위해 항상 동일 응답을 반환한다.
-- MFA backup code는 `mfa_credentials`와 같은 auth 영역에 둔다.
-- email 발송은 notification 내부 service를 직접 주입하지 않는다. 이번 구현은 auth에서 `NotificationSend` Kafka 이벤트를 발행하고, notification consumer/SES 설정이 켜진 환경에서 실제 email 발송을 수행한다.
-- `PASSWORD_RESET_CODE` email은 일반 알림 일일 발송 quota와 분리해 reset code 발송이 조용히 skip되지 않고 일반 알림 quota도 소모하지 않게 한다.
+- 이번 작업은 `admin dashboard`의 mock KPI를 제거하기 위한 읽기 전용 API부터 처리한다.
+- 프론트가 이미 사용자/테넌트 total은 목록 API의 `totalElements`로 가져오고 있으나, DAU/MAU·사용량·최근 활동은 별도 summary API가 필요하다.
+- DAU/MAU는 analytics 전용 이벤트 테이블이 없으므로 `users.last_login_at` 기준 후보 지표로 정의한다.
+- `users.total`과 `users.deleted`는 soft-delete 행까지 포함하는 native query를 사용한다. `active`/`suspended`/`newToday`/`dau`는 `@SQLRestriction("deleted_at IS NULL")` 적용 범위의 삭제되지 않은 row 기준이다.
+- `*.today` 지표는 최근 24시간이 아니라 `generatedAt` 날짜의 00:00 이후 데이터로 산출한다. 현재 `OffsetDateTime` offset을 유지해 프론트 표시 날짜와 집계 기준을 맞춘다.
+- cross-service 정본이 필요한 값은 임의 mock을 반환하지 않는다. `NOT_CONNECTED` 상태를 응답에 포함해 프론트가 "연동 대기" 상태를 표시할 수 있게 한다.
+- `admin` 패키지에는 현재 placeholder만 있으므로, analytics API는 `com.synapse.platform.admin` 하위에 controller/service/dto를 두는 방향을 우선 검토한다.
+- 기존 admin controller들은 각 도메인 패키지에 흩어져 있다. 이번 API는 여러 도메인 집계이므로 별도 admin application service가 자연스럽다.
 
 ## Implementation Checklist
 
-- [x] 기존 PLAT-069 current 문서 archive 완료
-- [x] PLAT-070 작업 브랜치 생성
-- [x] PLAT-070 작업문서 작성
-- [x] 비밀번호 재설정 migration 추가
-- [x] MFA 백업 코드 migration 추가
-- [x] 비밀번호 재설정 entity/repository 추가
-- [x] MFA 백업 코드 entity/repository 추가
-- [x] password reset request/response DTO 추가
-- [x] MFA backup request/response DTO 추가
-- [x] `AuthController` password reset endpoint 추가
-- [x] `MfaController` backup endpoint 추가
-- [x] password reset service 추가
-- [x] MFA backup service 추가 또는 `TotpService` 보강
-- [x] `UserApi` password reset용 계약 보강
-- [x] 계정 존재 비노출 테스트 추가
-- [x] code/token hash/만료/1회 사용 테스트 추가
-- [x] backup code 1회 사용 테스트 추가
-- [x] password reset email quota bypass 테스트 추가
-- [x] security integration test 추가
-- [x] `PlatformModuleStructureTest` 통과
-- [x] `clean build` 통과
-
-## Implementation Result
-
-- `V20260610123000__create_auth_recovery_tables.sql`
-  - `password_reset_requests`
-  - `mfa_backup_codes`
-- `AuthController`
-  - `POST /api/v1/auth/password-reset/request`
-  - `POST /api/v1/auth/password-reset/verify`
-  - `POST /api/v1/auth/password-reset/confirm`
-- `MfaController`
-  - `POST /api/v1/auth/mfa/backup-codes`
-  - `POST /api/v1/auth/mfa/backup`
-- `PasswordResetService`
-  - active password-login 사용자만 reset request 저장
-  - request 응답 account enumeration 방지
-  - code TTL 10분
-  - reset token TTL 15분
-  - 실패 시도 5회 제한
-  - reset code는 `PasswordEncoder` 결과 저장
-  - reset token은 SHA-256 hash 저장
-  - 트랜잭션 커밋 후 reset code sender 호출
-  - confirm 후 `UserApi.resetPassword(...)`
-- `KafkaPasswordResetCodeSender`
-  - `NotificationSend` EMAIL 이벤트 발행
-  - notification 내부 `SesEmailService` 직접 주입 없음
-  - `PASSWORD_RESET_CODE` email은 notification 일일 quota 예외
-- `TotpService`
-  - TOTP active 사용자만 backup code 발급
-  - backup code 10개 발급
-  - 기존 미사용 backup code 사용 처리 후 재발급
-  - TOTP secret 재설정 시 기존 미사용 backup code 사용 처리
-  - 재발급 시 `mfa_credentials` row pessimistic lock
-  - backup code는 `PasswordEncoder` hash 저장
-  - 성공 검증 시 즉시 `used_at` 처리
-- `UserApi` / `UserService`
-  - reset password 전용 boundary 추가
-  - password hash 변경
-  - failed login lock 해제
-  - `UserSessionsRevocationRequested` 발행
-- `SecurityConfig`
-  - password reset 3개 endpoint permitAll
-  - MFA backup endpoint는 인증 필요 유지
-
-## Known Follow-up
-
-- 실제 email 발송은 `synapse.kafka.enabled=true`와 SES 설정이 켜진 환경에서 동작한다.
-- 운영/스테이징 배포 전 notification-send topic, notification consumer, SES 설정을 함께 확인해야 한다.
-- 현재 `POST /api/v1/auth/mfa/backup`은 인증 필요 endpoint다. 로그인 전 MFA challenge에서 backup code를 쓰려면 별도 challenge session 모델이 필요하다.
+- [x] PLAT-070 current 문서 archive 확인
+- [x] PLAT-071 current 작업문서 작성
+- [x] admin analytics DTO 추가
+- [x] admin analytics controller 추가
+- [x] admin analytics service 추가
+- [x] user count query 추가
+- [x] tenant count query 추가
+- [x] notification/audit/subscription 집계 query 추가
+- [x] recent audit activities 조회 추가
+- [x] cross-service `NOT_CONNECTED` usage item 정의
+- [x] controller test 추가
+- [x] service/repository test 추가
+- [x] admin security integration test 추가 또는 기존 테스트 보강
+- [x] Modulith 구조 테스트 확인
+- [x] `clean build` 확인
+- [x] HISTORY_platform.md 갱신
 
 ## Verification Plan
 
 ```powershell
-.\gradlew.bat test --tests "*PasswordReset*"
-.\gradlew.bat test --tests "*Mfa*"
-.\gradlew.bat test --tests "*AuthControllerTest"
+.\gradlew.bat test --tests "*AdminAnalytics*"
+.\gradlew.bat test --tests "*UserRepositoryAnalyticsTest" --tests "*TenantRepositoryAnalyticsTest" --tests "*BillingRepositoryTest" --tests "*NotificationRepositoryTest" --tests "*AuditLogPostgresSchemaTest"
+.\gradlew.bat test --tests "*AdminSecurityIntegrationTest"
 .\gradlew.bat test --tests "*PlatformModuleStructureTest"
 .\gradlew.bat clean build
 ```
 
+## Implementation Result
+
+- `AdminAnalyticsController`
+  - `GET /api/v1/admin/analytics/summary`
+  - `ROLE_ADMIN` 보호
+- `AdminAnalyticsService`
+  - user/auth/billing/notification/audit 공개 API를 조합해 summary 응답 생성
+  - cross-service 정본이 필요한 AI token/storage는 `NOT_CONNECTED`로 반환
+  - GDPR data request와 report pending item은 fake count 없이 `null` count와 상태값으로 반환
+- `user::api`
+  - `UserAnalyticsApi`
+  - `UserAnalyticsSnapshot`
+  - total/deleted는 soft-delete 포함 native count 기준
+  - newToday/DAU는 `generatedAt` 날짜 00:00 이후, MAU는 최근 30일 `users.last_login_at` 기준
+- `auth::tenant-api`
+  - `TenantAnalyticsApi`
+  - `TenantAnalyticsSnapshot`
+  - tenant status/plan count 제공
+- `billing::api`
+  - `BillingAnalyticsApi`
+  - `BillingAnalyticsSnapshot`
+  - active subscription, 오늘 00:00 이후 paid payment/revenue count 제공
+- `notification::api`
+  - `NotificationAnalyticsApi`
+  - `NotificationAnalyticsSnapshot`
+  - 오늘 00:00 이후 sent/failed notification count 제공
+- `audit::api`
+  - `AuditAnalyticsApi`
+  - `AuditAnalyticsSnapshot`
+  - recent audit activities 제공
+- `admin/package-info.java`
+  - `allowedDependencies`를 named interface 기준으로 명시해 Modulith 경계 유지
+
 ## Verification Result
 
-- `.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*TotpServiceTest" --tests "*AuthControllerTest" --tests "*MfaControllerTest" --tests "*UserServiceTest" --tests "*PasswordResetRequestRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest"`: PASS
-- `.\gradlew.bat test --tests "*PasswordResetServiceTest" --tests "*KafkaPasswordResetCodeSenderTest" --tests "*TotpServiceTest" --tests "*MfaCredentialRepositoryLockingTest" --tests "*MfaBackupCodeRepositoryLockingTest" --tests "*PasswordResetRequestRepositoryLockingTest"`: PASS
-- `.\gradlew.bat test --tests "*AuthRecoverySecurityIntegrationTest"`: PASS
+- `.\gradlew.bat test --tests "*AdminAnalytics*" --tests "*UserAnalyticsServiceTest" --tests "*TenantAnalyticsServiceTest" --tests "*BillingAnalyticsServiceTest" --tests "*NotificationAnalyticsServiceTest" --tests "*AuditAnalyticsServiceTest" --tests "*AdminSecurityIntegrationTest"`: PASS
 - `.\gradlew.bat test --tests "*PlatformModuleStructureTest"`: PASS
+- `.\gradlew.bat spotbugsMain`: PASS
 - `.\gradlew.bat clean build`: PASS
 - Windows Kafka temp directory deletion warning appears during shutdown, but Gradle result is `BUILD SUCCESSFUL`.
+
+## Known Follow-up
+
+- Admin 시스템 설정/피처 플래그 API는 PLAT-072로 분리한다.
+- Admin GDPR/data request API는 PLAT-073으로 분리한다.
+- AI token/storage 등 cross-service 사용량 정본은 learning/knowledge 서비스 계약이 확정된 뒤 연결한다.

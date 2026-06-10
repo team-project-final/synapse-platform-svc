@@ -176,6 +176,33 @@ class NotificationRepositoryTest {
         assertThat(notification.getReadAt()).isEqualTo(firstReadAt);
     }
 
+    @Test
+    void analyticsCounts_shouldUseStatusAndTodayWindow() {
+        Instant dayStart = Instant.parse("2026-06-10T00:00:00Z");
+        UUID userId = UUID.randomUUID();
+        long sentBaseline = repository.countByStatusAndSentAtGreaterThanEqual(NotificationStatus.SENT, dayStart);
+        long failedBaseline = repository.countByStatusAndCreatedAtGreaterThanEqual(NotificationStatus.FAILED, dayStart);
+
+        Notification sentToday = sentNotification(
+                UUID.randomUUID(),
+                userId,
+                NotificationChannel.EMAIL,
+                dayStart.plusSeconds(60));
+        Notification sentBefore = sentNotification(
+                UUID.randomUUID(),
+                userId,
+                NotificationChannel.EMAIL,
+                dayStart.minusSeconds(1));
+        Notification failedToday = failedNotification(dayStart.plusSeconds(120));
+        Notification failedBefore = failedNotification(dayStart.minusSeconds(1));
+        repository.saveAll(List.of(sentToday, sentBefore, failedToday, failedBefore));
+
+        assertThat(repository.countByStatusAndSentAtGreaterThanEqual(NotificationStatus.SENT, dayStart))
+                .isEqualTo(sentBaseline + 1);
+        assertThat(repository.countByStatusAndCreatedAtGreaterThanEqual(NotificationStatus.FAILED, dayStart))
+                .isEqualTo(failedBaseline + 1);
+    }
+
     private static Notification notification(UUID eventId, NotificationChannel channel) {
         return notification(eventId, UUID.randomUUID(), channel);
     }
@@ -207,6 +234,14 @@ class NotificationRepositoryTest {
         Notification notification = notification(eventId, userId, channel);
         ReflectionTestUtils.setField(notification, "createdAt", createdAt);
         notification.markSent();
+        ReflectionTestUtils.setField(notification, "sentAt", createdAt);
+        return notification;
+    }
+
+    private static Notification failedNotification(Instant createdAt) {
+        Notification notification = notification(UUID.randomUUID(), UUID.randomUUID(), NotificationChannel.EMAIL);
+        ReflectionTestUtils.setField(notification, "createdAt", createdAt);
+        notification.markFailed("provider unavailable");
         return notification;
     }
 }

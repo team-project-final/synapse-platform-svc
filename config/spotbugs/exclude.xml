@@ -24,6 +24,10 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
+        <Class name="~com\.synapse\.platform\.(admin\.service\.AdminAnalyticsService|user\.service\.UserAnalyticsService|auth\.service\.TenantAnalyticsService|billing\.service\.BillingAnalyticsService|notification\.service\.NotificationAnalyticsService|audit\.service\.AuditAnalyticsService)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="~com\.synapse\.platform\.(auth\.(event\.(UserEventPublisher|OutboxEventPublisher)|service\.KafkaPasswordResetCodeSender)|global\.kafka\.KafkaErrorHandlerConfig)"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>

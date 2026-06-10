@@ -410,6 +410,29 @@
 
 ---
 
+#### 2026-06-10 (수) - PLAT-071
+
+- **완료**:
+  - `origin/dev` 기준 `feature/PLAT-071-admin-analytics` 브랜치 생성.
+  - PLAT-071 작업문서 작성 및 PLAT-070 current 문서 archive.
+  - A-6 Admin 대시보드 보강 1차: `GET /api/v1/admin/analytics/summary` API 추가.
+  - 사용자/테넌트/구독/알림/감사로그 기준 platform-local 운영 요약을 반환하도록 구현.
+  - `*.today` 지표를 최근 24시간이 아닌 `generatedAt` 날짜 00:00 이후 기준으로 정리.
+  - 사용자 total/deleted는 soft-delete 행 포함 native count 기준으로 정리.
+  - AI token/storage 등 cross-service 정본이 필요한 값은 fake count 없이 `NOT_CONNECTED`로 반환.
+  - admin 모듈은 각 도메인 named interface API만 사용하도록 Modulith 경계를 유지.
+  - repository query 통합 테스트 보강: user/tenant/billing/notification/audit analytics query 검증.
+  - 검증 통과: Admin analytics 단위/보안 테스트, repository query 테스트, PlatformModuleStructureTest, `clean build`.
+- **진행 중**:
+  - Admin 시스템 설정/피처 플래그 API와 GDPR/data request API는 후속 작업으로 분리.
+- **이슈**:
+  - DAU/MAU는 별도 analytics event가 아니라 `users.last_login_at` 기준 후보 지표.
+  - learning/knowledge 정본 사용량은 해당 서비스 계약 확정 후 연결 필요.
+- **다음**:
+  - 작업 내용 리뷰 후 PR 준비.
+
+---
+
 ## 2026-06-09 PLAT-064 작업 기록
 
 - DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
@@ -422,6 +445,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-071 프론트 연동 백엔드 갭 A-6 1차 구현** — Admin analytics summary API 추가, user/tenant/billing/notification/audit 공개 API 기반 집계, today 지표 00:00 기준 및 soft-delete 포함 user total 정리, cross-service 값 `NOT_CONNECTED` 처리. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-070 프론트 연동 백엔드 갭 A-2 구현** — Auth password reset API, MFA backup code API, notification quota 예외, 복구 플로우 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-067 프론트 연동 백엔드 갭 A-4 구현** — Billing payments/usage/receipt read API 추가, invoice metadata 저장, `TenantApi` plan quota 계약 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-09 | **PLAT-063 프론트 연동 백엔드 갭 A-1 구현** — User self-service API(`/users/me`, password, OAuth connection, delete) 추가. `TASK_platform.md` 미수정. `clean build` 통과 |

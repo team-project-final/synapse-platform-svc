@@ -1,29 +1,29 @@
 # synapse-platform-svc
 
-> 마지막 갱신: 2026-06-09 KST
-> 기준 브랜치: `dev` (`cc57c9f`, PLAT-064 DB 기반 사용자 role 포함)
+> 마지막 갱신: 2026-06-10 KST
+> 기준 브랜치: `dev` (`2f4a0f5`, PLAT-072 Admin settings 포함)
 
 Synapse MSA의 platform 서비스입니다. 인증, 사용자, 결제, 알림, 감사 로그, 관리자 기능을 Spring Boot 단일 애플리케이션 안에서 Spring Modulith 모듈 경계로 관리합니다. 다른 서비스가 신뢰하는 JWT 발급/검증의 기준점이며, Kafka 이벤트 계약의 platform 영역을 담당합니다.
 
 ## 현재 상태
 
 - W3/W4 platform 기능은 `dev` 기준 완료: auth, billing, notification, audit, admin, Kafka Avro 계약, Step 9 E2E, Step 10 알림 안정화.
-- W5 프론트 연동 백엔드 갭 중 A-1 User self-service API와 PLAT-064 DB 기반 사용자 role 발급 경로가 반영되었습니다.
+- W5 프론트 연동 백엔드 갭은 `dev` 기준 PLAT-063~PLAT-072까지 반영되었습니다. 주요 범위는 user self-service, DB 기반 role/JWT roles claim, notification inbox/settings, billing read API, tenant self-service/invitation, password reset/MFA backup code, admin analytics/settings입니다.
 - Kafka는 Confluent Avro + Schema Registry bare typed record 방식입니다.
 - Kafka 인프라는 `KAFKA_ENABLED=false`가 기본이며, GitOps/dev/staging/prod에서 필요할 때 `true`로 켭니다.
 - JWT key는 기본 프로파일/prod에서 누락 또는 파싱 실패 시 기동 단계에서 fail-fast 합니다. dev/staging은 로컬 편의용 non-prod 기본 키를 갖습니다.
-- 열린 GitHub 이슈는 #37, #62입니다. #37 staging datasource/profile 정합은 최신 GitOps/shared 기준으로 확인된 상태이고, #62 cross-service live E2E는 engagement/learning 선결 이슈 이후 재실행 대상입니다.
+- 열린 GitHub 이슈는 #84(OpenAPI/SpringDoc 노출), #86(관리자 role 부여 운영 경로), #87(ReviewCompleted audit DLT 조사), #62(cross-service live E2E)입니다. 이슈 수정은 main 기준 hotfix PR로 분리합니다.
 
 ## Modules
 
 | Module | 역할 | 상태 |
 |---|---|---|
-| `auth` | 이메일/비밀번호 가입/로그인, Google/GitHub/Apple OAuth2, JWT RS256, Refresh Token, MFA TOTP, OAuth 연결 관리 | 구현 |
+| `auth` | 이메일/비밀번호 가입/로그인, password reset, Google/GitHub/Apple OAuth2, JWT RS256, Refresh Token, MFA TOTP/backup code, OAuth 연결 관리, tenant self-service | 구현 |
 | `user` | 사용자 도메인, 내 프로필/비밀번호/계정 삭제 self-service, DB 기반 role, 관리자 사용자 조회/상태 변경/삭제 | 구현 |
-| `billing` | Stripe Checkout, 구독 조회, Stripe Webhook, 결제 이력, 관리자 테넌트 관리 | 구현 |
-| `notification` | FCM 디바이스 토큰 등록/해제, `NotificationSend` 이벤트 기반 FCM/SES 발송 | 구현 |
+| `billing` | Stripe Checkout, 구독 조회, Stripe Webhook, 결제 이력/영수증/사용량 조회, 관리자 테넌트 관리 | 구현 |
+| `notification` | FCM 디바이스 토큰 등록/해제, 알림 inbox/read state/settings, `NotificationSend` 이벤트 기반 FCM/SES 발송 | 구현 |
 | `audit` | 주요 도메인 Kafka 이벤트를 `audit_logs`에 적재, 관리자 감사 로그 조회 | 구현 |
-| `admin` | 관리자 공통 영역 placeholder. 실제 API는 `user`, `billing`, `audit` 모듈에 위치 | 골격 |
+| `admin` | 관리자 analytics summary, 시스템 settings, 공통 admin API 영역. 사용자/테넌트/감사 로그 관리는 각 도메인 모듈에 위치 | 구현 |
 | `global` | 공통 예외, crypto, Kafka config/error handler | 구현 |
 
 ## Tech Stack
@@ -53,8 +53,9 @@ Synapse MSA의 platform 서비스입니다. 인증, 사용자, 결제, 알림, �
 | `staging` | EKS staging | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `SPRING_DATA_REDIS_*` 사용, cookie secure |
 | `prod` | 운영 | 필수 secret/env 누락 시 fail-fast |
 
-- 기본 앱 포트는 `8081`입니다.
-- Kubernetes/GitOps 배포에서는 `SERVER_PORT=8080`으로 덮어써서 컨테이너 포트/probe와 맞춥니다.
+- platform 레포의 `application.yml` 기본 앱 포트는 `8081`입니다.
+- Kubernetes/GitOps 배포 표준은 `SERVER_PORT=8080`, `containerPort=8080`, probe port `8080`입니다.
+- 로컬에서 GitOps 표준 포트로 확인하려면 `SERVER_PORT=8080` 또는 `--server.port=8080`을 명시합니다.
 - Actuator health: `/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`
 
 ## Local Run
@@ -77,7 +78,15 @@ Health check:
 curl http://localhost:8081/actuator/health
 ```
 
-`docker-compose.yml`은 PostgreSQL/Redis와 app 컨테이너를 함께 정의하지만, 현재 app 서비스가 `8080:8080`으로 매핑되어 있습니다. 로컬 `bootRun`의 8081, gateway의 8080과 혼동될 수 있으니 platform 앱까지 compose로 띄우는 방식은 포트 정책을 먼저 맞춘 뒤 사용하세요.
+GitOps/Docker 표준 포트로 확인:
+
+```powershell
+$env:SERVER_PORT='8080'
+.\gradlew.bat bootRun --args='--spring.profiles.active=dev'
+curl http://localhost:8080/actuator/health
+```
+
+`docker-compose.yml`은 PostgreSQL/Redis와 app 컨테이너를 함께 정의하지만, app 서비스가 `8080:8080`으로 매핑되어 있습니다. app 컨테이너까지 compose로 띄울 때는 `SERVER_PORT=8080`이 주입되는지 먼저 확인하세요.
 
 ## Local Infra Variants
 
@@ -144,8 +153,13 @@ $env:DOCKER_HOST='npipe:////./pipe/dockerDesktopLinuxEngine'
 | `POST` | `/api/v1/auth/signup` | 이메일/비밀번호 회원가입 | 불필요 |
 | `POST` | `/api/v1/auth/login` | 이메일/비밀번호 로그인, access token 응답 + refresh cookie 설정 | 불필요 |
 | `POST` | `/api/v1/auth/refresh` | HttpOnly refresh cookie로 access token 재발급 | Origin 검증 |
+| `POST` | `/api/v1/auth/password-reset/request` | 비밀번호 재설정 코드 요청 | 불필요 |
+| `POST` | `/api/v1/auth/password-reset/verify` | 재설정 코드 검증 후 reset token 발급 | 불필요 |
+| `POST` | `/api/v1/auth/password-reset/confirm` | reset token으로 새 비밀번호 확정 | 불필요 |
 | `POST` | `/api/v1/auth/mfa/setup` | TOTP secret/QR URL 생성 | 필요 |
 | `POST` | `/api/v1/auth/mfa/verify` | TOTP 코드 검증 | 필요 |
+| `POST` | `/api/v1/auth/mfa/backup-codes` | MFA backup code 발급 | 필요 |
+| `POST` | `/api/v1/auth/mfa/backup` | MFA backup code 검증 | 필요 |
 | `GET` | `/api/v1/auth/callback` | 프론트 OAuth callback 보조 엔드포인트 | 불필요 |
 | `GET` | `/oauth2/authorization/google` | Google OAuth 시작 | 불필요 |
 | `GET` | `/oauth2/authorization/github` | GitHub OAuth 시작 | 불필요 |
@@ -182,12 +196,48 @@ Password change request:
 }
 ```
 
+### Tenant Self-Service
+
+| Method | Path | 설명 | 인증 |
+|---|---|---|---|
+| `GET` | `/api/v1/tenants/me` | 내 테넌트 정보 조회 | 필요 |
+| `PUT` | `/api/v1/tenants/me` | 내 테넌트 이름/설정 수정 | 필요 |
+| `GET` | `/api/v1/tenants/me/members` | 내 테넌트 멤버 목록 조회 | 필요 |
+| `PUT` | `/api/v1/tenants/me/members/{userId}` | 테넌트 멤버 role 변경 | 필요 |
+| `DELETE` | `/api/v1/tenants/me/members/{userId}` | 테넌트 멤버 제거 | 필요 |
+| `POST` | `/api/v1/tenants/me/invitations` | 테넌트 초대 생성 | 필요 |
+
+Tenant update request:
+
+```json
+{
+  "name": "Synapse Team",
+  "settings": {
+    "defaultLanguage": "ko-KR"
+  }
+}
+```
+
+Tenant invitation request:
+
+```json
+{
+  "email": "member@example.com",
+  "role": "member"
+}
+```
+
+Tenant member role은 `admin`, `member`만 self-service API에서 부여할 수 있습니다. `owner` 변경은 마지막 owner 보호 정책 때문에 이 API에서 차단합니다.
+
 ### Billing
 
 | Method | Path | 설명 | 인증 |
 |---|---|---|---|
 | `POST` | `/api/v1/billing/checkout` | Stripe Checkout Session 생성 | 필요 |
 | `GET` | `/api/v1/billing/subscription` | 현재 사용자 구독 조회 | 필요 |
+| `GET` | `/api/v1/billing/payments` | 결제 이력 페이지 조회 | 필요 |
+| `GET` | `/api/v1/billing/usage` | 현재 사용량/한도 조회 | 필요 |
+| `GET` | `/api/v1/billing/payments/{id}/receipt` | 결제 영수증 조회 | 필요 |
 | `POST` | `/api/v1/billing/webhooks` | Stripe Webhook 수신 및 서명 검증 | 불필요 |
 
 Checkout request:
@@ -204,6 +254,12 @@ Checkout request:
 
 | Method | Path | 설명 | 인증 |
 |---|---|---|---|
+| `GET` | `/api/v1/notifications` | 알림 inbox 페이지 조회 | 필요 |
+| `GET` | `/api/v1/notifications/unread-count` | 읽지 않은 알림 수 조회 | 필요 |
+| `PUT` | `/api/v1/notifications/{id}/read` | 단일 알림 읽음 처리 | 필요 |
+| `POST` | `/api/v1/notifications/read-all` | 전체 알림 읽음 처리 | 필요 |
+| `GET` | `/api/v1/notifications/settings` | 알림 설정 조회 | 필요 |
+| `PUT` | `/api/v1/notifications/settings` | 알림 설정 수정 | 필요 |
 | `POST` | `/api/v1/notifications/devices` | FCM device token 등록 | 필요 |
 | `DELETE` | `/api/v1/notifications/devices/{id}` | FCM device token 해제 | 필요 |
 
@@ -218,6 +274,24 @@ Device token request:
 
 지원 platform 값은 `ios`, `android`, `web`입니다. 사용자당 신규 device token은 최대 5개까지 등록할 수 있고, 동일 token 재등록은 기존 row를 갱신합니다.
 
+Notification settings request:
+
+```json
+{
+  "categories": {
+    "reviewReminder": {
+      "push": true,
+      "email": false,
+      "inApp": true
+    }
+  },
+  "quietHours": {
+    "start": "22:00",
+    "end": "08:00"
+  }
+}
+```
+
 ### Admin
 
 | Method | Path | 설명 | 인증 |
@@ -228,9 +302,28 @@ Device token request:
 | `GET` | `/api/v1/admin/tenants` | 관리자 테넌트 목록 | `ROLE_ADMIN` |
 | `PUT` | `/api/v1/admin/tenants/{id}/status` | 테넌트 상태 변경 | `ROLE_ADMIN` |
 | `GET` | `/api/v1/admin/audit-logs` | 감사 로그 조회 | `ROLE_ADMIN` |
+| `GET` | `/api/v1/admin/analytics/summary` | 관리자 대시보드 요약 지표 조회 | `ROLE_ADMIN` |
+| `GET` | `/api/v1/admin/settings` | 관리자 시스템 설정 조회 | `ROLE_ADMIN` |
+| `PUT` | `/api/v1/admin/settings` | feature flag/rate limit 설정 수정 | `ROLE_ADMIN` |
 
 관리자 본인 정지/삭제는 차단됩니다. 사용자 정지/삭제 시 `UserSessionsRevocationRequested` 도메인 이벤트로 기존 세션을 무효화합니다.
 운영 최초 어드민은 자동 seed/profile 없이 가입된 사용자에게 DB 작업으로 `ROLE_ADMIN`을 부여합니다. 절차는 `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`를 따릅니다.
+
+Admin settings update request:
+
+```json
+{
+  "featureFlags": [
+    {
+      "key": "aiCardAutoGeneration",
+      "enabled": true
+    }
+  ],
+  "rateLimit": {
+    "apiRequestsPerMinute": 1000
+  }
+}
+```
 
 ## Kafka Events
 
@@ -276,7 +369,7 @@ Step 10 기준으로 FCM/SES 발송 안정화가 반영되어 있습니다.
 | Variable | 설명 | 기본/예시 |
 |---|---|---|
 | `SPRING_PROFILES_ACTIVE` | Spring profile | `dev` |
-| `SERVER_PORT` | 서버 포트 override | 로컬 기본 `8081`, k8s `8080` |
+| `SERVER_PORT` | 서버 포트 override | 레포 기본 `8081`, GitOps 표준 `8080` |
 | `DB_URL` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/synapse` |
 | `DB_USERNAME` | PostgreSQL username | `synapse` |
 | `DB_PASSWORD` | PostgreSQL password | `synapse_local_pw` |
@@ -350,6 +443,11 @@ Flyway migration은 `src/main/resources/db/migration/`에서 관리합니다.
 | V31 | notifications 생성 |
 | V32 | users.status, suspended_at 추가 |
 | V20260609140528 | user_roles 생성, 삭제되지 않은 기존 사용자 `ROLE_USER` 백필 |
+| V20260609153000 | notifications read_at 및 inbox 조회 index 추가 |
+| V20260610090000 | payment history invoice/receipt metadata 추가 |
+| V20260610110000 | tenant invitations 생성 |
+| V20260610123000 | password reset token, MFA backup code 테이블 생성 |
+| V20260610150000 | admin settings 생성 |
 
 Flyway 표준:
 

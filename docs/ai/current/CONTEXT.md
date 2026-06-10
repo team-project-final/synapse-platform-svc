@@ -1,132 +1,107 @@
-# PLAT-072 Context
+# PLAT-091 Context
 
 ## Current State
-- `dev`는 PR #85 merge 이후 최신 상태다.
-- PLAT-071 Admin analytics summary API는 merge 완료됐다.
-- 현재 작업 브랜치: `feature/PLAT-072-admin-settings`
-- PLAT-072 Admin settings API 구현과 검증이 완료됐다.
+- #84 OpenAPI/SpringDoc PR #92는 `dev`에 merge 완료됐다.
+- #84 이슈는 닫혔다.
+- 현재 작업 브랜치: `fix/PLAT-091-oauth-provider-column`
+- 기준 브랜치: `dev`
+- #91 조사는 완료됐고, 코드/마이그레이션 수정은 불필요하다고 판단했다.
 
-## Requirement Source
-Root 문서 `C:\workspace\team_project_2\docs\BACKEND_GAP_platform.md` A-6에는 Admin 대시보드 보강 항목이 남아 있다.
+## Issue Summary
+#91은 팀장님 로컬 checkout에서 발견된 untracked migration 파일 때문에 등록된 이슈다.
 
-| 기대 동작 | 제안 엔드포인트 | 상태 |
-|---|---|---|
-| DAU/MAU, 시스템 사용량, 최근 활동 | `GET /api/v1/admin/analytics/*` | PLAT-071 완료 |
-| 시스템 설정/피처 플래그 | `GET`, `PUT /api/v1/admin/settings` | 이번 작업 |
-| GDPR 데이터 요청 처리 | `GET`, `POST /api/v1/admin/data-requests` | 다음 후보 |
+발견된 파일명:
 
-## Frontend Context
-프론트의 Admin System Settings 화면은 아직 mock 기반이다.
+```text
+src/main/resources/db/migration/V28__rename_oauth_provider_id_column.sql
+```
 
-파일:
-- `C:\workspace\team_project_2\synapse-frontend\lib\services\platform\features\admin\presentation\screens\admin_screens\admin_system_settings_screen.dart`
+파일 의도:
 
-화면 구조:
-- Plan Quota
-- Feature Flags
-- Rate Limit
+```sql
+ALTER TABLE oauth_identities RENAME COLUMN provider_id TO provider_user_id;
+DROP INDEX IF EXISTS uq_oauth_provider_user;
+CREATE UNIQUE INDEX uq_oauth_provider_user ON oauth_identities(provider, provider_user_id);
+```
 
-프론트 mock 피처 플래그:
-- `AI 카드 자동 생성`
-- `소셜 로그인 (Google)`
-- `소셜 로그인 (GitHub)`
-- `실시간 협업 편집`
-- `베타: 음성 복습`
+이슈의 핵심은 두 가지다.
 
-프론트 mock rate limit:
-- `100`
+1. `V28__allow_multiple_refresh_tokens.sql`이 이미 있으므로 rename 파일도 V28이면 Flyway version conflict가 발생한다.
+2. 공식 schema가 `provider_id`인데 entity가 `provider_user_id`를 기대한다면 OAuth 경로가 깨질 수 있다.
 
-## Backend Context
-Admin 관련 기존 코드:
-- `src/main/java/com/synapse/platform/admin/controller/AdminAnalyticsController.java`
-- `src/main/java/com/synapse/platform/admin/service/AdminAnalyticsService.java`
-- `src/main/java/com/synapse/platform/admin/dto/AdminAnalyticsSummaryResponse.java`
-- `src/main/java/com/synapse/platform/user/controller/AdminUserController.java`
-- `src/main/java/com/synapse/platform/billing/controller/AdminTenantController.java`
-- `src/main/java/com/synapse/platform/audit/controller/AuditLogController.java`
+## Verified Local Evidence
 
-Admin 보안:
-- `src/main/java/com/synapse/platform/auth/config/SecurityConfig.java`
-- `/api/v1/admin/**`는 `ROLE_ADMIN` 필요
-- Admin 컨트롤러들은 `@PreAuthorize("hasRole('ADMIN')")` 패턴 사용
+현재 `dev` 기준 repo에서 확인한 내용:
 
-Plan quota 관련 기존 코드:
-- `src/main/java/com/synapse/platform/auth/entity/PlanQuota.java`
-- `src/main/java/com/synapse/platform/auth/repository/PlanQuotaRepository.java`
-- `src/main/java/com/synapse/platform/auth/api/TenantApi.java`
-- `src/main/java/com/synapse/platform/auth/api/PlanQuotaInfo.java`
-- `src/main/resources/db/migration/V2__init_tenants_and_plans.sql`
-- `src/main/resources/db/migration/V18__seed_plan_quotas.sql`
+| 항목 | 확인 결과 |
+|---|---|
+| OAuth entity | `OAuthIdentity.providerUserId`는 `@Column(name = "provider_id")` |
+| 초기 DDL | `V3__init_users_and_auth.sql`이 `provider_id` 생성 |
+| unique index | `uq_oauth_provider_user ON oauth_identities(provider, provider_id)` |
+| schema test | `OAuthIdentitySchemaTest`가 `provider_id` 사용, `provider_user_id` 미사용을 검증 |
+| tracked rename migration | 없음 |
+| tracked V28 | `V28__allow_multiple_refresh_tokens.sql`만 존재 |
 
-## Design Decision
-이번 작업의 핵심 결정은 다음과 같다.
+초기 판단:
+- 현재 공식 코드 기준으로는 `provider_id` 유지가 의도된 상태일 가능성이 높다.
+- 따라서 rename migration을 바로 추가하면 기존 테스트 의도와 충돌할 수 있다.
+- 먼저 테스트와 git tracked 파일 기준으로 "실제 schema gap 없음"을 확정하는 것이 우선이다.
 
-- Plan quota는 조회 전용이다.
-- 피처 플래그와 rate limit만 `PUT /api/v1/admin/settings`로 저장한다.
-- 피처 플래그 key는 영문 stable key로 저장한다.
-- 화면 표시용 label은 응답에 포함할 수 있지만 저장 기준은 key다.
-- Admin 모듈은 auth 내부 repository/entity가 아니라 `auth::tenant-api`의 `TenantApi.listPlanQuotas()`만 사용한다.
-- 실제 기능 on/off 적용과 실제 rate limit enforcement는 별도 작업이다.
-- 환경 변수, profile, 포트 설정은 건드리지 않는다.
+최종 판단:
+- 현재 공식 코드 기준 `provider_id` 유지가 맞다.
+- `provider_user_id` rename migration은 추가하지 않는다.
+- repo에는 V28 중복이 없고, DB 통합 테스트와 전체 빌드가 통과했다.
 
-## Proposed Backend Shape
-패키지는 기존 Admin analytics 작업과 같은 `com.synapse.platform.admin` 하위를 우선 사용한다.
+## Relevant Files
 
-구현 파일:
-- `admin/controller/AdminSettingsController.java`
-- `admin/service/AdminSettingsService.java`
-- `admin/dto/AdminSettingsResponse.java`
-- `admin/dto/AdminSettingsUpdateRequest.java`
-- `admin/entity/AdminSetting.java`
-- `admin/repository/AdminSettingRepository.java`
-- `db/migration/V20260610150000__create_admin_settings.sql`
-- `auth/api/TenantApi.java`의 `listPlanQuotas()`
-- `auth/service/TenantService.java`의 `listPlanQuotas()` 구현
+Entity:
+- `src/main/java/com/synapse/platform/auth/entity/OAuthIdentity.java`
 
-DTO는 record 기반으로 구성했고, SpotBugs 경고 방지를 위해 list 필드는 방어 복사한다.
+Repository:
+- `src/main/java/com/synapse/platform/auth/repository/OAuthIdentityRepository.java`
 
-## API Draft
-### GET `/api/v1/admin/settings`
-Admin 설정 화면 초기 로딩용 API.
+Migrations:
+- `src/main/resources/db/migration/V3__init_users_and_auth.sql`
+- `src/main/resources/db/migration/V20__add_oauth_identity_access_token.sql`
+- `src/main/resources/db/migration/V28__allow_multiple_refresh_tokens.sql`
 
-응답 포함 항목:
-- `planQuotas`
-- `featureFlags`
-- `rateLimit`
-- `updatedAt`
-
-### PUT `/api/v1/admin/settings`
-피처 플래그와 rate limit 저장 API.
-
-요청 포함 항목:
-- `featureFlags`
-- `rateLimit.apiRequestsPerMinute`
-
-응답:
-- 저장 후 최신 `AdminSettingsResponse`
+Tests:
+- `src/test/java/com/synapse/platform/auth/entity/OAuthIdentitySchemaTest.java`
+- `src/test/java/com/synapse/platform/auth/controller/OAuth2LoginIntegrationTest.java`
+- `src/test/java/com/synapse/platform/auth/controller/OAuthConnectionControllerTest.java`
+- `src/test/java/com/synapse/platform/auth/service/OAuthConnectionServiceTest.java`
+- `src/test/java/com/synapse/platform/audit/AuditLogPostgresSchemaTest.java`
+- `src/test/java/com/synapse/platform/auth/service/RefreshTokenServiceTest.java`
+- `src/test/java/com/synapse/platform/billing/BillingRepositoryTest.java`
+- `src/test/java/com/synapse/platform/e2e/AuthBillingE2ETest.java`
+- `src/test/java/com/synapse/platform/notification/DeviceTokenIntegrationTest.java`
 
 ## Risk Notes
-- `plan_quotas` 값을 수정 가능하게 열면 billing/auth 계약과 직접 충돌할 수 있어 이번 범위에서는 제외한다.
-- Feature flag key를 프론트 표시 문구로 저장하면 한글 문구 변경 때 데이터 호환성이 깨질 수 있다.
-- Rate limit 값을 저장만 하고 적용하지 않으면 운영자가 오해할 수 있다. 응답 필드 또는 문서에서 "설정 저장 API" 범위임을 명확히 해야 한다.
-- `V18__seed_plan_quotas.sql`는 빈 유지 파일로 보이며, plan quota seed는 V2에서 처리된 상태다.
+- Flyway version conflict는 service boot와 DB integration test를 한 번에 막는 고위험 이슈다.
+- 반대로 불필요한 rename migration을 추가하면 현재 entity/test 의도와 충돌하고 OAuth 기존 DB와도 충돌할 수 있다.
+- 공식 repo에 없는 untracked 파일은 그대로 따라가지 않는다. 현재 repo와 팀장님 관리 문서/이슈 근거를 기준으로 판단한다.
+- 운영 DB에 이미 수동 rename이 적용된 경우는 repo migration만으로 단정하면 안 된다. 해당 경우는 운영 DB 상태 확인이 별도 필요하다.
 
 ## Verification
 통과한 검증:
 
 ```powershell
-.\gradlew.bat test --tests "*AdminSettings*"
-.\gradlew.bat test --tests "*AdminSecurityIntegrationTest"
-.\gradlew.bat test --tests "*AdminSettings*" --tests "*PlatformModuleStructureTest"
+.\gradlew.bat test --rerun-tasks --tests "*OAuthIdentitySchemaTest" --tests "*OAuth2LoginIntegrationTest" --tests "*OAuthConnectionControllerTest" --tests "*OAuthConnectionServiceTest"
+.\gradlew.bat test --rerun-tasks --tests "*AuditLogPostgresSchemaTest" --tests "*RefreshTokenServiceTest" --tests "*BillingRepositoryTest" --tests "*AuthBillingE2ETest" --tests "*DeviceTokenIntegrationTest"
 .\gradlew.bat clean build
 ```
 
-전체 빌드에서 checkstyle, 전체 테스트, jacoco coverage verification, spotbugs가 통과했다.
+`clean build` 중 Windows Kafka 테스트 임시파일 삭제 로그가 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`이다.
+
+## Resolution Direction
+1. code migration은 추가하지 않는다.
+2. HISTORY와 작업 문서에 조사 완료 근거를 남긴다.
+3. #91에는 "tracked repo 기준 schema gap 없음, V28 중복 없음, rename migration 불필요"로 코멘트를 남긴 뒤 close하면 된다.
 
 ## Do Not Touch
-- `TASK_platform.md`
+- shared/gitops/engagement/gateway/frontend repo
 - `.env`
-- Spring profile 설정
+- profile 설정
 - 실행 포트 설정
-- gitops/shared 프로젝트
-- frontend 프로젝트
+- `TASK_platform.md`
+- 팀장님 로컬의 untracked 파일

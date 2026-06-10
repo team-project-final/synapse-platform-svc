@@ -469,6 +469,24 @@
 
 ---
 
+#### 2026-06-10 (수) - PLAT-091
+
+- **완료**:
+  - `fix/PLAT-091-oauth-provider-column` 브랜치에서 OAuth provider 컬럼/Flyway migration 정합 조사 완료.
+  - 현재 tracked repo 기준 `OAuthIdentity.providerUserId`는 `@Column(name = "provider_id")`로 명시 매핑되어 있음을 확인.
+  - `V3__init_users_and_auth.sql`과 `OAuthIdentitySchemaTest`도 `provider_id` 기준으로 정합함을 확인.
+  - `V28__rename_oauth_provider_id_column.sql`은 tracked 파일이 아니며, repo 기준 V28 중복 migration은 없음을 확인.
+  - 결론: `provider_user_id` rename migration은 추가하지 않는다.
+  - 검증 통과: OAuth/schema 테스트, #91 언급 DB 통합 테스트, `clean build`.
+- **진행 중**:
+  - 없음.
+- **이슈**:
+  - 팀장님 로컬 checkout의 untracked rename migration 파일은 커밋하지 않거나 제거해야 한다.
+- **다음**:
+  - #91에 조사 결과 공유 후 close 여부 결정.
+
+---
+
 ## 2026-06-09 PLAT-064 작업 기록
 
 - DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
@@ -481,6 +499,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-091 OAuth provider 컬럼/Flyway migration 정합 조사** — `OAuthIdentity`와 V3 DDL 모두 `provider_id` 기준임을 확인, tracked repo에 V28 rename migration 없음 및 V28 중복 없음 확인, rename migration 추가 불필요로 결정. OAuth/schema 테스트, DB 통합 테스트, `clean build` 통과 |
 | 2026-06-10 | **PLAT-084 OpenAPI/SpringDoc 문서 노출 이슈 대응** — SpringDoc WebMVC UI 의존성 추가, OpenAPI/Swagger UI 인증 예외 추가, Confluent 구버전 Swagger annotation 충돌 제거, OpenAPI 보안 통합 테스트 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-072 프론트 연동 백엔드 갭 A-6 2차 구현** — Admin settings API 추가, `admin_settings` 저장소, `TenantApi.listPlanQuotas()` quota 조회 계약, settings/security 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-071 프론트 연동 백엔드 갭 A-6 1차 구현** — Admin analytics summary API 추가, user/tenant/billing/notification/audit 공개 API 기반 집계, today 지표 00:00 기준 및 soft-delete 포함 user total 정리, cross-service 값 `NOT_CONNECTED` 처리. `TASK_platform.md` 미수정. `clean build` 통과 |

@@ -22,6 +22,7 @@ import com.synapse.platform.user.api.OAuthUserCreateCommand;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.api.UserLoginCredential;
+import com.synapse.platform.user.api.UserSummary;
 import com.synapse.platform.user.repository.UserRepository;
 import com.synapse.platform.user.repository.UserSettingsRepository;
 import com.synapse.platform.auth.util.SlugGenerator;
@@ -30,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -254,6 +256,11 @@ class CustomOAuth2UserServiceTest {
             @Override
             public Optional<UserInfo> findByEmail(String email) {
                 return userRepository.findByEmail(email).map(this::toUserInfo);
+            }
+
+            @Override
+            public List<UserSummary> findSummariesByIds(Collection<UUID> userIds) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
             }
 
             @Override

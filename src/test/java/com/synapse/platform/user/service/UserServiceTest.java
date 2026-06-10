@@ -112,6 +112,20 @@ class UserServiceTest {
     }
 
     @Test
+    void findSummariesByIds_shouldReturnUserSummaries() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId);
+        given(userRepository.findAllById(List.of(userId))).willReturn(List.of(user));
+
+        var summaries = userService.findSummariesByIds(List.of(userId));
+
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.getFirst().id()).isEqualTo(userId);
+        assertThat(summaries.getFirst().email()).isEqualTo("user@example.com");
+        assertThat(summaries.getFirst().displayName()).isEqualTo("user");
+    }
+
+    @Test
     void findLoginCredentialByEmail_shouldExposePasswordHashAndLockState() {
         User user = User.ofEmailPassword("user@example.com", "user", "$2a$10$hash", UUID.randomUUID());
         given(userRepository.findByEmail("user@example.com")).willReturn(Optional.of(user));

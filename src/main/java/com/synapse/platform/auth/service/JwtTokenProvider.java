@@ -9,7 +9,9 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,6 +27,8 @@ public class JwtTokenProvider {
     private static final String ACCESS_TOKEN_TYPE = "ACCESS";
     private static final String REFRESH_TOKEN_TYPE = "REFRESH";
     private static final String TYPE_CLAIM = "type";
+    private static final String ROLES_CLAIM = "roles";
+    private static final String ROLE_PREFIX = "ROLE_";
 
     private final JwtProperties properties;
     private final RSAPrivateKey privateKey;
@@ -48,7 +52,7 @@ public class JwtTokenProvider {
                 .issuer(properties.issuer())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(ACCESS_TOKEN_TTL_SECONDS)))
-                .claim("roles", roles)
+                .claim(ROLES_CLAIM, tokenRoles(roles))
                 .claim(TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .signWith(privateKey, Jwts.SIG.RS256)
                 .compact();
@@ -93,7 +97,7 @@ public class JwtTokenProvider {
     public Authentication getAuthentication(String token) {
         Claims claims = parseClaims(token);
         String userId = claims.getSubject();
-        Collection<? extends GrantedAuthority> authorities = authorities(claims.get("roles"));
+        Collection<? extends GrantedAuthority> authorities = authorities(claims.get(ROLES_CLAIM));
         return new UsernamePasswordAuthenticationToken(userId, token, authorities);
     }
 
@@ -118,10 +122,44 @@ public class JwtTokenProvider {
         if (!(rolesClaim instanceof List<?> roles)) {
             return List.of();
         }
-        return roles.stream()
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
+        LinkedHashSet<String> authorities = new LinkedHashSet<>();
+        for (Object role : roles) {
+            if (role instanceof String value && !value.isBlank()) {
+                authorities.add(springAuthority(value));
+            }
+        }
+        return authorities.stream()
                 .map(SimpleGrantedAuthority::new)
                 .toList();
+    }
+
+    private List<String> tokenRoles(List<String> roles) {
+        if (roles == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> tokenRoles = new LinkedHashSet<>();
+        for (String role : roles) {
+            if (role == null || role.isBlank()) {
+                continue;
+            }
+            String normalized = role.trim();
+            tokenRoles.add(normalized);
+            if ("ROLE_ADMIN".equals(normalized)) {
+                tokenRoles.add("ADMIN");
+            }
+        }
+        return List.copyOf(tokenRoles);
+    }
+
+    private String springAuthority(String role) {
+        String normalized = role.trim();
+        if (normalized.startsWith(ROLE_PREFIX)) {
+            return normalized;
+        }
+        String upperRole = normalized.toUpperCase(Locale.ROOT);
+        if ("USER".equals(upperRole) || "ADMIN".equals(upperRole)) {
+            return ROLE_PREFIX + upperRole;
+        }
+        return normalized;
     }
 }

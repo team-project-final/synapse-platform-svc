@@ -487,6 +487,25 @@
 
 ---
 
+#### 2026-06-10 (수) - PLAT-086
+
+- **완료**:
+  - `fix/PLAT-086-admin-role-contract` 브랜치에서 ADMIN role 발급/계약 정합 보강 완료.
+  - 최초/운영 어드민 부여 방식은 기존 결정대로 DB 수동 grant를 유지했다.
+  - 자동 seed admin, bootstrap admin, 승격 API, env/profile 변경은 추가하지 않았다.
+  - platform DB/Spring Security 정본은 `ROLE_USER`, `ROLE_ADMIN`으로 유지했다.
+  - access token `roles` claim에는 engagement 호환을 위해 `ROLE_ADMIN`과 함께 `ADMIN` alias를 포함하도록 보강했다.
+  - `JwtTokenProvider.getAuthentication()`은 bare role alias를 Spring authority로 정규화해 platform 내부 admin endpoint 권한을 유지한다.
+  - 검증 통과: JWT 단위 테스트, role/auth/admin 보안 테스트, `clean build`.
+- **진행 중**:
+  - 없음.
+- **이슈**:
+  - 없음.
+- **다음**:
+  - #86에 변경 결과 공유 후 PR 생성.
+
+---
+
 ## 2026-06-09 PLAT-064 작업 기록
 
 - DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
@@ -499,6 +518,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-086 ADMIN role 발급/계약 정합 보강** — 어드민 부여 방식은 DB 수동 grant로 유지, JWT `roles` claim에 `ROLE_ADMIN`/`ADMIN` 호환 표현을 함께 제공, platform 내부 authority는 `ROLE_ADMIN`으로 정규화. JWT/auth/admin 보안 테스트 및 `clean build` 통과 |
 | 2026-06-10 | **PLAT-091 OAuth provider 컬럼/Flyway migration 정합 조사** — `OAuthIdentity`와 V3 DDL 모두 `provider_id` 기준임을 확인, tracked repo에 V28 rename migration 없음 및 V28 중복 없음 확인, rename migration 추가 불필요로 결정. OAuth/schema 테스트, DB 통합 테스트, `clean build` 통과 |
 | 2026-06-10 | **PLAT-084 OpenAPI/SpringDoc 문서 노출 이슈 대응** — SpringDoc WebMVC UI 의존성 추가, OpenAPI/Swagger UI 인증 예외 추가, Confluent 구버전 Swagger annotation 충돌 제거, OpenAPI 보안 통합 테스트 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-072 프론트 연동 백엔드 갭 A-6 2차 구현** — Admin settings API 추가, `admin_settings` 저장소, `TenantApi.listPlanQuotas()` quota 조회 계약, settings/security 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |

@@ -452,6 +452,23 @@
 
 ---
 
+#### 2026-06-10 (수) - PLAT-084
+
+- **완료**:
+  - `fix/PLAT-084-openapi-docs` 브랜치에서 OpenAPI/SpringDoc 문서 노출 이슈 대응.
+  - SpringDoc WebMVC UI 의존성을 추가하고 `/v3/api-docs/**`, `/swagger-ui/**`, `/swagger-ui.html` 인증 예외를 추가.
+  - Confluent Avro serializer 전이 의존성의 구버전 `swagger-annotations`를 제외해 SpringDoc 3.x 런타임 충돌을 제거.
+  - 인증 없이 `/v3/api-docs`, `/swagger-ui/index.html` 접근이 가능한지 통합 테스트 추가.
+  - 검증 통과: OpenAPI/security 관련 테스트, `clean build`.
+- **진행 중**:
+  - Gateway `/api/platform/**` 경로 보호 정책은 shared 기준상 정상 범위라 이번 platform 수정 대상에서 제외.
+- **이슈**:
+  - 없음.
+- **다음**:
+  - PR 생성 후 CI 확인.
+
+---
+
 ## 2026-06-09 PLAT-064 작업 기록
 
 - DB 기반 사용자 role 저장을 위해 `user_roles` 테이블을 추가했다.
@@ -464,6 +481,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-10 | **PLAT-084 OpenAPI/SpringDoc 문서 노출 이슈 대응** — SpringDoc WebMVC UI 의존성 추가, OpenAPI/Swagger UI 인증 예외 추가, Confluent 구버전 Swagger annotation 충돌 제거, OpenAPI 보안 통합 테스트 추가. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-072 프론트 연동 백엔드 갭 A-6 2차 구현** — Admin settings API 추가, `admin_settings` 저장소, `TenantApi.listPlanQuotas()` quota 조회 계약, settings/security 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-071 프론트 연동 백엔드 갭 A-6 1차 구현** — Admin analytics summary API 추가, user/tenant/billing/notification/audit 공개 API 기반 집계, today 지표 00:00 기준 및 soft-delete 포함 user total 정리, cross-service 값 `NOT_CONNECTED` 처리. `TASK_platform.md` 미수정. `clean build` 통과 |
 | 2026-06-10 | **PLAT-070 프론트 연동 백엔드 갭 A-2 구현** — Auth password reset API, MFA backup code API, notification quota 예외, 복구 플로우 테스트 보강. `TASK_platform.md` 미수정. `clean build` 통과 |

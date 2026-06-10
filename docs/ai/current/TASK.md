@@ -1,10 +1,10 @@
-# PLAT-072 Admin 시스템 설정/피처 플래그 API
+# PLAT-086 Admin role 발급/계약 정합 확인
 
 ## Task ID
-PLAT-072
+PLAT-086
 
 ## Title
-Admin 시스템 설정/피처 플래그 API 구현
+관리자 ADMIN role 발급 메커니즘 및 engagement 모더레이션 권한 계약 정합
 
 ## Owner
 platform
@@ -13,148 +13,148 @@ platform
 DONE
 
 ## Priority
-P2
+P1
+
+## Issue
+https://github.com/team-project-final/synapse-platform-svc/issues/86
+
+## Branch
+`fix/PLAT-086-admin-role-contract`
 
 ## Step Goal
-관리자가 Admin 시스템 설정 화면에서 플랜 할당량을 조회하고 피처 플래그와 API 요청 제한 설정을 저장한다.
+#86에서 제기된 "ADMIN role 발급 메커니즘 부재" 이슈를 현재 `dev` 기준 코드와 다시 대조한다.
+
+현재 platform에는 `user_roles` 테이블, 기본 `ROLE_USER` 부여, `ROLE_ADMIN` 수동 부여 런북, JWT `roles` claim 발급이 이미 존재한다. 따라서 이번 작업은 신규 role 시스템을 처음부터 만드는 작업이 아니라, 아래 잔여 갭을 확인하고 필요한 최소 보강만 진행한다.
+
+- 이슈 본문 중 이미 해결된 항목과 아직 남은 항목을 분리한다.
+- platform 내부 권한(`ROLE_ADMIN`)과 engagement 모더레이션 권한 기대값(`ADMIN`)의 JWT 계약 차이를 검증한다.
+- 자동 seed/profile/env 변경 없이 최초 어드민 부여 절차가 문서와 테스트 관점에서 충분한지 확인한다.
+- 필요한 경우 platform 쪽 JWT role claim 호환성을 보강한다.
 
 ## Done When
-- [x] `GET /api/v1/admin/settings`가 현재 시스템 설정을 반환한다.
-- [x] `PUT /api/v1/admin/settings`가 피처 플래그와 API 요청 제한 설정을 저장한 뒤 최신 설정을 반환한다.
-- [x] 응답에 플랜 할당량, 피처 플래그, API 요청 제한 값이 포함된다.
-- [x] 플랜 할당량은 기존 `plan_quotas` 데이터를 조회 전용으로 사용한다.
-- [x] 피처 플래그와 API 요청 제한 값은 platform 소유 저장소에 영속화한다.
-- [x] `/api/v1/admin/settings`는 `ROLE_ADMIN`만 접근 가능하다.
-- [x] 일반 사용자 또는 미인증 요청은 기존 Admin 보안 정책대로 차단된다.
-- [x] 입력 검증 실패 시 400 응답과 명확한 에러 메시지를 반환한다.
-- [x] 단위 테스트, 컨트롤러 테스트, 보안 통합 테스트를 추가하거나 보강한다.
-- [x] `./gradlew.bat test --tests "*AdminSettings*"` 또는 동등한 단일 테스트가 통과한다.
-- [x] `./gradlew.bat clean build`가 통과한다.
+- [x] 현재 `dev` 기준 `user_roles` migration과 `UserRole` entity를 확인한다.
+- [x] 신규 이메일/비밀번호 가입과 OAuth 가입 시 기본 `ROLE_USER` 저장 경로를 확인한다.
+- [x] 로그인, OAuth 성공, refresh 재발급 시 DB role이 JWT `roles` claim에 들어가는지 확인한다.
+- [x] `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`의 수동 `ROLE_ADMIN` 부여 절차가 현재 schema와 맞는지 확인한다.
+- [x] engagement의 관리자 판정이 `ADMIN`을 기대한다는 사실을 코드 기준으로 확인한다.
+- [x] platform JWT가 engagement 모더레이션 API에 필요한 role 문자열을 제공하는지 판단한다.
+- [x] 필요한 경우 platform JWT role claim 호환성 보강 및 테스트를 추가한다.
+- [x] 단일/통합 테스트와 `clean build`를 통과시킨다.
 - [x] `docs/project-management/history/HISTORY_platform.md`에 작업 이력을 남긴다.
+- [ ] #86에 검증 결과와 결정 내용을 코멘트로 남긴다.
 
 ## Scope
 
 ### In Scope
-- Admin 설정 조회/저장 API 추가
-- `com.synapse.platform.admin` 하위 controller/service/dto 구성
-- 피처 플래그 및 rate limit 설정 저장용 DB migration/entity/repository 추가
-- 기존 `TenantApi` 기반 플랜 quota 조회 모델 구성
-- `ROLE_ADMIN` 인가 검증
-- 테스트 코드 작성
-- 현재 작업문서 갱신 및 PLAT-071 문서 archive 보관
+- platform repo 내부 role 저장/발급/JWT claim 흐름 확인
+- `ROLE_ADMIN` 수동 부여 런북 정합 확인
+- platform JWT `roles` claim과 engagement `ADMIN` 기대값의 계약 갭 검토
+- 필요한 경우 platform 코드에서 JWT role claim 호환성 보강
+- 관련 단위/통합 테스트 보강
+- #86 이슈 답변/정리
+- PLAT-091 current 문서 archive 보관
 
 ### Out of Scope
-- GDPR 데이터 요청 API (`/api/v1/admin/data-requests`, PLAT-073 후보)
-- 실제 런타임 feature flag enforcement
-- 실제 rate limiting filter/gateway enforcement
-- `plan_quotas` 수정 API 또는 quota 값 변경
-- frontend 코드 수정
-- gateway/gitops/shared 프로젝트 수정
-- `.env`, profile, 실행 포트 설정 변경
-- `TASK_platform.md` 신규 항목 추가
+- engagement/shared/gitops/frontend/gateway repo 수정
+- env, profile, 운영 설정 변경
+- 자동 seed admin, bootstrap admin, dummy admin 계정 추가
+- 운영 DB 직접 변경
+- `TASK_platform.md` 항목 추가
+- #62 live E2E 전체 수행
 
-## Dependencies
-- Root 요구사항: `C:\workspace\team_project_2\docs\BACKEND_GAP_platform.md` A-6
-- 선행 작업: PLAT-071 Admin analytics summary API
-- 기존 Admin 보안: `/api/v1/admin/**` `ROLE_ADMIN`
-- 기존 quota 데이터: `plan_quotas`, `PlanQuotaInfo`, `TenantApi`
-- 프론트 화면: `admin_system_settings_screen.dart`
+## Initial Findings
+- `V20260609140528__create_user_roles.sql`이 `user_roles(user_id, role)` 테이블을 생성한다.
+- role check constraint는 `ROLE_USER`, `ROLE_ADMIN`만 허용한다.
+- 기존 삭제되지 않은 사용자에게 `ROLE_USER`를 백필한다.
+- `UserService.createForEmailPassword()`와 `UserService.createForOAuth()`가 신규 사용자에게 기본 `ROLE_USER`를 저장한다.
+- `UserService.findRoles()`는 DB role을 조회하고, role row가 없으면 `ROLE_USER`로 fallback한다.
+- `EmailPasswordAuthService`, `OAuth2SuccessHandler`, `AuthController` refresh 경로는 `userApi.findRoles(userId)` 결과로 access token을 발급한다.
+- `JwtTokenProvider.createAccessToken()`은 `roles` claim에 전달받은 role 목록을 그대로 넣는다.
+- platform admin endpoint는 Spring Security의 `hasRole('ADMIN')` 또는 `/api/v1/admin/** hasRole("ADMIN")` 패턴을 사용하므로 내부 권한은 `ROLE_ADMIN`과 맞다.
+- `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`는 가입된 사용자에게 SQL로 `ROLE_ADMIN`을 추가하는 절차를 이미 제공한다.
+- engagement `CurrentUser.requireAdmin()`은 JWT `roles` claim 안의 `ADMIN` 또는 단일 `role` claim의 `ADMIN`을 기대한다.
+- 따라서 현재 남은 핵심 리스크는 "platform JWT가 `ROLE_ADMIN`만 담을 때 engagement가 이를 관리자 권한으로 인정하지 못할 수 있음"이다.
 
-## Due Date
-2026-06-12
+## Decision Criteria
 
-## Requirement Context
-Root `BACKEND_GAP_platform.md`의 A-6 Admin 대시보드 보강 항목 중 PLAT-071에서 분석 요약 API는 처리했다. 남은 platform 소관 항목은 시스템 설정/피처 플래그와 GDPR 데이터 요청이다.
+### Option A: 현재 구현 확인 후 이슈 정리
+선택 조건:
+- 이슈의 주요 우려가 현재 `dev`에서 이미 해소되어 있다.
+- engagement가 `ROLE_ADMIN`도 허용하도록 이미 갱신되어 있거나, E2E 계약상 `ROLE_ADMIN` 사용으로 합의되어 있다.
 
-이번 작업은 먼저 프론트의 Admin System Settings 화면을 연결하기 위한 `GET`/`PUT /api/v1/admin/settings`를 구현한다.
+처리:
+- 코드 변경 없이 검증 결과와 런북 근거를 남긴다.
+- #86에 stale 항목과 현재 정본을 설명하고 close한다.
 
-## Frontend Contract
-프론트 화면은 현재 mock 상태이며 다음 설정 묶음을 기대한다.
+### Option B: platform JWT role claim 호환성 보강
+선택 조건:
+- engagement가 계속 `ADMIN`을 기대한다.
+- 다른 repo 수정 없이 platform에서 해결해야 한다.
+- platform 내부 DB/Spring Security 권한은 `ROLE_ADMIN`으로 유지해야 한다.
 
-- Plan Quota
-- Feature Flags
-- Rate Limit
+처리:
+- DB role 정본은 `ROLE_USER`, `ROLE_ADMIN`으로 유지한다.
+- Spring Security 내부 인증은 기존 `ROLE_*` 권한이 계속 동작해야 한다.
+- JWT 외부 계약에서 engagement가 읽을 수 있는 `ADMIN` 표현을 함께 제공할지 결정한다.
+- 관련 `JwtTokenProviderTest`와 인증 경로 테스트를 보강한다.
 
-초기 백엔드 응답은 아래 형태를 기준으로 한다. 구현 중 기존 DTO 스타일에 맞춰 필드명은 조정할 수 있으나, 프론트가 바로 붙을 수 있게 의미는 유지한다.
+### Option C: engagement 수정 필요로 이슈 이관
+선택 조건:
+- 팀 합의상 JWT `roles` claim은 Spring Security 권한명인 `ROLE_*`만 담기로 결정한다.
+- engagement가 수신 token을 정규화하는 책임을 갖기로 한다.
 
-```json
-{
-  "planQuotas": [
-    {
-      "planCode": "free",
-      "displayName": "Free",
-      "maxNotes": 1000,
-      "maxCards": 5000,
-      "maxStorageBytes": 1073741824,
-      "maxAiTokensMonthly": 100000,
-      "maxAiCardGenerationsMonthly": 100,
-      "maxUsersPerTenant": 5
-    }
-  ],
-  "featureFlags": [
-    {
-      "key": "aiCardAutoGeneration",
-      "label": "AI 카드 자동 생성",
-      "enabled": true
-    }
-  ],
-  "rateLimit": {
-    "apiRequestsPerMinute": 100
-  },
-  "updatedAt": "2026-06-10T00:00:00Z"
-}
-```
+처리:
+- platform 코드는 변경하지 않는다.
+- #86에는 platform 현재 상태와 engagement 수정 필요 내용을 남긴다.
+- 단, 현재 사용자 지시는 다른 repo 수정 금지이므로 이번 브랜치에서는 engagement를 건드리지 않는다.
 
-`PUT` 요청은 운영 중 영향이 큰 plan quota를 제외하고, 피처 플래그와 rate limit만 저장한다.
-
-```json
-{
-  "featureFlags": [
-    {
-      "key": "aiCardAutoGeneration",
-      "enabled": true
-    }
-  ],
-  "rateLimit": {
-    "apiRequestsPerMinute": 100
-  }
-}
-```
-
-## Design Notes
-- Plan quota는 billing/auth 쪽 기존 계약과 연결되어 있어 이번 작업에서는 조회 전용으로 둔다.
-- Admin 모듈은 Modulith 경계를 지키기 위해 auth 내부 repository/entity 대신 `TenantApi.listPlanQuotas()`를 사용한다.
-- 피처 플래그와 rate limit은 현재 platform 내부 저장 스키마가 없으므로 migration을 추가한다.
-- 설정 key는 프론트 표시 문구가 아니라 안정적인 영문 key를 기준으로 저장한다.
-- 기본값은 코드 상수 또는 seed migration으로 제공하되, 운영 설정 변경 후에는 DB 값이 우선이다.
-- `apiRequestsPerMinute`는 `1..10000` 범위로 검증한다.
-- rate limit 저장은 이번 범위에 포함하지만 실제 요청 제한 적용은 별도 작업으로 남긴다.
+## Result
+- 최초/운영 어드민 부여 방식은 기존 결정대로 DB 수동 grant를 유지한다.
+- 자동 seed admin, bootstrap admin, 승격 API, env/profile 변경은 추가하지 않았다.
+- `ROLE_ADMIN` DB 정본과 platform 내부 Spring Security 권한은 유지했다.
+- access token `roles` claim에는 기존 `ROLE_ADMIN` 값과 함께 외부 서비스 호환용 `ADMIN` alias를 추가한다.
+  - 예: `ROLE_ADMIN` -> `ROLE_ADMIN`, `ADMIN`
+- `JwtTokenProvider.getAuthentication()`은 bare role alias를 다시 Spring authority로 정규화한다.
+  - 예: `ADMIN` -> `ROLE_ADMIN`
+  - 예: `USER` -> `ROLE_USER`
+- 따라서 platform 내부 admin endpoint는 기존 `hasRole('ADMIN')` 정책을 유지하고, engagement는 `roles` claim의 `ADMIN`을 읽을 수 있다.
 
 ## Test Plan
-- `AdminSettingsServiceTest`
-  - 기본 설정 조회
-  - 저장된 설정 우선 조회
-  - 알 수 없는 feature flag key 거부
-  - rate limit 범위 검증
-- `AdminSettingsControllerTest`
-  - `GET /api/v1/admin/settings`
-  - `PUT /api/v1/admin/settings`
-  - validation error 400
-- `AdminSecurityIntegrationTest` 보강
-  - 미인증 401/403
-  - 일반 사용자 403
-  - admin 200
-- 빌드 검증
-  - `./gradlew.bat test --tests "*AdminSettings*"`
-  - `./gradlew.bat clean build`
+
+1. role 저장/조회 단위 테스트
+   ```powershell
+   .\gradlew.bat test --tests "*UserServiceTest"
+   ```
+
+2. JWT role claim/authority 테스트
+   ```powershell
+   .\gradlew.bat test --tests "*JwtTokenProviderTest"
+   ```
+
+3. 로그인/OAuth/refresh role 발급 경로 테스트
+   ```powershell
+   .\gradlew.bat test --tests "*EmailPasswordAuthServiceTest" --tests "*OAuth2SuccessHandlerTest" --tests "*AuthControllerTest"
+   ```
+
+4. admin 보안 통합 테스트
+   ```powershell
+   .\gradlew.bat test --tests "*AdminSecurityIntegrationTest" --tests "*AuditLogControllerTest"
+   ```
+
+5. 전체 검증
+   ```powershell
+   .\gradlew.bat clean build
+   ```
 
 ## Working Notes
-- 현재 브랜치: `feature/PLAT-072-admin-settings`
+- 현재 브랜치: `fix/PLAT-086-admin-role-contract`
 - 기준 브랜치: `dev`
-- PLAT-071 current 문서는 `docs/ai/archive/20260610-plat-071-completed/`에 보관했다.
-- `TASK_platform.md`는 최초 개발 목록 문서이므로 수정하지 않았다.
+- PLAT-091 문서는 `docs/ai/archive/20260610-plat-091-completed/`에 보관했다.
+- 이번 작업에서는 다른 repo를 수정하지 않는다.
+- 최초 어드민 자동 생성은 하지 않는다.
+- profile/env 변경은 하지 않는다.
+- `TASK_platform.md`는 초기 개발 목록이므로 수정하지 않는다.
 - 검증 통과:
-  - `./gradlew.bat test --tests "*AdminSettings*"`
-  - `./gradlew.bat test --tests "*AdminSecurityIntegrationTest"`
-  - `./gradlew.bat test --tests "*AdminSettings*" --tests "*PlatformModuleStructureTest"`
-  - `./gradlew.bat clean build`
+  - `.\gradlew.bat test --tests "*JwtTokenProviderTest"`
+  - `.\gradlew.bat test --tests "*UserServiceTest" --tests "*EmailPasswordAuthServiceTest" --tests "*OAuth2SuccessHandlerTest" --tests "*AuthControllerTest" --tests "*AdminSecurityIntegrationTest" --tests "*AuditLogControllerTest"`
+  - `.\gradlew.bat clean build`

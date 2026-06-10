@@ -58,4 +58,16 @@ public class TenantSelfServiceException extends BusinessException {
                 403,
                 "Tenant owner can only be changed by another owner");
     }
+
+    public static TenantSelfServiceException invalidInvitationEmail() {
+        return new TenantSelfServiceException("PLAT-TENANT-013", 400, "Tenant invitation email is invalid");
+    }
+
+    public static TenantSelfServiceException tenantMemberAlreadyExists() {
+        return new TenantSelfServiceException("PLAT-TENANT-014", 409, "User is already a tenant member");
+    }
+
+    public static TenantSelfServiceException invitationAlreadyPending() {
+        return new TenantSelfServiceException("PLAT-TENANT-015", 409, "Tenant invitation is already pending");
+    }
 }

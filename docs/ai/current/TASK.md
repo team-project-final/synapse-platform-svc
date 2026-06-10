@@ -1,72 +1,129 @@
-# TASK - PLAT-067: Billing 결제 이력/사용량 조회 API
+# TASK - PLAT-068: Tenant 셀프관리 API
 
-> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-4. 프론트 `billing/billing_screens.dart`가 결제 이력, 사용량, 영수증/인보이스 조회를 기대하지만 platform-svc는 현재 Checkout 생성, Webhook 처리, 현재 구독 조회만 제공한다.
+> 출처: 루트 `docs/BACKEND_GAP_platform.md` A-5. 프론트 `settings/tenant_settings_screen.dart`가 테넌트 정보, 멤버 목록, 초대, 역할 변경/삭제를 기대하지만 platform-svc는 현재 admin 전용 tenant API만 제공한다.
 
 ## Task Metadata
 
 | 필드 | 내용 |
 |---|---|
-| Task ID | `PLAT-067` |
-| Title | Billing 결제 이력/사용량 조회 API |
+| Task ID | `PLAT-068` |
+| Title | Tenant 셀프관리 API |
 | Owner | platform (김해준) |
 | Status | `DONE` |
 | Priority | `P1` |
-| Step Goal | 프론트 결제 화면이 로그인 사용자의 결제 이력, 플랜 한도, 영수증/인보이스 정보를 platform API로 조회한다. |
+| Step Goal | 로그인 사용자가 본인 기본 tenant의 정보와 멤버를 platform API로 조회/관리한다. |
 | Done When | 아래 `Done When` 체크리스트 기준 |
 | Scope | 아래 `Scope` 기준 |
-| Dependencies | `BACKEND_GAP_platform.md` A-4, `payment_history`, `subscriptions`, `plan_quotas`, `UserApi`, `TenantApi` |
+| Dependencies | `BACKEND_GAP_platform.md` A-5, `tenants`, `tenant_members`, `UserApi`, `TenantApi` |
 | Due Date | 2026-06-12 |
 
 ## Step Goal
 
-프론트 결제 화면이 로그인 사용자의 결제 이력, 플랜 한도, 영수증/인보이스 정보를 platform API로 조회한다.
+로그인 사용자가 본인 기본 tenant의 정보와 멤버를 platform API로 조회/관리한다.
 
 ## Done When
 
-- [ ] `GET /api/v1/billing/payments`가 로그인 사용자의 기본 tenant 결제 이력을 최신순 페이지로 반환한다.
-- [ ] `GET /api/v1/billing/usage`가 현재 구독/플랜과 `plan_quotas` 기준 한도를 반환한다.
-- [ ] `GET /api/v1/billing/payments/{id}/receipt`가 본인 tenant 결제 건의 Stripe invoice URL/PDF URL 메타데이터를 반환한다.
-- [ ] 다른 tenant 결제 이력 또는 영수증 접근은 존재 여부를 숨기도록 404로 처리한다.
-- [ ] Stripe Webhook `invoice.paid` 처리 시 invoice 식별자와 invoice URL/PDF URL을 저장한다.
-- [ ] 기존 Checkout, Webhook, Subscription API의 동작을 변경하지 않는다.
-- [ ] `TASK_platform.md`, env/profile, gitops/shared 프로젝트는 수정하지 않는다.
-- [ ] billing 단위 테스트, controller 테스트, repository 또는 통합 테스트가 통과한다.
-- [ ] `clean build`가 통과한다.
+- [x] `GET /api/v1/tenants/me`가 로그인 사용자의 기본 tenant 정보를 반환한다.
+- [x] `PUT /api/v1/tenants/me`가 tenant 이름과 설정 일부를 저장한다.
+- [x] `GET /api/v1/tenants/me/members`가 현재 tenant 멤버 목록을 반환한다.
+- [x] `PUT /api/v1/tenants/me/members/{userId}`가 OWNER/ADMIN 권한으로 멤버 역할을 변경한다.
+- [x] `DELETE /api/v1/tenants/me/members/{userId}`가 OWNER/ADMIN 권한으로 멤버를 제거한다.
+- [x] 자기 자신을 제거하거나 마지막 OWNER를 제거하는 요청은 400/409로 거절한다.
+- [x] 초대 API는 스키마와 메일 발송 경계가 커서 PLAT-069 후속 작업으로 분리한다.
+- [x] tenant 소유권/멤버십 검증 없이 타 tenant 데이터에 접근할 수 없다.
+- [x] 삭제된 user는 멤버 목록 응답에서 제외한다.
+- [x] 멤버 목록 기본 정렬을 `joinedAt ASC, userId ASC`로 고정한다.
+- [x] 큰 page offset 요청은 overflow 없이 빈 목록으로 처리한다.
+- [x] `UserApi.findSummariesByIds(...)`는 default 구현 없이 명시 계약으로 유지한다.
+- [x] `TASK_platform.md`, env/profile, gitops/shared 프로젝트는 수정하지 않는다.
+- [x] controller/service/repository/security 테스트가 통과한다.
+- [x] `PlatformModuleStructureTest`와 `clean build`가 통과한다.
 
 ## Scope
 
 ### In Scope
 
-- 결제 이력 조회 API 추가
-- 결제 이력 응답 DTO 추가
-- 영수증/인보이스 조회 API 추가
-- `payment_history`에 Stripe invoice 메타데이터를 저장하는 nullable 컬럼 추가
-- `invoice.paid` Webhook 처리 시 invoice id, hosted invoice URL, invoice PDF URL 저장
-- 사용량 조회 API 추가
-- `plan_quotas` 한도 조회를 위한 공개 API 계약 정리
-- 본인 tenant 기준 접근 제어
-- billing read API 단위/통합 테스트 추가
+- `GET /api/v1/tenants/me`
+- `PUT /api/v1/tenants/me`
+- `GET /api/v1/tenants/me/members`
+- `PUT /api/v1/tenants/me/members/{userId}`
+- `DELETE /api/v1/tenants/me/members/{userId}`
+- tenant member role 정책 정리: `owner`, `admin`, `member`, `viewer`
+- 기본 tenant 기준 접근 제어
+- 멤버 목록 응답에 사용자 표시 정보 포함
+- tenant/member controller, service, DTO, repository query 추가
+- controller/service/repository/security 테스트 추가
+
+### Conditional Scope
+
+- `POST /api/v1/tenants/me/invitations`
+- 초대 토큰 저장 테이블 추가
+- 초대 메일 발송 경계 결정
+
+조건:
+
+- 초대 토큰 저장/만료/재전송 정책을 이번 작업에서 확정할 수 있으면 포함한다.
+- 메일 발송까지 넣으면 notification/SES 경계가 커지므로, 범위가 커지면 PLAT-069로 분리한다.
 
 ### Out of Scope
 
-- Stripe Checkout 생성 플로우 변경
-- Stripe Webhook 서명 검증 방식 변경
-- 실제 카드 정보 저장 또는 결제 수단 관리
-- 타 서비스 note/card/storage/AI 사용량 집계 구현
+- admin tenant API 변경
+- billing plan 변경
+- tenant switch API
+- SSO/enterprise 조직 관리
+- 타 서비스 group/community 관리
 - 프론트 화면 수정
 - `TASK_platform.md` 수정
 - env/profile/gitops/shared 수정
 
 ## API Contract
 
-### 결제 이력
+### 내 tenant 조회
 
-`GET /api/v1/billing/payments?page=0&size=20`
+`GET /api/v1/tenants/me`
 
-- 인증 필요
-- 로그인 사용자의 `defaultTenantId` 기준 결제 이력만 반환
-- 정렬: `paidAt DESC NULLS LAST`, `createdAt DESC`
-- 금액 단위는 Stripe 저장값 그대로 minor unit을 사용한다. 예: USD 999 = $9.99
+응답 후보:
+
+```json
+{
+  "id": "75c0cf72-dc31-4d58-bf6b-77e0b45e9dd5",
+  "name": "Synapse 팀",
+  "slug": "synapse-team",
+  "plan": "team",
+  "status": "active",
+  "tenantType": "personal",
+  "region": "ap-northeast-2",
+  "settings": {},
+  "myRole": "owner",
+  "createdAt": "2026-06-10T09:00:00+09:00",
+  "updatedAt": "2026-06-10T09:00:00+09:00"
+}
+```
+
+### 내 tenant 저장
+
+`PUT /api/v1/tenants/me`
+
+요청 후보:
+
+```json
+{
+  "name": "Synapse 팀",
+  "settings": {
+    "timezone": "Asia/Seoul"
+  }
+}
+```
+
+정책:
+
+- `name`은 OWNER/ADMIN만 변경 가능
+- `slug`, `plan`, `status`, `tenantType`, `region`은 이번 API에서 변경하지 않는다.
+- `settings`는 object만 허용하고 기존 값과 merge한다.
+
+### 멤버 목록
+
+`GET /api/v1/tenants/me/members?page=0&size=20`
 
 응답 후보:
 
@@ -74,14 +131,11 @@
 {
   "items": [
     {
-      "id": "3f8a8a87-9c1d-4f1d-89d5-493f2d19d901",
-      "subscriptionId": "0cc0c6d7-5fc8-4943-8322-3d2f337713db",
-      "amount": 999,
-      "currency": "usd",
-      "status": "succeeded",
-      "paidAt": "2026-06-09T15:30:00+09:00",
-      "createdAt": "2026-06-09T15:30:01+09:00",
-      "receiptAvailable": true
+      "userId": "03cfd9b7-3a8f-45b5-a291-4cbf478da3e6",
+      "email": "admin@example.com",
+      "displayName": "김시냅스",
+      "role": "owner",
+      "joinedAt": "2026-06-10T09:00:00+09:00"
     }
   ],
   "page": 0,
@@ -91,128 +145,125 @@
 }
 ```
 
-### 사용량
+### 역할 변경
 
-`GET /api/v1/billing/usage`
+`PUT /api/v1/tenants/me/members/{userId}`
 
-- 인증 필요
-- 로그인 사용자의 기본 tenant 기준
-- 현재 활성 구독이 있으면 구독의 plan을 우선 사용한다.
-- 활성 구독이 없으면 tenant의 현재 plan을 사용한다.
-- 한도는 `plan_quotas` 정본을 사용한다.
-- note/card/storage/AI 실제 사용량은 현재 platform-svc 정본이 없으므로 이번 작업에서는 `used = null`, `remaining = null`, `source = "NOT_CONNECTED"`로 명시한다.
-
-응답 후보:
+요청 후보:
 
 ```json
 {
-  "tenantId": "75c0cf72-dc31-4d58-bf6b-77e0b45e9dd5",
-  "planCode": "pro",
-  "subscriptionStatus": "ACTIVE",
-  "currentPeriodStart": "2026-06-09T15:00:00+09:00",
-  "currentPeriodEnd": "2026-07-09T15:00:00+09:00",
-  "quotas": {
-    "maxNotes": 50000,
-    "maxCards": 50000,
-    "maxStorageBytes": 10000000000,
-    "maxAiTokensMonthly": 5000000,
-    "maxAiCardGenerationsMonthly": 500,
-    "maxUsersPerTenant": 1
-  },
-  "usage": {
-    "notes": { "used": null, "limit": 50000, "remaining": null, "source": "NOT_CONNECTED" },
-    "cards": { "used": null, "limit": 50000, "remaining": null, "source": "NOT_CONNECTED" },
-    "storageBytes": { "used": null, "limit": 10000000000, "remaining": null, "source": "NOT_CONNECTED" },
-    "aiTokensMonthly": { "used": null, "limit": 5000000, "remaining": null, "source": "NOT_CONNECTED" },
-    "aiCardGenerationsMonthly": { "used": null, "limit": 500, "remaining": null, "source": "NOT_CONNECTED" },
-    "users": { "used": null, "limit": 1, "remaining": null, "source": "NOT_CONNECTED" }
-  }
+  "role": "member"
 }
 ```
 
-### 영수증/인보이스
+정책:
 
-`GET /api/v1/billing/payments/{id}/receipt`
+- 요청자는 `owner` 또는 `admin`이어야 한다.
+- 허용 role: `admin`, `member`, `viewer`
+- `owner` 승격/강등은 이번 작업에서 제외한다.
+- 본인 역할 변경은 거절한다.
 
-- 인증 필요
-- 로그인 사용자 기본 tenant의 결제 건만 반환
-- 타 tenant 결제 건은 404
-- URL은 Webhook 수신 시 저장된 Stripe invoice 메타데이터를 사용한다.
-- 기존 결제 row처럼 URL이 없는 경우 200 응답에 `available=false`를 반환한다.
+### 멤버 삭제
 
-응답 후보:
+`DELETE /api/v1/tenants/me/members/{userId}`
+
+정책:
+
+- 요청자는 `owner` 또는 `admin`이어야 한다.
+- 본인 삭제는 거절한다.
+- 마지막 owner 삭제는 거절한다.
+
+### 초대 요청
+
+`POST /api/v1/tenants/me/invitations`
+
+요청 후보:
 
 ```json
 {
-  "paymentId": "3f8a8a87-9c1d-4f1d-89d5-493f2d19d901",
-  "stripePaymentIntentId": "pi_test",
-  "stripeInvoiceId": "in_test",
-  "invoiceUrl": "https://invoice.stripe.com/i/acct_test/...",
-  "invoicePdfUrl": "https://pay.stripe.com/invoice/...",
-  "available": true
+  "email": "user@example.com",
+  "role": "member"
 }
 ```
+
+이번 작업 포함 여부:
+
+- PLAT-068에서는 tenant 정보/멤버 관리까지만 완료한다.
+- 초대 토큰 저장소, 수락 흐름, 메일 발송 경계는 PLAT-069로 분리한다.
 
 ## Data Model
 
-신규 Flyway migration 후보:
+기존 테이블:
 
-- `V20260609170000__add_payment_invoice_metadata.sql`
+- `tenants`
+- `tenant_members`
+- `users`
 
-추가 컬럼:
+기존 제약:
 
-- `payment_history.stripe_invoice_id VARCHAR(255)`
-- `payment_history.invoice_url TEXT`
-- `payment_history.invoice_pdf_url TEXT`
+- `tenant_members` PK: `(tenant_id, user_id)`
+- `role`은 문자열이며 DB check constraint는 없다.
+- 현재 신규 가입자는 `owner` role로 생성된다.
 
-추가 인덱스:
+추가 가능 후보:
 
-- `uq_payment_history_stripe_invoice_id` partial unique index where `stripe_invoice_id IS NOT NULL`
-- `idx_payment_history_tenant_paid_at` on `(tenant_id, paid_at DESC, created_at DESC)`
+- `tenant_invitations`
+  - `id UUID`
+  - `tenant_id UUID`
+  - `email VARCHAR(255)`
+  - `role VARCHAR(20)`
+  - `token_hash VARCHAR(255)`
+  - `invited_by UUID`
+  - `expires_at TIMESTAMPTZ`
+  - `accepted_at TIMESTAMPTZ`
+  - `created_at TIMESTAMPTZ`
 
 ## Design Notes
 
-- 사용자 식별은 기존 billing 방식과 동일하게 `Authentication.getName()` UUID를 사용한다.
-- tenant 식별은 기존 `BillingService.resolveTenantId(userId)` 경로와 동일하게 `UserApi.findById(userId).defaultTenantId()`를 사용한다.
-- billing 모듈은 auth/user 내부 repository를 직접 참조하지 않는다.
-- `plan_quotas` 조회가 필요하면 `TenantApi` named interface에 `PlanQuotaInfo` 조회 계약을 추가한다.
-- `GET /api/v1/billing/payments/{id}/receipt`는 Stripe API를 실시간 호출하지 않는다. Webhook에서 저장한 메타데이터만 반환한다.
-- 실제 사용량 집계는 knowledge/learning/AI 서비스와의 정본 협의가 필요하므로 이번 작업에서는 연결 상태를 응답에 명시한다.
+- API 위치는 `/api/v1/tenants/**`로 둔다.
+- 구현 위치는 tenant 소유 데이터가 있는 `auth` 모듈을 우선 후보로 한다.
+- billing의 `AdminTenantController`는 admin 전용으로 유지한다.
+- 현재 사용자 tenant는 `UserApi.findById(userId).defaultTenantId()`로 찾는다.
+- tenant 정보와 member query는 auth 모듈 내부 repository를 사용한다.
+- 멤버 목록에 필요한 user email/displayName은 `UserApi` 공개 계약을 확장해 가져온다.
+- 다른 tenant ID를 path/body로 받지 않고, 항상 로그인 사용자의 기본 tenant 기준으로 처리한다.
+- 삭제된 user 또는 삭제된 tenant는 응답에서 제외한다.
 
 ## Implementation Checklist
 
-- [x] 기존 PLAT-066 current 문서 archive 완료
-- [x] PLAT-067 작업 브랜치 생성
-- [x] PLAT-067 작업문서 작성
-- [x] `payment_history` invoice 메타데이터 migration 추가
-- [x] `PaymentHistory` entity invoice 메타데이터 필드 추가
-- [x] `PaymentHistoryRepository` tenant scoped query 추가
-- [x] `TenantApi` plan quota 조회 계약 추가
-- [x] plan quota 응답 record/API 구현
-- [x] billing payment/usage/receipt DTO 추가
-- [x] `BillingService` read method 추가
-- [x] `BillingController` read endpoint 추가
-- [x] Webhook `invoice.paid` 저장 로직 invoice 메타데이터 반영
-- [x] controller/service/repository/security 테스트 추가
-- [x] modulith 구조 테스트 통과
+- [x] 기존 PLAT-067 current 문서 archive 완료
+- [x] PLAT-068 작업 브랜치 생성
+- [x] PLAT-068 작업문서 작성
+- [x] `Tenant` entity 업데이트 메서드/getter 보강
+- [x] `TenantMember` role 변경 메서드/getter 보강
+- [x] `TenantMemberRepository` tenant scoped query 추가
+- [x] `UserApi` member summary 조회 계약 추가
+- [x] tenant self-service DTO 추가
+- [x] tenant self-service service 추가
+- [x] tenant self-service controller 추가
+- [x] 권한 정책 테스트 추가
+- [x] PostgreSQL repository 테스트 추가
+- [x] security integration 테스트 추가
 - [x] targeted test 통과
+- [x] `PlatformModuleStructureTest` 통과
 - [x] `clean build` 통과
 
 ## Verification Plan
 
 ```powershell
-.\gradlew.bat test --tests "*BillingControllerTest"
-.\gradlew.bat test --tests "*BillingServiceTest"
-.\gradlew.bat test --tests "*BillingRepositoryTest"
-.\gradlew.bat test --tests "*BillingSecurityIntegrationTest"
+.\gradlew.bat test --tests "*TenantSelfServiceControllerTest"
+.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"
+.\gradlew.bat test --tests "*TenantMemberRepositoryTest"
+.\gradlew.bat test --tests "*TenantSelfServiceSecurityIntegrationTest"
 .\gradlew.bat test --tests "*PlatformModuleStructureTest"
 .\gradlew.bat clean build
 ```
 
-검증 결과(2026-06-10):
+## Verification Result
 
-- `.\gradlew.bat test --tests "*BillingControllerTest" --tests "*BillingServiceTest" --tests "*BillingRepositoryTest"`: PASS
-- `.\gradlew.bat test --tests "*BillingControllerTest" --tests "*BillingServiceTest" --tests "*BillingRepositoryTest" --tests "*BillingSecurityIntegrationTest" --tests "*PlatformModuleStructureTest"`: PASS
-- `.\gradlew.bat clean build`: PASS
-
-> Windows Embedded Kafka 종료 중 임시 디렉터리 삭제 실패 로그가 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`이다.
+- `.\gradlew.bat test --tests "*UserServiceTest" --tests "*TenantSelfServiceControllerTest" --tests "*TenantSelfServiceServiceTest" --tests "*TenantMemberRepositoryTest" --tests "*TenantSelfServiceSecurityIntegrationTest" --tests "*PlatformModuleStructureTest"` 통과
+- `.\gradlew.bat test --tests "*TenantSelfServiceServiceTest" --tests "*TenantSelfServiceControllerTest" --tests "*TenantMemberRepositoryTest" --tests "*UserServiceTest" --tests "*CustomOAuth2UserServiceTest" --tests "*OAuthUserResolverTest"` 통과
+- `.\gradlew.bat test --tests "*TenantSelfServiceServiceTest"` 통과
+- `.\gradlew.bat spotbugsMain` 통과
+- `.\gradlew.bat clean build` 통과

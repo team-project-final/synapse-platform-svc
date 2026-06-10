@@ -7,6 +7,7 @@ import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.api.UserLoginCredential;
 import com.synapse.platform.user.api.UserSessionsRevocationRequested;
+import com.synapse.platform.user.api.UserSummary;
 import com.synapse.platform.user.dto.request.UserProfileUpdateRequest;
 import com.synapse.platform.user.dto.response.UserProfileResponse;
 import com.synapse.platform.user.entity.User;
@@ -18,6 +19,7 @@ import com.synapse.platform.user.repository.UserRoleRepository;
 import com.synapse.platform.user.repository.UserSettingsRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,6 +60,17 @@ public class UserService implements UserApi {
     @Override
     public Optional<UserInfo> findByEmail(String email) {
         return userRepository.findByEmail(email).map(this::toUserInfo);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserSummary> findSummariesByIds(Collection<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllById(userIds).stream()
+                .map(this::toUserSummary)
+                .toList();
     }
 
     @Override
@@ -204,6 +217,10 @@ public class UserService implements UserApi {
 
     private UserInfo toUserInfo(User user) {
         return new UserInfo(user.getId(), user.getEmail(), user.getDisplayName(), user.getDefaultTenantId());
+    }
+
+    private UserSummary toUserSummary(User user) {
+        return new UserSummary(user.getId(), user.getEmail(), user.getDisplayName());
     }
 
     private UserProfileResponse toProfileResponse(User user, UserSettings settings) {

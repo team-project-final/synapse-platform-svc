@@ -1,183 +1,201 @@
-# CONTEXT - PLAT-067: Billing 결제 이력/사용량 조회 API
+# CONTEXT - PLAT-068: Tenant 셀프관리 API
 
 ## 배경
 
-루트 `docs/BACKEND_GAP_platform.md` A-4는 프론트 결제 화면이 기대하는 API 중 platform-svc에 아직 없는 항목을 정리한다.
+루트 `docs/BACKEND_GAP_platform.md` A-5는 platform-svc에 tenant self-service API가 없다고 정리한다.
 
-프론트가 기대하는 동작:
+프론트 `settings/tenant_settings_screen.dart`는 현재 다음 항목을 mock/TODO로 유지한다.
 
-- 결제 이력 조회
-- 현재 플랜 대비 사용량 조회
-- 결제 건별 영수증 또는 인보이스 확인
+- 테넌트 정보 조회
+- 테넌트 이름 저장
+- 멤버 목록 조회
+- 멤버 초대
+- 멤버 역할 변경
+- 멤버 삭제
 
-현재 platform-svc가 제공하는 billing API:
+현재 백엔드는 admin 전용 tenant API만 제공한다.
 
-- `POST /api/v1/billing/checkout`
-- `GET /api/v1/billing/subscription`
-- `POST /api/v1/billing/webhooks`
+- `GET /api/v1/admin/tenants`
+- `PUT /api/v1/admin/tenants/{id}/status`
 
-즉, 결제 생성과 Webhook 반영은 있으나 프론트 화면이 읽을 수 있는 read API가 부족하다.
+즉, 일반 로그인 사용자가 본인 tenant를 관리하는 API가 없다.
 
-## 현재 코드 상태
+## 구현 전 코드 상태
 
-### Controller
+### Tenant
 
-`BillingController`는 `/api/v1/billing` 아래 3개 엔드포인트만 가진다.
+`Tenant` entity는 `auth` 모듈에 있다.
 
-- `POST /checkout`
-- `POST /webhooks`
-- `GET /subscription`
-
-`/webhooks`만 SecurityConfig에서 permitAll이고, 나머지 billing read/write API는 인증이 필요하다.
-
-### Service
-
-`BillingService`는 다음 책임을 가진다.
-
-- Stripe Checkout Session 생성
-- Stripe Webhook 서명 검증
-- `checkout.session.completed` 처리
-- `invoice.paid` 처리
-- `customer.subscription.deleted` 처리
-- 현재 활성 구독 조회
-
-현재 사용자 tenant는 `UserApi.findById(userId).defaultTenantId()`로 찾는다.
-
-### Tables
-
-`subscriptions`:
+주요 필드:
 
 - `id`
-- `tenant_id`
-- `plan_code`
-- `stripe_customer_id`
-- `stripe_subscription_id`
-- `status`
-- `current_period_start`
-- `current_period_end`
-- `canceled_at`
-- `created_at`
-- `updated_at`
-
-`payment_history`:
-
-- `id`
-- `tenant_id`
-- `subscription_id`
-- `stripe_payment_intent_id`
-- `amount`
-- `currency`
-- `status`
-- `paid_at`
-- `created_at`
-
-`plan_quotas`:
-
+- `name`
+- `slug`
 - `plan`
-- `display_name`
-- `price_usd_monthly`
-- `price_usd_yearly`
-- `max_notes`
-- `max_cards`
-- `max_storage_bytes`
-- `max_ai_tokens_monthly`
-- `max_ai_card_generations_monthly`
-- `max_users_per_tenant`
-- `features`
-- `is_active`
-- `created_at`
+- `status`
+- `tenantType`
+- `region`
+- `settings`
+- `createdAt`
+- `updatedAt`
+- `deletedAt`
 
-## 주요 갭
+기존 공개 메서드는 조회와 plan/status 변경 중심이었다.
+PLAT-068에서 tenant 이름/settings 업데이트용 메서드와 필요한 getter를 보강했다.
 
-### 결제 이력
+### TenantMember
 
-`payment_history` 테이블과 entity는 존재하지만 repository에 tenant scoped 조회 메서드가 없다.
-프론트에 노출하려면 로그인 사용자의 기본 tenant 기준으로만 조회해야 한다.
+`TenantMember` entity는 `auth` 모듈에 있다.
 
-### 영수증/인보이스
+주요 필드:
 
-현재 `invoice.paid` 이벤트에서 amount/currency/paymentIntent만 저장한다.
-Stripe invoice URL 또는 PDF URL을 저장하지 않으므로 영수증 API를 만들려면 nullable 컬럼 추가가 필요하다.
+- `tenantId`
+- `userId`
+- `role`
+- `joinedAt`
 
-권장 저장값:
+신규 tenant 생성 시 `TenantMember.ofOwner(tenantId, userId)`로 owner를 만든다.
+PLAT-068에서 role 변경 메서드와 joinedAt getter를 보강했다.
 
-- Stripe invoice id
-- hosted invoice URL
-- invoice PDF URL
+### Repository
 
-기존 row는 URL이 없을 수 있으므로 receipt endpoint는 결제 건 자체가 존재하면 200을 반환하고, URL 부재는 `available=false`로 표현한다.
+`TenantRepository`:
 
-### 사용량
+- `existsBySlug`
+- `findAllByDeletedAtIsNull`
+- `findByIdAndDeletedAtIsNull`
 
-플랜별 한도는 `plan_quotas`에 정본이 있다.
-하지만 note/card/storage/AI 사용량은 각 도메인 서비스 소관이라 platform-svc 단독으로 실제 사용량을 계산할 수 없다.
+`TenantMemberRepository`에는 PLAT-068에서 다음 query를 추가했다.
 
-이번 작업에서는 다음까지만 처리한다.
+- tenant 멤버 page 조회
+- 특정 tenant/user membership 조회
+- 특정 tenant owner count
 
-- 현재 plan 식별
-- `plan_quotas` 기준 한도 반환
-- 실제 사용량 값은 `null`
-- source는 `NOT_CONNECTED`
+### User 정보
 
-이렇게 하면 프론트는 플랜 한도 UI를 붙일 수 있고, 실제 사용량 집계는 후속 cross-service 연동에서 교체할 수 있다.
+멤버 목록 응답에는 `email`, `displayName`이 필요하다.
+이 정보는 user 모듈 소유이므로 auth module에서 user repository를 직접 참조하지 않는다.
 
-## 모듈 경계
+PLAT-068에서 `UserSummary`와 `findSummariesByIds(Collection<UUID>)` 계약을 추가했다.
+auth 모듈은 user repository를 직접 참조하지 않고 `UserApi`를 통해 표시 정보를 조회한다.
 
-billing 모듈은 auth/user 내부 repository와 entity에 직접 접근하지 않는다.
+## 설계 방향
 
-허용 경로:
+### API 기준
 
-- user 식별: `UserApi`
-- tenant plan/status 조회: `TenantApi`
-- plan quota 조회: `TenantApi` named interface 확장 또는 별도 공개 API
+API는 tenant id를 path로 받지 않는다.
+항상 로그인 사용자의 기본 tenant 기준이다.
 
-금지:
+이유:
 
-- billing에서 `TenantRepository` 직접 주입
-- billing에서 auth entity 직접 조회
-- profile/env/gitops 변경으로 문제 우회
+- 프론트 settings 화면은 "내 워크스페이스" 관리 화면이다.
+- 타 tenant ID를 입력받으면 권한 체크 누락 위험이 커진다.
+- user의 `defaultTenantId`가 이미 존재한다.
 
-## API 설계 기준
+### 권한 기준
 
-### `/api/v1/billing/payments`
+읽기:
 
-- tenant scoped
-- pageable
-- newest first
-- 결제 상세에 receipt 가능 여부 포함
+- tenant 멤버이면 가능
 
-### `/api/v1/billing/usage`
+수정:
 
-- tenant scoped
-- subscription이 있으면 subscription plan 우선
-- subscription이 없으면 tenant plan fallback
-- quota는 `plan_quotas`
-- 실제 usage는 `NOT_CONNECTED`
+- tenant `owner`, `admin`만 가능
 
-### `/api/v1/billing/payments/{id}/receipt`
+삭제/역할 변경:
 
-- tenant scoped
-- 타 tenant payment는 404
-- Stripe API 실시간 호출 없음
-- 저장된 invoice metadata만 반환
+- tenant `owner`, `admin`만 가능
+- 자기 자신 변경/삭제는 거절
+- 마지막 owner 삭제/강등은 거절
+
+역할:
+
+- `owner`: tenant 최초 생성자. 이번 작업에서 승격/강등 제외
+- `admin`: tenant 관리 가능
+- `member`: 일반 멤버
+- `viewer`: 읽기 전용
+
+프론트 표시값:
+
+- 관리자: `admin`
+- 멤버: `member`
+- 뷰어: `viewer`
+- 소유자: `owner`
+
+## 구현 위치
+
+우선 후보:
+
+- `com.synapse.platform.auth.controller.TenantSelfServiceController`
+- `com.synapse.platform.auth.service.TenantSelfServiceService`
+
+근거:
+
+- tenant/tenant_members 테이블과 repository가 auth 모듈 소유다.
+- billing 모듈의 `AdminTenantController`는 admin dashboard용 기존 API다.
+- 일반 tenant self-service를 billing에 두면 billing이 auth 내부 tenant repository를 직접 다루게 되어 경계가 어색해진다.
+
+## 초대 API 경계
+
+멤버 초대는 단순 member insert가 아니다.
+
+필요한 정책:
+
+- 초대 토큰 생성/해시 저장
+- 만료 시간
+- 같은 email 재초대 처리
+- 이미 멤버인 email 처리
+- 초대 수락 API 또는 가입/로그인 시 초대 수락 흐름
+- 초대 메일 발송 경계
+
+PLAT-068에서는 tenant 정보/멤버 조회/역할 변경/삭제만 구현했다.
+초대는 `tenant_invitations`, 수락 흐름, 메일 발송 경계가 커서 PLAT-069로 분리한다.
 
 ## 테스트 포인트
 
-- 결제 이력은 본인 기본 tenant row만 반환한다.
-- 결제 이력은 타 tenant row를 반환하지 않는다.
-- 결제 이력은 최신순으로 정렬된다.
-- receipt endpoint는 본인 tenant payment만 반환한다.
-- 타 tenant payment id 접근은 404다.
-- invoice URL이 없는 기존 row는 `available=false`다.
-- `invoice.paid` Webhook 처리 시 invoice metadata가 저장된다.
-- usage endpoint는 plan quota를 반환한다.
-- 실제 usage source는 `NOT_CONNECTED`다.
-- auth/user repository 직접 접근 없이 modulith 구조 테스트가 통과한다.
+- 인증 없이 `/api/v1/tenants/me` 접근 시 401
+- tenant member가 본인 tenant 정보를 조회할 수 있다.
+- tenant member가 본인 tenant 멤버 목록을 조회할 수 있다.
+- member/viewer는 tenant 이름 수정, 역할 변경, 삭제를 할 수 없다.
+- owner/admin은 tenant 이름 수정, 역할 변경, 삭제를 할 수 있다.
+- 자기 자신 삭제는 실패한다.
+- 마지막 owner 삭제는 실패한다.
+- 타 tenant member는 응답에 포함되지 않는다.
+- 삭제된 tenant/user는 응답에서 제외한다.
+- `PlatformModuleStructureTest`가 통과한다.
+
+## 구현 결과
+
+- `TenantSelfServiceController` 추가
+- `TenantSelfServiceService` 추가
+- `TenantSelfServiceException` 추가
+- tenant self-service request/response DTO 추가
+- `Tenant` 업데이트 메서드/getter 보강
+- `TenantMember` role 변경 메서드/getter 보강
+- `TenantMemberRepository` tenant scoped query 추가
+- `UserApi`/`UserService` member summary 조회 계약 추가
+- 삭제된 user처럼 summary가 없는 tenant member는 멤버 목록 응답에서 제외
+- 멤버 목록 기본 정렬을 `joinedAt ASC, userId ASC`로 고정
+- 큰 page offset 요청은 overflow 없이 빈 목록으로 처리
+- `UserApi.findSummariesByIds(...)`는 default 없이 명시 구현하도록 유지
+
+## 검증 결과
+
+- `TenantSelfServiceControllerTest` 통과
+- `TenantSelfServiceServiceTest` 통과
+- `TenantMemberRepositoryTest` 통과
+- `TenantSelfServiceSecurityIntegrationTest` 통과
+- `UserServiceTest` 통과
+- `CustomOAuth2UserServiceTest` 통과
+- `OAuthUserResolverTest` 통과
+- `PlatformModuleStructureTest` 통과
+- `spotbugsMain` 통과
+- `clean build` 통과
 
 ## 주의 사항
 
 - `TASK_platform.md`는 최초 개발 목록이므로 수정하지 않는다.
 - env/profile은 수정하지 않는다.
 - gitops/shared는 팀장님 관리 영역이므로 수정하지 않는다.
-- Stripe 테스트는 mock/fixture 중심으로 처리한다.
-- 실제 Stripe API 네트워크 호출을 read endpoint에 넣지 않는다.
+- admin tenant API의 기존 응답/동작은 변경하지 않는다.
+- billing plan/status는 tenant self-service에서 변경하지 않는다.

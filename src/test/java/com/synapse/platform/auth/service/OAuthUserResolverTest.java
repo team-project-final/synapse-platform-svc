@@ -20,6 +20,7 @@ import com.synapse.platform.user.api.OAuthUserCreateCommand;
 import com.synapse.platform.user.api.UserApi;
 import com.synapse.platform.user.api.UserInfo;
 import com.synapse.platform.user.api.UserLoginCredential;
+import com.synapse.platform.user.api.UserSummary;
 import com.synapse.platform.user.entity.User;
 import com.synapse.platform.user.entity.UserSettings;
 import com.synapse.platform.user.repository.UserRepository;
@@ -29,6 +30,7 @@ import com.synapse.platform.global.crypto.FieldEncryptor;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -170,6 +172,11 @@ class OAuthUserResolverTest {
             @Override
             public Optional<UserInfo> findByEmail(String email) {
                 return userRepository.findByEmail(email).map(this::toUserInfo);
+            }
+
+            @Override
+            public List<UserSummary> findSummariesByIds(Collection<UUID> userIds) {
+                throw new UnsupportedOperationException("Not used by OAuth tests");
             }
 
             @Override

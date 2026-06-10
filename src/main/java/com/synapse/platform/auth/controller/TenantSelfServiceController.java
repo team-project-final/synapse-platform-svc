@@ -1,8 +1,10 @@
 package com.synapse.platform.auth.controller;
 
+import com.synapse.platform.auth.dto.request.CreateTenantInvitationRequest;
 import com.synapse.platform.auth.dto.request.UpdateTenantMemberRoleRequest;
 import com.synapse.platform.auth.dto.request.UpdateTenantRequest;
 import com.synapse.platform.auth.dto.response.MyTenantResponse;
+import com.synapse.platform.auth.dto.response.TenantInvitationResponse;
 import com.synapse.platform.auth.dto.response.TenantMemberPageResponse;
 import com.synapse.platform.auth.dto.response.TenantMemberResponse;
 import com.synapse.platform.auth.exception.UnauthorizedTokenException;
@@ -17,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -74,6 +77,14 @@ public class TenantSelfServiceController {
             Authentication authentication,
             @PathVariable UUID userId) {
         tenantSelfServiceService.removeMember(currentUserId(authentication), userId);
+    }
+
+    @PostMapping("/me/invitations")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TenantInvitationResponse createInvitation(
+            Authentication authentication,
+            @Valid @RequestBody CreateTenantInvitationRequest request) {
+        return tenantSelfServiceService.createInvitation(currentUserId(authentication), request);
     }
 
     private Pageable pageRequest(int page, int size) {

@@ -7,12 +7,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.auth.dto.response.MyTenantResponse;
+import com.synapse.platform.auth.dto.response.TenantInvitationResponse;
 import com.synapse.platform.auth.dto.response.TenantMemberPageResponse;
 import com.synapse.platform.auth.dto.response.TenantMemberResponse;
 import com.synapse.platform.auth.service.TenantSelfServiceService;
@@ -155,6 +157,47 @@ class TenantSelfServiceControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(tenantSelfServiceService).removeMember(userId, memberId);
+    }
+
+    @Test
+    void createInvitation_shouldReturnCreated() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID invitationId = UUID.randomUUID();
+        OffsetDateTime timestamp = OffsetDateTime.parse("2026-06-10T09:00:00+09:00");
+        OffsetDateTime expiresAt = timestamp.plusDays(7);
+        given(tenantSelfServiceService.createInvitation(eq(userId), any()))
+                .willReturn(new TenantInvitationResponse(
+                        invitationId,
+                        "new@example.com",
+                        "member",
+                        "pending",
+                        expiresAt,
+                        timestamp));
+
+        mockMvc.perform(post("/api/v1/tenants/me/invitations")
+                        .principal(new TestingAuthenticationToken(userId.toString(), null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "new@example.com",
+                                "role", "member"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(invitationId.toString()))
+                .andExpect(jsonPath("$.email").value("new@example.com"))
+                .andExpect(jsonPath("$.role").value("member"))
+                .andExpect(jsonPath("$.status").value("pending"));
+    }
+
+    @Test
+    void createInvitation_invalidEmailShouldReturnBadRequest() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post("/api/v1/tenants/me/invitations")
+                        .principal(new TestingAuthenticationToken(userId.toString(), null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "invalid-email",
+                                "role", "member"))))
+                .andExpect(status().isBadRequest());
     }
 
     private static MyTenantResponse tenantResponse(UUID tenantId, String myRole) {

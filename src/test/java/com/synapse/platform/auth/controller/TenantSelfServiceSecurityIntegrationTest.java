@@ -3,6 +3,7 @@ package com.synapse.platform.auth.controller;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -54,6 +55,10 @@ class TenantSelfServiceSecurityIntegrationTest {
                         .content("{\"role\":\"member\"}"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(delete("/api/v1/tenants/me/members/{userId}", memberId))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/tenants/me/invitations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"new@example.com\",\"role\":\"member\"}"))
                 .andExpect(status().isUnauthorized());
     }
 }

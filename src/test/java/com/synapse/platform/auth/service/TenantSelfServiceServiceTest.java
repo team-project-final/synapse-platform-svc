@@ -8,9 +8,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.synapse.platform.auth.dto.request.CreateTenantInvitationRequest;
 import com.synapse.platform.auth.dto.request.UpdateTenantRequest;
 import com.synapse.platform.auth.entity.Tenant;
+import com.synapse.platform.auth.entity.TenantInvitation;
 import com.synapse.platform.auth.entity.TenantMember;
+import com.synapse.platform.auth.repository.TenantInvitationRepository;
 import com.synapse.platform.auth.repository.TenantMemberRepository;
 import com.synapse.platform.auth.repository.TenantRepository;
 import com.synapse.platform.user.api.UserApi;
@@ -23,8 +26,10 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -39,6 +44,9 @@ class TenantSelfServiceServiceTest {
 
     @Mock
     private TenantMemberRepository tenantMemberRepository;
+
+    @Mock
+    private TenantInvitationRepository tenantInvitationRepository;
 
     @Mock
     private UserApi userApi;
@@ -259,10 +267,179 @@ class TenantSelfServiceServiceTest {
                         assertThat(exception.getStatus()).isEqualTo(409));
     }
 
+    @Test
+    void createInvitation_ownerCanInviteEmail() {
+        UUID ownerId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = tenant(tenantId);
+        givenTenantContext(ownerId, tenant, member(tenantId, ownerId, "owner"));
+        given(userApi.findByEmail("new@example.com")).willReturn(Optional.empty());
+        given(tenantInvitationRepository.findByTenantIdAndEmailAndStatus(
+                        tenantId,
+                        "new@example.com",
+                        TenantInvitation.STATUS_PENDING))
+                .willReturn(Optional.empty());
+        givenSavedInvitation();
+
+        var response = service().createInvitation(
+                ownerId,
+                new CreateTenantInvitationRequest(" New@Example.COM ", " MEMBER "));
+
+        assertThat(response.email()).isEqualTo("new@example.com");
+        assertThat(response.role()).isEqualTo("member");
+        assertThat(response.status()).isEqualTo(TenantInvitation.STATUS_PENDING);
+        assertThat(response.expiresAt()).isAfter(OffsetDateTime.now().plusDays(6));
+
+        ArgumentCaptor<TenantInvitation> invitationCaptor = ArgumentCaptor.forClass(TenantInvitation.class);
+        verify(tenantInvitationRepository).saveAndFlush(invitationCaptor.capture());
+        TenantInvitation invitation = invitationCaptor.getValue();
+        assertThat(invitation.getTenantId()).isEqualTo(tenantId);
+        assertThat(invitation.getInvitedBy()).isEqualTo(ownerId);
+        assertThat(invitation.getTokenHash()).hasSize(64);
+    }
+
+    @Test
+    void createInvitation_memberShouldFail() {
+        UUID memberId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = tenant(tenantId);
+        givenTenantContext(memberId, tenant, member(tenantId, memberId, "member"));
+
+        assertThatThrownBy(() -> service().createInvitation(
+                        memberId,
+                        new CreateTenantInvitationRequest("new@example.com", "member")))
+                .isInstanceOfSatisfying(TenantSelfServiceException.class, exception ->
+                        assertThat(exception.getStatus()).isEqualTo(403));
+
+        verify(tenantInvitationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createInvitation_ownerRoleShouldFail() {
+        UUID ownerId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = tenant(tenantId);
+        givenTenantContext(ownerId, tenant, member(tenantId, ownerId, "owner"));
+
+        assertThatThrownBy(() -> service().createInvitation(
+                        ownerId,
+                        new CreateTenantInvitationRequest("new@example.com", "owner")))
+                .isInstanceOfSatisfying(TenantSelfServiceException.class, exception ->
+                        assertThat(exception.getStatus()).isEqualTo(400));
+
+        verify(tenantInvitationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createInvitation_existingTenantMemberShouldFail() {
+        UUID ownerId = UUID.randomUUID();
+        UUID targetUserId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = tenant(tenantId);
+        givenTenantContext(ownerId, tenant, member(tenantId, ownerId, "owner"));
+        given(userApi.findByEmail("member@example.com")).willReturn(Optional.of(new UserInfo(
+                targetUserId,
+                "member@example.com",
+                "Member",
+                tenantId)));
+        given(tenantMemberRepository.findByTenantIdAndUserId(tenantId, targetUserId))
+                .willReturn(Optional.of(member(tenantId, targetUserId, "member")));
+
+        assertThatThrownBy(() -> service().createInvitation(
+                        ownerId,
+                        new CreateTenantInvitationRequest("member@example.com", "member")))
+                .isInstanceOfSatisfying(TenantSelfServiceException.class, exception ->
+                        assertThat(exception.getStatus()).isEqualTo(409));
+
+        verify(tenantInvitationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createInvitation_activePendingInvitationShouldFail() {
+        UUID ownerId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = tenant(tenantId);
+        givenTenantContext(ownerId, tenant, member(tenantId, ownerId, "owner"));
+        given(userApi.findByEmail("pending@example.com")).willReturn(Optional.empty());
+        given(tenantInvitationRepository.findByTenantIdAndEmailAndStatus(
+                        tenantId,
+                        "pending@example.com",
+                        TenantInvitation.STATUS_PENDING))
+                .willReturn(Optional.of(invitation(
+                        tenantId,
+                        "pending@example.com",
+                        "member",
+                        ownerId,
+                        OffsetDateTime.now().plusDays(1))));
+
+        assertThatThrownBy(() -> service().createInvitation(
+                        ownerId,
+                        new CreateTenantInvitationRequest("pending@example.com", "member")))
+                .isInstanceOfSatisfying(TenantSelfServiceException.class, exception ->
+                        assertThat(exception.getStatus()).isEqualTo(409));
+
+        verify(tenantInvitationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createInvitation_expiredPendingInvitationShouldBeExpiredBeforeNewInvitation() {
+        UUID ownerId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = tenant(tenantId);
+        TenantInvitation expiredInvitation = invitation(
+                tenantId,
+                "expired@example.com",
+                "member",
+                ownerId,
+                OffsetDateTime.now().minusDays(1));
+        givenTenantContext(ownerId, tenant, member(tenantId, ownerId, "owner"));
+        given(userApi.findByEmail("expired@example.com")).willReturn(Optional.empty());
+        given(tenantInvitationRepository.findByTenantIdAndEmailAndStatus(
+                        tenantId,
+                        "expired@example.com",
+                        TenantInvitation.STATUS_PENDING))
+                .willReturn(Optional.of(expiredInvitation));
+        givenSavedInvitation();
+
+        var response = service().createInvitation(
+                ownerId,
+                new CreateTenantInvitationRequest("expired@example.com", "viewer"));
+
+        assertThat(expiredInvitation.getStatus()).isEqualTo(TenantInvitation.STATUS_EXPIRED);
+        assertThat(response.role()).isEqualTo("viewer");
+        verify(tenantInvitationRepository).flush();
+        verify(tenantInvitationRepository).saveAndFlush(any(TenantInvitation.class));
+    }
+
+    @Test
+    void createInvitation_concurrentPendingInsertShouldReturnConflict() {
+        UUID ownerId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = tenant(tenantId);
+        givenTenantContext(ownerId, tenant, member(tenantId, ownerId, "owner"));
+        given(userApi.findByEmail("race@example.com")).willReturn(Optional.empty());
+        given(tenantInvitationRepository.findByTenantIdAndEmailAndStatus(
+                        tenantId,
+                        "race@example.com",
+                        TenantInvitation.STATUS_PENDING))
+                .willReturn(Optional.empty());
+        given(tenantInvitationRepository.saveAndFlush(any(TenantInvitation.class)))
+                .willThrow(new DataIntegrityViolationException("duplicate pending invitation"));
+
+        assertThatThrownBy(() -> service().createInvitation(
+                        ownerId,
+                        new CreateTenantInvitationRequest("race@example.com", "member")))
+                .isInstanceOfSatisfying(TenantSelfServiceException.class, exception -> {
+                    assertThat(exception.getStatus()).isEqualTo(409);
+                    assertThat(exception.getErrorCode()).isEqualTo("PLAT-TENANT-015");
+                });
+    }
+
     private TenantSelfServiceService service() {
         return new TenantSelfServiceService(
                 tenantRepository,
                 tenantMemberRepository,
+                tenantInvitationRepository,
                 userApi,
                 new ObjectMapper());
     }
@@ -292,6 +469,35 @@ class TenantSelfServiceServiceTest {
         ReflectionTestUtils.setField(member, "role", role);
         ReflectionTestUtils.setField(member, "joinedAt", TIMESTAMP);
         return member;
+    }
+
+    private void givenSavedInvitation() {
+        given(tenantInvitationRepository.saveAndFlush(any(TenantInvitation.class))).willAnswer(invocation -> {
+            TenantInvitation invitation = invocation.getArgument(0);
+            ReflectionTestUtils.setField(invitation, "id", UUID.randomUUID());
+            ReflectionTestUtils.setField(invitation, "createdAt", TIMESTAMP);
+            ReflectionTestUtils.setField(invitation, "updatedAt", TIMESTAMP);
+            return invitation;
+        });
+    }
+
+    private static TenantInvitation invitation(
+            UUID tenantId,
+            String email,
+            String role,
+            UUID invitedBy,
+            OffsetDateTime expiresAt) {
+        TenantInvitation invitation = TenantInvitation.create(
+                tenantId,
+                email,
+                role,
+                "raw-token",
+                invitedBy,
+                expiresAt);
+        ReflectionTestUtils.setField(invitation, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(invitation, "createdAt", TIMESTAMP);
+        ReflectionTestUtils.setField(invitation, "updatedAt", TIMESTAMP);
+        return invitation;
     }
 
     private static Sort defaultMemberSort() {

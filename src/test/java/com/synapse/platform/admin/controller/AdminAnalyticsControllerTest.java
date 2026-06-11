@@ -45,7 +45,7 @@ class AdminAnalyticsControllerTest {
                 .andExpect(jsonPath("$.tenants.plans.free").value(3))
                 .andExpect(jsonPath("$.usage[0].key").value("notifications.sent.today"))
                 .andExpect(jsonPath("$.usage[1].status").value("NOT_CONNECTED"))
-                .andExpect(jsonPath("$.pendingItems[0].status").value("NOT_IMPLEMENTED"))
+                .andExpect(jsonPath("$.pendingItems[0].status").value("OK"))
                 .andExpect(jsonPath("$.recentActivities[0].action").value("USER_LOGIN"));
 
         verify(adminAnalyticsService).getSummary();
@@ -60,7 +60,7 @@ class AdminAnalyticsControllerTest {
                 List.of(
                         new UsageItem("notifications.sent.today", "오늘 발송 알림", 12L, "count", "OK", "notifications"),
                         new UsageItem("ai.tokens.monthly", "AI 토큰", null, "tokens", "NOT_CONNECTED", "learning-ai")),
-                List.of(new PendingItem("data-requests", "GDPR 요청", null, "INFO", "NOT_IMPLEMENTED")),
+                List.of(new PendingItem("data-requests", "GDPR 요청", 0L, "INFO", "OK")),
                 List.of(new RecentActivity(
                         UUID.randomUUID(),
                         "USER_LOGIN",

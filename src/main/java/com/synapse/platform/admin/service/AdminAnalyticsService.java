@@ -28,25 +28,28 @@ public class AdminAnalyticsService {
     private static final String OK = "OK";
     private static final String INFO = "INFO";
     private static final String NOT_CONNECTED = "NOT_CONNECTED";
-    private static final String NOT_IMPLEMENTED = "NOT_IMPLEMENTED";
+    private static final String ACTION_REQUIRED = "ACTION_REQUIRED";
 
     private final UserAnalyticsApi userAnalyticsApi;
     private final TenantAnalyticsApi tenantAnalyticsApi;
     private final BillingAnalyticsApi billingAnalyticsApi;
     private final NotificationAnalyticsApi notificationAnalyticsApi;
     private final AuditAnalyticsApi auditAnalyticsApi;
+    private final AdminDataRequestService adminDataRequestService;
 
     public AdminAnalyticsService(
             UserAnalyticsApi userAnalyticsApi,
             TenantAnalyticsApi tenantAnalyticsApi,
             BillingAnalyticsApi billingAnalyticsApi,
             NotificationAnalyticsApi notificationAnalyticsApi,
-            AuditAnalyticsApi auditAnalyticsApi) {
+            AuditAnalyticsApi auditAnalyticsApi,
+            AdminDataRequestService adminDataRequestService) {
         this.userAnalyticsApi = userAnalyticsApi;
         this.tenantAnalyticsApi = tenantAnalyticsApi;
         this.billingAnalyticsApi = billingAnalyticsApi;
         this.notificationAnalyticsApi = notificationAnalyticsApi;
         this.auditAnalyticsApi = auditAnalyticsApi;
+        this.adminDataRequestService = adminDataRequestService;
     }
 
     public AdminAnalyticsSummaryResponse getSummary() {
@@ -62,7 +65,7 @@ public class AdminAnalyticsService {
                 toUsersSummary(users),
                 toTenantsSummary(tenants),
                 usageItems(billing, notifications, audit),
-                pendingItems(),
+                pendingItems(adminDataRequestService.countOpenRequests()),
                 audit.recentActivities().stream()
                         .map(this::toRecentActivity)
                         .toList());
@@ -151,10 +154,19 @@ public class AdminAnalyticsService {
                         "knowledge"));
     }
 
-    private List<PendingItem> pendingItems() {
+    private List<PendingItem> pendingItems(long openDataRequests) {
         return List.of(
-                new PendingItem("data-requests", "GDPR 요청", null, INFO, NOT_IMPLEMENTED),
+                new PendingItem(
+                        "data-requests",
+                        "GDPR 요청",
+                        openDataRequests,
+                        INFO,
+                        dataRequestStatus(openDataRequests)),
                 new PendingItem("reports", "신고", null, INFO, NOT_CONNECTED));
+    }
+
+    private String dataRequestStatus(long openDataRequests) {
+        return openDataRequests > 0 ? ACTION_REQUIRED : OK;
     }
 
     private RecentActivity toRecentActivity(RecentAuditActivity activity) {

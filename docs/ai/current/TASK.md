@@ -1,10 +1,10 @@
-# PLAT-086 Admin role 발급/계약 정합 확인
+# PLAT-073 Admin GDPR 데이터 요청 API
 
 ## Task ID
-PLAT-086
+PLAT-073
 
 ## Title
-관리자 ADMIN role 발급 메커니즘 및 engagement 모더레이션 권한 계약 정합
+Admin GDPR/data request 관리 API 구현
 
 ## Owner
 platform
@@ -15,146 +15,260 @@ DONE
 ## Priority
 P1
 
-## Issue
-https://github.com/team-project-final/synapse-platform-svc/issues/86
-
 ## Branch
-`fix/PLAT-086-admin-role-contract`
+`feature/PLAT-073-admin-data-requests`
+
+## Base
+`origin/main`
 
 ## Step Goal
-#86에서 제기된 "ADMIN role 발급 메커니즘 부재" 이슈를 현재 `dev` 기준 코드와 다시 대조한다.
+프론트 `admin_data_request_screen`이 mock 데이터를 제거하고 platform-svc의 실제 API로 GDPR/data request 목록, 상세, 처리 액션을 연동할 수 있게 한다.
 
-현재 platform에는 `user_roles` 테이블, 기본 `ROLE_USER` 부여, `ROLE_ADMIN` 수동 부여 런북, JWT `roles` claim 발급이 이미 존재한다. 따라서 이번 작업은 신규 role 시스템을 처음부터 만드는 작업이 아니라, 아래 잔여 갭을 확인하고 필요한 최소 보강만 진행한다.
-
-- 이슈 본문 중 이미 해결된 항목과 아직 남은 항목을 분리한다.
-- platform 내부 권한(`ROLE_ADMIN`)과 engagement 모더레이션 권한 기대값(`ADMIN`)의 JWT 계약 차이를 검증한다.
-- 자동 seed/profile/env 변경 없이 최초 어드민 부여 절차가 문서와 테스트 관점에서 충분한지 확인한다.
-- 필요한 경우 platform 쪽 JWT role claim 호환성을 보강한다.
+현재 admin analytics summary는 `data-requests` pending item을 `NOT_IMPLEMENTED`로 내려준다. 이번 작업에서는 platform 소관 범위 안에서 GDPR/data request 저장소와 admin API를 추가하고, analytics summary도 실제 pending/processing 건수를 반영하도록 보강한다.
 
 ## Done When
-- [x] 현재 `dev` 기준 `user_roles` migration과 `UserRole` entity를 확인한다.
-- [x] 신규 이메일/비밀번호 가입과 OAuth 가입 시 기본 `ROLE_USER` 저장 경로를 확인한다.
-- [x] 로그인, OAuth 성공, refresh 재발급 시 DB role이 JWT `roles` claim에 들어가는지 확인한다.
-- [x] `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`의 수동 `ROLE_ADMIN` 부여 절차가 현재 schema와 맞는지 확인한다.
-- [x] engagement의 관리자 판정이 `ADMIN`을 기대한다는 사실을 코드 기준으로 확인한다.
-- [x] platform JWT가 engagement 모더레이션 API에 필요한 role 문자열을 제공하는지 판단한다.
-- [x] 필요한 경우 platform JWT role claim 호환성 보강 및 테스트를 추가한다.
-- [x] 단일/통합 테스트와 `clean build`를 통과시킨다.
-- [x] `docs/project-management/history/HISTORY_platform.md`에 작업 이력을 남긴다.
-- [ ] #86에 검증 결과와 결정 내용을 코멘트로 남긴다.
+- [x] GDPR/data request 저장 테이블이 추가된다.
+- [x] request type/status enum과 entity/repository/service가 추가된다.
+- [x] `GET /api/v1/admin/data-requests`가 요청 목록을 page 형태로 반환한다.
+- [x] `GET /api/v1/admin/data-requests/{id}`가 요청 상세와 처리 로그/요약을 반환한다.
+- [x] `POST /api/v1/admin/data-requests/{id}/actions`가 approve/execute/reject 액션을 처리한다.
+- [x] 관리자 테스트/운영용 `POST /api/v1/admin/data-requests` 생성 API를 제공한다.
+- [x] `GET /api/v1/admin/analytics/summary`의 `data-requests` pending item이 `NOT_IMPLEMENTED` 대신 실제 상태를 반영한다.
+- [x] `ROLE_ADMIN` 접근 제어가 적용된다.
+- [x] 관련 단위/컨트롤러/보안 테스트와 `clean build`를 통과한다.
+- [x] `docs/project-management/history/HISTORY_platform.md`에 작업 이력이 기록된다.
+- [x] 리뷰 후속 보강: `DATA_ERASURE`의 실제 삭제 오인 가능성을 제거한다.
+- [x] 리뷰 후속 보강: `daysRemaining` 계산이 생성 직후 30일로 표시되도록 보정한다.
+- [x] 리뷰 후속 보강: 삭제 요청 관련 개인정보 스냅샷 마스킹 정책을 문서화하고, `DATA_ERASURE` 실행 차단 테스트로 삭제 완료 오인을 방지한다.
 
 ## Scope
 
 ### In Scope
-- platform repo 내부 role 저장/발급/JWT claim 흐름 확인
-- `ROLE_ADMIN` 수동 부여 런북 정합 확인
-- platform JWT `roles` claim과 engagement `ADMIN` 기대값의 계약 갭 검토
-- 필요한 경우 platform 코드에서 JWT role claim 호환성 보강
-- 관련 단위/통합 테스트 보강
-- #86 이슈 답변/정리
-- PLAT-091 current 문서 archive 보관
+- platform repo 내부 구현
+- admin GDPR/data request API
+- platform-local 데이터 요청 저장/조회/상태 전이
+- admin dashboard pending item의 `data-requests` 상태 보강
+- 프론트 `admin_data_request_screen`이 필요한 row/detail/action 계약 정의
+- 테스트 보강
 
 ### Out of Scope
-- engagement/shared/gitops/frontend/gateway repo 수정
-- env, profile, 운영 설정 변경
-- 자동 seed admin, bootstrap admin, dummy admin 계정 추가
-- 운영 DB 직접 변경
-- `TASK_platform.md` 항목 추가
-- #62 live E2E 전체 수행
+- 프론트 코드 수정
+- 실제 S3/파일 export 생성
+- 이메일 발송
+- 타 서비스 데이터까지 포함한 완전한 GDPR export
+- 운영 Schema Registry/Kafka 설정
+- 프로필 아바타 업로드 API
+- admin system settings API 추가 구현
+- `TASK_platform.md` 개발 목록 수정
 
-## Initial Findings
-- `V20260609140528__create_user_roles.sql`이 `user_roles(user_id, role)` 테이블을 생성한다.
-- role check constraint는 `ROLE_USER`, `ROLE_ADMIN`만 허용한다.
-- 기존 삭제되지 않은 사용자에게 `ROLE_USER`를 백필한다.
-- `UserService.createForEmailPassword()`와 `UserService.createForOAuth()`가 신규 사용자에게 기본 `ROLE_USER`를 저장한다.
-- `UserService.findRoles()`는 DB role을 조회하고, role row가 없으면 `ROLE_USER`로 fallback한다.
-- `EmailPasswordAuthService`, `OAuth2SuccessHandler`, `AuthController` refresh 경로는 `userApi.findRoles(userId)` 결과로 access token을 발급한다.
-- `JwtTokenProvider.createAccessToken()`은 `roles` claim에 전달받은 role 목록을 그대로 넣는다.
-- platform admin endpoint는 Spring Security의 `hasRole('ADMIN')` 또는 `/api/v1/admin/** hasRole("ADMIN")` 패턴을 사용하므로 내부 권한은 `ROLE_ADMIN`과 맞다.
-- `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`는 가입된 사용자에게 SQL로 `ROLE_ADMIN`을 추가하는 절차를 이미 제공한다.
-- engagement `CurrentUser.requireAdmin()`은 JWT `roles` claim 안의 `ADMIN` 또는 단일 `role` claim의 `ADMIN`을 기대한다.
-- 따라서 현재 남은 핵심 리스크는 "platform JWT가 `ROLE_ADMIN`만 담을 때 engagement가 이를 관리자 권한으로 인정하지 못할 수 있음"이다.
+## Current Evidence
 
-## Decision Criteria
+### Existing Backend State
+- `GET /api/v1/admin/settings`, `PUT /api/v1/admin/settings`는 이미 구현되어 있다.
+- GDPR/data request API는 미구현이다.
+- `AdminAnalyticsService`는 `data-requests` pending item을 `NOT_IMPLEMENTED`로 반환한다.
+- 기존 문서에서 GDPR/data request API는 PLAT-073 후보로 분리되어 있다.
 
-### Option A: 현재 구현 확인 후 이슈 정리
-선택 조건:
-- 이슈의 주요 우려가 현재 `dev`에서 이미 해소되어 있다.
-- engagement가 `ROLE_ADMIN`도 허용하도록 이미 갱신되어 있거나, E2E 계약상 `ROLE_ADMIN` 사용으로 합의되어 있다.
+관련 파일:
+- `src/main/java/com/synapse/platform/admin/service/AdminAnalyticsService.java`
+- `src/test/java/com/synapse/platform/admin/service/AdminAnalyticsServiceTest.java`
+- `src/test/java/com/synapse/platform/admin/controller/AdminAnalyticsControllerTest.java`
+- `src/test/java/com/synapse/platform/auth/config/AdminSecurityIntegrationTest.java`
+- `docs/ai/archive/20260610-plat-071-completed/`
+- `docs/ai/archive/20260610-plat-072-completed/`
 
-처리:
-- 코드 변경 없이 검증 결과와 런북 근거를 남긴다.
-- #86에 stale 항목과 현재 정본을 설명하고 close한다.
+### Frontend Need
+프론트 화면:
+`C:\workspace\team_project_2\synapse-frontend\lib\services\platform\features\admin\presentation\screens\admin_screens\admin_data_request_screen.dart`
 
-### Option B: platform JWT role claim 호환성 보강
-선택 조건:
-- engagement가 계속 `ADMIN`을 기대한다.
-- 다른 repo 수정 없이 platform에서 해결해야 한다.
-- platform 내부 DB/Spring Security 권한은 `ROLE_ADMIN`으로 유지해야 한다.
+현재 화면은 mock data를 사용한다.
 
-처리:
-- DB role 정본은 `ROLE_USER`, `ROLE_ADMIN`으로 유지한다.
-- Spring Security 내부 인증은 기존 `ROLE_*` 권한이 계속 동작해야 한다.
-- JWT 외부 계약에서 engagement가 읽을 수 있는 `ADMIN` 표현을 함께 제공할지 결정한다.
-- 관련 `JwtTokenProviderTest`와 인증 경로 테스트를 보강한다.
+화면이 필요로 하는 값:
+- 접수일
+- 사용자
+- 요청 유형
+- 상태
+- 30일 처리 기한 남은 일수
+- 상세 데이터 요약
+- 실행 로그
+- 승인/실행/거부 액션
 
-### Option C: engagement 수정 필요로 이슈 이관
-선택 조건:
-- 팀 합의상 JWT `roles` claim은 Spring Security 권한명인 `ROLE_*`만 담기로 결정한다.
-- engagement가 수신 token을 정규화하는 책임을 갖기로 한다.
+## Proposed API Contract
 
-처리:
-- platform 코드는 변경하지 않는다.
-- #86에는 platform 현재 상태와 engagement 수정 필요 내용을 남긴다.
-- 단, 현재 사용자 지시는 다른 repo 수정 금지이므로 이번 브랜치에서는 engagement를 건드리지 않는다.
+### GET `/api/v1/admin/data-requests`
+목록 조회.
 
-## Result
-- 최초/운영 어드민 부여 방식은 기존 결정대로 DB 수동 grant를 유지한다.
-- 자동 seed admin, bootstrap admin, 승격 API, env/profile 변경은 추가하지 않았다.
-- `ROLE_ADMIN` DB 정본과 platform 내부 Spring Security 권한은 유지했다.
-- access token `roles` claim에는 기존 `ROLE_ADMIN` 값과 함께 외부 서비스 호환용 `ADMIN` alias를 추가한다.
-  - 예: `ROLE_ADMIN` -> `ROLE_ADMIN`, `ADMIN`
-- `JwtTokenProvider.getAuthentication()`은 bare role alias를 다시 Spring authority로 정규화한다.
-  - 예: `ADMIN` -> `ROLE_ADMIN`
-  - 예: `USER` -> `ROLE_USER`
-- 따라서 platform 내부 admin endpoint는 기존 `hasRole('ADMIN')` 정책을 유지하고, engagement는 `roles` claim의 `ADMIN`을 읽을 수 있다.
+Query:
+- `status`: optional, `pending|processing|completed|rejected`
+- `q`: optional, user email/display name 검색
+- `page`: default `0`
+- `size`: default `20`
+
+Response:
+```json
+{
+  "content": [
+    {
+      "id": "uuid",
+      "userId": "uuid",
+      "userEmail": "user@example.com",
+      "userDisplayName": "User",
+      "type": "DATA_EXPORT",
+      "typeLabel": "데이터 내보내기",
+      "status": "PENDING",
+      "statusLabel": "대기",
+      "receivedAt": "2026-06-11T00:00:00Z",
+      "dueAt": "2026-07-11T00:00:00Z",
+      "daysRemaining": 30,
+      "latestLog": "요청 접수"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+### GET `/api/v1/admin/data-requests/{id}`
+상세 조회.
+
+Response includes:
+- 목록 row fields
+- `dataSummary`
+- `executionLogs`
+
+### POST `/api/v1/admin/data-requests/{id}/actions`
+상태 전이.
+
+Request:
+```json
+{
+  "action": "APPROVE",
+  "reason": "관리자 승인"
+}
+```
+
+Actions:
+- `APPROVE`: `PENDING` -> `PROCESSING`
+- `EXECUTE`: `PROCESSING` -> `COMPLETED`
+- `REJECT`: `PENDING|PROCESSING` -> `REJECTED`
+
+Review follow-up:
+- `DATA_ACCESS`, `DATA_EXPORT`는 MVP 범위에서 `EXECUTE` 가능하다.
+- `DATA_ERASURE`는 실제 사용자 삭제/마스킹을 수행하지 않는 한 `EXECUTE`를 허용하지 않는다.
+- `DATA_ERASURE`에 `EXECUTE` 요청이 들어오면 `409 CONFLICT`로 막고, 별도 실제 삭제 연동 작업으로 분리한다.
+
+### POST `/api/v1/admin/data-requests`
+관리자 테스트/운영 생성용. 프론트에서 당장 쓰지 않더라도 테스트 데이터 생성에 유용하다.
+
+Request:
+```json
+{
+  "userId": "uuid",
+  "type": "DATA_EXPORT",
+  "reason": "사용자 요청 접수"
+}
+```
+
+## Data Model
+
+Table candidate: `gdpr_data_requests`
+
+Fields:
+- `id uuid primary key`
+- `user_id uuid not null`
+- `request_type varchar(40) not null`
+- `status varchar(40) not null`
+- `reason varchar(500)`
+- `admin_note varchar(1000)`
+- `data_summary text`
+- `execution_log text`
+- `received_at timestamptz not null`
+- `due_at timestamptz not null`
+- `processed_at timestamptz`
+- `created_at timestamptz not null`
+- `updated_at timestamptz not null`
+
+Status:
+- `PENDING`
+- `PROCESSING`
+- `COMPLETED`
+- `REJECTED`
+
+Type:
+- `DATA_ACCESS`
+- `DATA_EXPORT`
+- `DATA_ERASURE`
+
+## Design Notes
+- 30일 기한은 `receivedAt + 30 days`로 계산한다.
+- `daysRemaining`은 서버 기준 현재 시각과 `dueAt` 차이를 UI 표시용으로 계산한다. 생성 직후 29일로 내려가지 않도록 올림 또는 날짜 기준 계산을 사용하고, 완료/거부 상태는 `0`으로 반환한다.
+- 실제 cross-service export는 이번 범위가 아니다.
+- `dataSummary`는 platform-local 사용자의 기본 정보와 처리 상태 중심으로 구성한다.
+- 민감한 개인정보를 과도하게 응답하지 않는다.
+- 상태 전이는 명시적으로 제한한다.
+- `data-requests` pending item은 `PENDING`/`PROCESSING` 건수를 기준으로 보여준다.
+- `gdpr_data_requests`의 `userEmail`, `userDisplayName`은 admin 화면 검색/식별용 스냅샷이다. `DATA_ERASURE`가 실제 삭제 처리와 연결될 때는 요청 테이블 스냅샷도 함께 마스킹해야 한다.
+
+## Review Follow-up Plan
+
+이번 보강은 백엔드에서 처리 가능한 리뷰 지적만 다룬다.
+
+### 1. `DATA_ERASURE` 실행 차단
+- 현재 문제: `DATA_ERASURE`도 `EXECUTE` 시 실제 삭제 없이 `COMPLETED`가 되어 프론트에 "데이터 삭제 완료"처럼 보일 수 있다.
+- 처리 방향: `DATA_ERASURE` 요청은 `APPROVE`와 `REJECT`까지만 허용하고, `EXECUTE`는 `409 CONFLICT`로 차단한다.
+- 실제 사용자 삭제/마스킹 호출은 후속 작업으로 분리한다.
+- 테스트: `DATA_ERASURE` + `EXECUTE`가 conflict를 반환하는 service/controller 테스트를 추가한다.
+
+### 2. `daysRemaining` 표시 보정
+- 현재 문제: `ChronoUnit.DAYS.between(now, dueAt)` floor 계산 때문에 생성 직후 30일 대신 29일로 보일 수 있다.
+- 처리 방향: 남은 시간이 있으면 올림 계산을 적용해 UI 표시값이 기한 체감과 맞도록 한다.
+- 테스트: `receivedAt + 30 days`인 open request가 생성 직후 `30`을 반환하는 테스트를 추가한다.
+
+### 3. 개인정보 스냅샷 마스킹 정책 문서화
+- 현재 문제: GDPR 요청 테이블이 `userEmail`, `userDisplayName` 스냅샷을 보관한다.
+- 처리 방향: 이번 PR에서는 실제 삭제 실행을 하지 않으므로 즉시 마스킹 로직은 만들지 않는다. 다만 `DATA_ERASURE` 실행을 차단하고, 실제 삭제 연동 시 요청 테이블 스냅샷도 마스킹해야 한다는 정책을 문서에 명확히 남긴다.
+- 테스트: `DATA_ERASURE`가 완료 상태로 가지 못하는 회귀 테스트로 "삭제 완료 오인"을 방지한다.
 
 ## Test Plan
 
-1. role 저장/조회 단위 테스트
-   ```powershell
-   .\gradlew.bat test --tests "*UserServiceTest"
-   ```
+단위 테스트:
+```powershell
+.\gradlew.bat test --tests "*AdminDataRequestServiceTest"
+```
 
-2. JWT role claim/authority 테스트
-   ```powershell
-   .\gradlew.bat test --tests "*JwtTokenProviderTest"
-   ```
+컨트롤러 테스트:
+```powershell
+.\gradlew.bat test --tests "*AdminDataRequestControllerTest"
+```
 
-3. 로그인/OAuth/refresh role 발급 경로 테스트
-   ```powershell
-   .\gradlew.bat test --tests "*EmailPasswordAuthServiceTest" --tests "*OAuth2SuccessHandlerTest" --tests "*AuthControllerTest"
-   ```
+analytics/security 회귀:
+```powershell
+.\gradlew.bat test --tests "*AdminAnalytics*" --tests "*AdminSecurityIntegrationTest"
+```
 
-4. admin 보안 통합 테스트
-   ```powershell
-   .\gradlew.bat test --tests "*AdminSecurityIntegrationTest" --tests "*AuditLogControllerTest"
-   ```
+전체 검증:
+```powershell
+.\gradlew.bat clean build
+```
 
-5. 전체 검증
-   ```powershell
-   .\gradlew.bat clean build
-   ```
+## Constraints
+- 다른 repo는 수정하지 않는다.
+- `.env`, profile, 운영 설정은 수정하지 않는다.
+- 실제 파일 export/S3/email은 이번 작업에 넣지 않는다.
+- `TASK_platform.md`는 초기 개발 목록 문서이므로 수정하지 않는다.
+- PR/issue 본문은 UTF-8 파일 기반으로 작성한다.
 
-## Working Notes
-- 현재 브랜치: `fix/PLAT-086-admin-role-contract`
-- 기준 브랜치: `dev`
-- PLAT-091 문서는 `docs/ai/archive/20260610-plat-091-completed/`에 보관했다.
-- 이번 작업에서는 다른 repo를 수정하지 않는다.
-- 최초 어드민 자동 생성은 하지 않는다.
-- profile/env 변경은 하지 않는다.
-- `TASK_platform.md`는 초기 개발 목록이므로 수정하지 않는다.
+## Notes
+- PLAT-087 current 문서는 `docs/ai/archive/20260611-plat-087-completed/`에 보관했다.
+- 구현 및 검증 완료.
+- 리뷰 후속 보강까지 완료했다.
+- `DATA_ERASURE`는 실제 삭제/마스킹 연동 전까지 `EXECUTE`를 `409 CONFLICT`로 차단한다.
+- `daysRemaining`은 남은 시간이 있으면 올림 계산으로 반환한다.
+- 실제 삭제 연동 시 `gdpr_data_requests`의 `userEmail`, `userDisplayName` 스냅샷도 함께 마스킹해야 한다는 정책을 문서화했다.
 - 검증 통과:
-  - `.\gradlew.bat test --tests "*JwtTokenProviderTest"`
-  - `.\gradlew.bat test --tests "*UserServiceTest" --tests "*EmailPasswordAuthServiceTest" --tests "*OAuth2SuccessHandlerTest" --tests "*AuthControllerTest" --tests "*AdminSecurityIntegrationTest" --tests "*AuditLogControllerTest"`
+  - `.\gradlew.bat test --tests "*AdminDataRequestServiceTest" --tests "*AdminDataRequestControllerTest"`
+  - `.\gradlew.bat test --tests "*AdminAnalytics*" --tests "*AdminSecurityIntegrationTest"`
+  - `.\gradlew.bat test --tests "*AdminDataRequestServiceTest" --tests "*AdminDataRequestControllerTest" --tests "*AdminAnalytics*" --tests "*AdminSecurityIntegrationTest" --tests "*PlatformModuleStructureTest"`
   - `.\gradlew.bat clean build`

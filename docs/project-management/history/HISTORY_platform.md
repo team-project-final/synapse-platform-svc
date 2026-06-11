@@ -557,6 +557,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-11 | **PLAT-097 GitHub Actions Node 20 deprecation 업그레이드** — `actions/checkout` v6, `actions/setup-java` v5, `actions/setup-node` v6로 워크플로 액션 메이저 버전 갱신. 애플리케이션 코드/Gradle/env/profile 변경 없음 |
 | 2026-06-11 | **PLAT-073 Admin GDPR/data request API 구현** — `gdpr_data_requests` 저장소와 admin list/detail/create/action API 추가, `DATA_ERASURE` 실행 오인 방지 conflict 처리와 `daysRemaining` 계산 보정, `data-requests` analytics pending item을 실제 open count 기반으로 전환. 관련 테스트와 `clean build` 통과 |
 | 2026-06-11 | **PLAT-087 ReviewCompleted audit DLT 원인 확정** — shared/platform은 `com.synapse.learning`, `reviewedAt=string`, `occurredAt=long` 정본과 일치하고 learning 최신 producer가 `com.synapse.event.learning`/`timestamp-millis`로 발행 중임을 확인. platform 이슈 #87에 조사 결과와 owner 수정 권고를 남기고 close |
 | 2026-06-10 | **PLAT-086 ADMIN role 발급/계약 정합 보강** — 어드민 부여 방식은 DB 수동 grant로 유지, JWT `roles` claim에 `ROLE_ADMIN`/`ADMIN` 호환 표현을 함께 제공, platform 내부 authority는 `ROLE_ADMIN`으로 정규화. JWT/auth/admin 보안 테스트 및 `clean build` 통과 |

@@ -1,110 +1,137 @@
-# PLAT-086 Handoff
+# PLAT-073 Handoff
 
 ## Status
-구현 및 검증 완료. #86 이슈 코멘트/PR 단계가 남아 있다.
+구현, 리뷰 후속 보강, 검증 완료.
 
 ## Branch
-- Base: `dev`
-- Working branch: `fix/PLAT-086-admin-role-contract`
+- Base: `origin/main`
+- Planned working branch: `feature/PLAT-073-admin-data-requests`
 
 ## Archived
-PLAT-091 current 문서는 아래 경로에 보관했다.
+이전 current 문서는 아래 경로에 보관했다.
 
-- `docs/ai/archive/20260610-plat-091-completed/TASK.md`
-- `docs/ai/archive/20260610-plat-091-completed/CONTEXT.md`
-- `docs/ai/archive/20260610-plat-091-completed/HANDOFF.md`
+- `docs/ai/archive/20260611-plat-087-completed/TASK.md`
+- `docs/ai/archive/20260611-plat-087-completed/CONTEXT.md`
+- `docs/ai/archive/20260611-plat-087-completed/HANDOFF.md`
 
 ## Current Task
-#86의 ADMIN role 발급 메커니즘 부재 이슈를 현재 `dev` 기준으로 재검토한다.
+GDPR/data request API를 구현해 프론트 `admin_data_request_screen`이 mock 데이터를 제거하고 platform backend와 연동할 수 있게 한다.
 
-이슈 본문은 role 저장소와 ADMIN 발급 경로가 없다고 되어 있지만, 현재 platform에는 이미 아래 구현이 들어와 있다.
+## Key Decision
+이번 작업은 admin 화면 연동용 MVP다.
 
-- `user_roles` 테이블
-- `ROLE_USER`, `ROLE_ADMIN` role constraint
-- 신규 사용자 기본 `ROLE_USER` 저장
-- DB role 기반 JWT `roles` claim 발급
-- 수동 `ROLE_ADMIN` 부여 런북
+포함:
+- admin data request 목록
+- 상세
+- 상태 처리 액션
+- 관리자 테스트/운영 생성 API
+- analytics summary의 `data-requests` `NOT_IMPLEMENTED` 제거
 
-따라서 남은 핵심은 engagement 모더레이션이 기대하는 `ADMIN` 문자열과 platform의 `ROLE_ADMIN` 문자열 계약을 맞추는 것이다.
+제외:
+- 실제 S3/file export
+- 이메일 발송
+- 타 서비스 데이터 통합 export
+- 실제 사용자 삭제/마스킹 실행 연동
+- 프로필 아바타 업로드
+- admin settings 추가 구현
 
-## Key Question
-platform JWT가 engagement 관리자 판정에 충분한가?
-
-현재 의심되는 갭:
-- platform: `roles: ["ROLE_USER", "ROLE_ADMIN"]`
-- engagement: `roles` 안에서 `"ADMIN"`을 찾음
-
-이 상태가 맞다면 engagement 모더레이션 API는 platform 발급 admin token을 거부할 수 있다.
-
-## Implemented Direction
-현재 코드를 테스트로 확정한 뒤, 다른 repo 수정 없이 platform JWT claim 호환성을 보강했다.
-
-처리 내용:
-- `ROLE_ADMIN` DB 정본은 유지한다.
-- 최초 어드민 부여는 기존처럼 DB 수동 grant로 유지한다.
-- access token `roles` claim에 `ROLE_ADMIN`과 함께 `ADMIN` alias를 넣는다.
-- platform 내부 인증으로 읽을 때 bare alias는 Spring authority로 정규화한다.
-
-주의할 점:
-- DB role 정본은 `ROLE_*`로 유지한다.
-- platform 내부 Spring Security `hasRole('ADMIN')`은 계속 동작해야 한다.
-- 자동 admin seed/profile/env 변경은 하지 않는다.
-- 최초 admin은 기존 런북의 수동 DB grant 절차를 유지한다.
+리뷰 후속 결정:
+- `DATA_ERASURE`는 실제 삭제/마스킹을 수행하지 않는 동안 `EXECUTE`를 허용하지 않는다.
+- `daysRemaining`은 floor 계산 대신 UI 표시용 보정 계산을 사용한다.
+- 실제 삭제 연동 작업에서는 `gdpr_data_requests`의 이메일/표시명 스냅샷도 함께 마스킹해야 한다.
 
 ## Relevant Files
 
-Platform:
-- `src/main/resources/db/migration/V20260609140528__create_user_roles.sql`
-- `src/main/java/com/synapse/platform/user/entity/UserRole.java`
-- `src/main/java/com/synapse/platform/user/repository/UserRoleRepository.java`
-- `src/main/java/com/synapse/platform/user/service/UserService.java`
-- `src/main/java/com/synapse/platform/auth/service/JwtTokenProvider.java`
-- `src/main/java/com/synapse/platform/auth/service/EmailPasswordAuthService.java`
-- `src/main/java/com/synapse/platform/auth/service/OAuth2SuccessHandler.java`
-- `src/main/java/com/synapse/platform/auth/controller/AuthController.java`
-- `docs/runbooks/ADMIN_ROLE_MANUAL_GRANT.md`
-
-Platform tests:
-- `src/test/java/com/synapse/platform/user/service/UserServiceTest.java`
-- `src/test/java/com/synapse/platform/auth/service/JwtTokenProviderTest.java`
-- `src/test/java/com/synapse/platform/auth/service/EmailPasswordAuthServiceTest.java`
-- `src/test/java/com/synapse/platform/auth/service/OAuth2SuccessHandlerTest.java`
-- `src/test/java/com/synapse/platform/auth/AuthControllerTest.java`
+Admin analytics:
+- `src/main/java/com/synapse/platform/admin/service/AdminAnalyticsService.java`
+- `src/test/java/com/synapse/platform/admin/service/AdminAnalyticsServiceTest.java`
+- `src/test/java/com/synapse/platform/admin/controller/AdminAnalyticsControllerTest.java`
 - `src/test/java/com/synapse/platform/auth/config/AdminSecurityIntegrationTest.java`
-- `src/test/java/com/synapse/platform/audit/controller/AuditLogControllerTest.java`
 
-Engagement evidence, read-only:
-- `C:\workspace\team_project_2\synapse-engagement-svc\src\main\java\com\synapse\engagement\shared\CurrentUser.java`
-- `C:\workspace\team_project_2\synapse-engagement-svc\src\test\java\com\synapse\engagement\shared\CurrentUserTests.java`
+Admin settings, already implemented:
+- `src/main/java/com/synapse/platform/admin/controller/AdminSettingsController.java`
+- `src/main/java/com/synapse/platform/admin/service/AdminSettingsService.java`
+
+User/profile context:
+- `src/main/java/com/synapse/platform/user/entity/User.java`
+- `src/main/java/com/synapse/platform/user/repository/UserRepository.java`
+
+Frontend reference, read-only:
+- `C:\workspace\team_project_2\synapse-frontend\lib\services\platform\features\admin\presentation\screens\admin_screens\admin_data_request_screen.dart`
+
+Prior docs:
+- `docs/ai/archive/20260610-plat-071-completed/`
+- `docs/ai/archive/20260610-plat-072-completed/`
+- `docs/project-management/scope/SCOPE_platform.md`
+
+## Expected API
+
+```text
+GET  /api/v1/admin/data-requests
+GET  /api/v1/admin/data-requests/{id}
+POST /api/v1/admin/data-requests
+POST /api/v1/admin/data-requests/{id}/actions
+```
+
+Statuses:
+- `PENDING`
+- `PROCESSING`
+- `COMPLETED`
+- `REJECTED`
+
+Types:
+- `DATA_ACCESS`
+- `DATA_EXPORT`
+- `DATA_ERASURE`
+
+Actions:
+- `APPROVE`
+- `EXECUTE`
+- `REJECT`
+
+## Implementation Checklist
+- [x] 현재 Flyway migration 마지막 번호 확인
+- [x] `gdpr_data_requests` migration 추가
+- [x] entity/enum/repository 추가
+- [x] request/response DTO 추가
+- [x] `AdminDataRequestService` 추가
+- [x] `AdminDataRequestController` 추가
+- [x] `AdminAnalyticsService`가 pending data request count를 사용하도록 보강
+- [x] `AdminSecurityIntegrationTest`에 admin-only 접근 제어 추가
+- [x] controller/service/analytics 테스트 추가
+- [x] `HISTORY_platform.md` 갱신
+- [x] `DATA_ERASURE` + `EXECUTE` conflict 처리
+- [x] `daysRemaining` 생성 직후 30일 표시 보정
+- [x] 삭제 요청 개인정보 스냅샷 마스킹 정책 문서화 및 `DATA_ERASURE` 실행 차단 테스트 반영
+
+## Review Follow-up Work
+- `GdprDataRequest.execute()` 또는 service action 처리에서 `DATA_ERASURE` 실행을 차단한다.
+- conflict는 기존 `ResponseStatusException(HttpStatus.CONFLICT, ...)` 경로를 사용한다.
+- `AdminDataRequestResponse.daysRemaining()`은 남은 기간이 있으면 올림 계산으로 반환한다.
+- `DATA_ERASURE` 완료 오인을 막는 service/controller 테스트를 추가한다.
+- `daysRemaining` 계산 테스트를 추가한다.
 
 ## Test Commands
 ```powershell
-.\gradlew.bat test --tests "*UserServiceTest"
-.\gradlew.bat test --tests "*JwtTokenProviderTest"
-.\gradlew.bat test --tests "*EmailPasswordAuthServiceTest" --tests "*OAuth2SuccessHandlerTest" --tests "*AuthControllerTest"
-.\gradlew.bat test --tests "*AdminSecurityIntegrationTest" --tests "*AuditLogControllerTest"
+.\gradlew.bat test --tests "*AdminDataRequestServiceTest"
+.\gradlew.bat test --tests "*AdminDataRequestControllerTest"
+.\gradlew.bat test --tests "*AdminAnalytics*" --tests "*AdminSecurityIntegrationTest"
 .\gradlew.bat clean build
 ```
 
-검증 결과:
-- `.\gradlew.bat test --tests "*JwtTokenProviderTest"` 통과
-- `.\gradlew.bat test --tests "*UserServiceTest" --tests "*EmailPasswordAuthServiceTest" --tests "*OAuth2SuccessHandlerTest" --tests "*AuthControllerTest" --tests "*AdminSecurityIntegrationTest" --tests "*AuditLogControllerTest"` 통과
-- `.\gradlew.bat clean build` 통과
-- Windows Kafka 임시파일 삭제 로그가 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`
-
 ## Do Not Touch
-- engagement/shared/gitops/frontend/gateway repo
+- frontend repo code
+- shared/gitops/learning/engagement/gateway repo code
 - `.env`
-- Spring profile 설정
-- 자동 seed admin
-- 운영 DB 직접 변경
+- Spring profile
+- 실제 export storage/S3 설정
+- 실제 사용자 삭제/마스킹 플로우
 - `TASK_platform.md`
 
-## PR Direction
-변경이 필요하면 PR은 `dev` 대상으로 올린다.
-
-예상 PR 제목:
-`fix(auth): admin role JWT 계약 정합 보강 (#86)`
-
-코드 변경 없이 정리되는 경우:
-`docs(auth): ADMIN role 발급 정합 조사 기록 (#86)`
+## Notes
+- 현재 git 상태에는 PLAT-087 문서 정리 변경도 남아 있다.
+- PR 전에는 PLAT-087 문서 정리와 PLAT-073 구현 변경을 어떻게 묶을지 확인이 필요하다.
+- Windows Kafka 임시파일 삭제 로그가 `clean build` 중 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`이다.
+- 리뷰 후속 보강 테스트 통과:
+  - `.\gradlew.bat test --tests "*AdminDataRequestServiceTest" --tests "*AdminDataRequestControllerTest"`
+  - `.\gradlew.bat test --tests "*AdminDataRequestServiceTest" --tests "*AdminDataRequestControllerTest" --tests "*AdminAnalytics*" --tests "*AdminSecurityIntegrationTest" --tests "*PlatformModuleStructureTest"`

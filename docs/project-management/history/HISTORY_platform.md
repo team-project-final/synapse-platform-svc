@@ -487,6 +487,45 @@
 
 ---
 
+#### 2026-06-11 (목) - PLAT-073
+
+- **완료**:
+  - admin GDPR/data request 관리 API를 구현했다.
+  - `gdpr_data_requests` 테이블, request type/status enum, entity, repository, service, controller를 추가했다.
+  - `GET /api/v1/admin/data-requests`, `GET /api/v1/admin/data-requests/{id}`, `POST /api/v1/admin/data-requests`, `POST /api/v1/admin/data-requests/{id}/actions` API를 추가했다.
+  - 상태 전이는 `APPROVE(PENDING→PROCESSING)`, `EXECUTE(PROCESSING→COMPLETED)`, `REJECT(PENDING|PROCESSING→REJECTED)`로 제한했다.
+  - 리뷰 후속 보강으로 `DATA_ERASURE`의 `EXECUTE`는 실제 삭제/마스킹 전용 플로우가 없으면 `409 CONFLICT`로 차단하도록 수정했다.
+  - `daysRemaining`은 floor 계산 대신 남은 시간이 있으면 올림 계산으로 반환하도록 보정했다.
+  - 실제 삭제 연동 시 `gdpr_data_requests`의 이메일/표시명 스냅샷도 함께 마스킹해야 한다는 정책을 문서화했다.
+  - `AdminAnalyticsService`의 `data-requests` pending item을 `NOT_IMPLEMENTED`에서 실제 open request count 기반 `OK`/`ACTION_REQUIRED`로 변경했다.
+  - admin 모듈은 `user::api`만 의존하도록 `UserApi.findById()`를 사용해 Modulith 경계를 유지했다.
+  - 검증 통과: `AdminDataRequestServiceTest`, `AdminDataRequestControllerTest`, `AdminAnalytics*`, `AdminSecurityIntegrationTest`, `PlatformModuleStructureTest`, `clean build`.
+- **진행 중**:
+  - 없음.
+- **이슈**:
+  - 실제 S3/file export, 이메일 발송, 타 서비스 데이터 통합 export는 후속 작업이다.
+- **다음**:
+  - 프론트 `admin_data_request_screen`에서 mock data를 제거하고 신규 API에 연동할 수 있다.
+
+---
+
+#### 2026-06-11 (목) - PLAT-087
+
+- **완료**:
+  - platform 이슈 #87 `ReviewCompleted` audit DLT 원인을 shared/platform/learning 3레포 기준으로 대조했다.
+  - shared 정본과 platform consumer는 `com.synapse.learning.ReviewCompleted`, `reviewedAt=string`, `occurredAt=long`으로 일치함을 확인했다.
+  - learning 최신 실제 producer는 `com.synapse.event.learning.ReviewCompleted`, `reviewedAt/occurredAt=timestamp-millis`로 shared 정본과 불일치함을 확인했다.
+  - platform은 shared 정본을 유지하고, 근본 수정 owner는 learning-card producer 정렬이라는 결론을 platform 이슈 #87에 코멘트로 남겼다.
+  - platform 이슈 #87을 close 처리했다.
+- **진행 중**:
+  - 없음.
+- **이슈**:
+  - learning producer 정렬은 `reviewedAt`의 `string <-> long` BACKWARD 비호환이 있어 v2 topic 또는 개발 환경 subject 리셋/오프셋 폐기 결정이 필요하다.
+- **다음**:
+  - platform 코드 수정 없음.
+
+---
+
 #### 2026-06-10 (수) - PLAT-086
 
 - **완료**:
@@ -518,6 +557,8 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-11 | **PLAT-073 Admin GDPR/data request API 구현** — `gdpr_data_requests` 저장소와 admin list/detail/create/action API 추가, `DATA_ERASURE` 실행 오인 방지 conflict 처리와 `daysRemaining` 계산 보정, `data-requests` analytics pending item을 실제 open count 기반으로 전환. 관련 테스트와 `clean build` 통과 |
+| 2026-06-11 | **PLAT-087 ReviewCompleted audit DLT 원인 확정** — shared/platform은 `com.synapse.learning`, `reviewedAt=string`, `occurredAt=long` 정본과 일치하고 learning 최신 producer가 `com.synapse.event.learning`/`timestamp-millis`로 발행 중임을 확인. platform 이슈 #87에 조사 결과와 owner 수정 권고를 남기고 close |
 | 2026-06-10 | **PLAT-086 ADMIN role 발급/계약 정합 보강** — 어드민 부여 방식은 DB 수동 grant로 유지, JWT `roles` claim에 `ROLE_ADMIN`/`ADMIN` 호환 표현을 함께 제공, platform 내부 authority는 `ROLE_ADMIN`으로 정규화. JWT/auth/admin 보안 테스트 및 `clean build` 통과 |
 | 2026-06-10 | **PLAT-091 OAuth provider 컬럼/Flyway migration 정합 조사** — `OAuthIdentity`와 V3 DDL 모두 `provider_id` 기준임을 확인, tracked repo에 V28 rename migration 없음 및 V28 중복 없음 확인, rename migration 추가 불필요로 결정. OAuth/schema 테스트, DB 통합 테스트, `clean build` 통과 |
 | 2026-06-10 | **PLAT-084 OpenAPI/SpringDoc 문서 노출 이슈 대응** — SpringDoc WebMVC UI 의존성 추가, OpenAPI/Swagger UI 인증 예외 추가, Confluent 구버전 Swagger annotation 충돌 제거, OpenAPI 보안 통합 테스트 추가. `TASK_platform.md` 미수정. `clean build` 통과 |

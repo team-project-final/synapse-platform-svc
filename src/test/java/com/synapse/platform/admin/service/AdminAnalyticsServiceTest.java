@@ -44,6 +44,9 @@ class AdminAnalyticsServiceTest {
     @Mock
     private AuditAnalyticsApi auditAnalyticsApi;
 
+    @Mock
+    private AdminDataRequestService adminDataRequestService;
+
     @Test
     void getSummary_shouldCombinePlatformLocalMetricsAndDisconnectedCrossServiceItems() {
         UUID activityId = UUID.randomUUID();
@@ -65,6 +68,7 @@ class AdminAnalyticsServiceTest {
                         "USER",
                         userId.toString(),
                         activityAt))));
+        given(adminDataRequestService.countOpenRequests()).willReturn(2L);
 
         AdminAnalyticsSummaryResponse result = service().getSummary();
 
@@ -85,7 +89,8 @@ class AdminAnalyticsServiceTest {
         assertThat(result.pendingItems())
                 .anySatisfy(item -> {
                     assertThat(item.key()).isEqualTo("data-requests");
-                    assertThat(item.status()).isEqualTo("NOT_IMPLEMENTED");
+                    assertThat(item.count()).isEqualTo(2);
+                    assertThat(item.status()).isEqualTo("ACTION_REQUIRED");
                 });
         assertThat(result.recentActivities())
                 .singleElement()
@@ -102,6 +107,7 @@ class AdminAnalyticsServiceTest {
                 tenantAnalyticsApi,
                 billingAnalyticsApi,
                 notificationAnalyticsApi,
-                auditAnalyticsApi);
+                auditAnalyticsApi,
+                adminDataRequestService);
     }
 }

@@ -1,15 +1,21 @@
 package com.synapse.platform.audit.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.engagement.BadgeEarned;
 import com.synapse.engagement.LevelUp;
 import com.synapse.knowledge.NoteCreated;
 import com.synapse.knowledge.NoteUpdated;
 import com.synapse.learning.ReviewCompleted;
+import com.synapse.platform.NotificationSend;
 import com.synapse.platform.UserRegistered;
 import com.synapse.platform.audit.dto.AuditLogResponse;
 import com.synapse.platform.audit.entity.AuditLog;
 import com.synapse.platform.audit.repository.AuditLogRepository;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuditLogService {
 
     private static final Logger log = LoggerFactory.getLogger(AuditLogService.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final int RETENTION_DAYS = 90;
 
     private final AuditLogRepository repository;
@@ -88,6 +95,16 @@ public class AuditLogService {
                 event.toString()));
     }
 
+    public void processEvent(NotificationSend event) {
+        save(AuditLog.of(
+                UUID.fromString(requiredText(event.getEventId(), "eventId")),
+                "NOTIFICATION_SEND",
+                parseUuidOrNull(event.getUserId()),
+                "USER",
+                requiredText(event.getUserId(), "userId"),
+                notificationAuditPayload(event)));
+    }
+
     @Scheduled(cron = "0 0 3 * * *")
     @Transactional
     public void deleteOldLogs() {
@@ -134,5 +151,39 @@ public class AuditLogService {
             throw new IllegalArgumentException("Missing audit event field: " + fieldName);
         }
         return value;
+    }
+
+    private String notificationAuditPayload(NotificationSend event) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("eventId", requiredText(event.getEventId(), "eventId"));
+        payload.put("tenantId", requiredText(event.getTenantId(), "tenantId"));
+        payload.put("occurredAt", event.getOccurredAt());
+        payload.put("traceparent", nullableText(event.getTraceparent()));
+        payload.put("userId", requiredText(event.getUserId(), "userId"));
+        payload.put("notificationType", requiredText(event.getNotificationType(), "notificationType"));
+        payload.put("channels", textList(event.getChannels()));
+        payload.put("contentRedacted", true);
+        return writeJson(payload);
+    }
+
+    private List<String> textList(List<?> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .map(Object::toString)
+                .toList();
+    }
+
+    private String nullableText(Object rawValue) {
+        return rawValue == null ? null : rawValue.toString();
+    }
+
+    private String writeJson(Map<String, Object> payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to serialize audit payload", exception);
+        }
     }
 }

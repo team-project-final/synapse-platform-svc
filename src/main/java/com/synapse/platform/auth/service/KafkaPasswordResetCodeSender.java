@@ -1,6 +1,7 @@
 package com.synapse.platform.auth.service;
 
 import com.synapse.platform.NotificationSend;
+import com.synapse.platform.global.kafka.KafkaTopicResolver;
 import com.synapse.platform.user.api.UserInfo;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -10,7 +11,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -30,10 +30,9 @@ public class KafkaPasswordResetCodeSender implements PasswordResetCodeSender {
 
     public KafkaPasswordResetCodeSender(
             @Qualifier("eventKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate,
-            @Value("${app.kafka.topics.notification-send:platform.notification.notification-send-v1}")
-                    String notificationTopic) {
+            KafkaTopicResolver kafkaTopicResolver) {
         this.kafkaTemplate = kafkaTemplate;
-        this.notificationTopic = notificationTopic;
+        this.notificationTopic = kafkaTopicResolver.notificationSend();
     }
 
     @Override

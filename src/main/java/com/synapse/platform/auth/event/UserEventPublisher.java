@@ -3,10 +3,10 @@ package com.synapse.platform.auth.event;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.UserRegistered;
+import com.synapse.platform.global.kafka.KafkaTopicResolver;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,10 +20,9 @@ public class UserEventPublisher {
 
     public UserEventPublisher(
             OutboxEventRepository outboxEventRepository,
-            @Value("${app.kafka.topics.user-registered:platform.auth.user-registered-v1}")
-                    String userRegisteredTopic) {
+            KafkaTopicResolver kafkaTopicResolver) {
         this.outboxEventRepository = outboxEventRepository;
-        this.userRegisteredTopic = userRegisteredTopic;
+        this.userRegisteredTopic = kafkaTopicResolver.userRegistered();
     }
 
     public void publishUserRegistered(UUID userId, String email, String displayName, UUID tenantId) {

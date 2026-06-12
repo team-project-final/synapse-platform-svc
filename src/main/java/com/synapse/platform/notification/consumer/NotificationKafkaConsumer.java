@@ -17,7 +17,7 @@ public class NotificationKafkaConsumer {
     }
 
     @KafkaListener(
-            topics = "${app.kafka.topics.notification-send:platform.notification.notification-send-v1}",
+            topics = "#{@kafkaTopicResolver.notificationSend()}",
             groupId = "platform-svc-group",
             containerFactory = "notificationKafkaListenerContainerFactory")
     public void consume(NotificationSend event) {

@@ -64,6 +64,9 @@ class KafkaConsumerConfigSmokeTest {
     @Autowired
     private KafkaTopicProperties kafkaTopicProperties;
 
+    @Autowired
+    private KafkaTopicResolver kafkaTopicResolver;
+
     @Test
     void kafkaListenerContainerFactory_isConfiguredWithRecordAckMode() {
         assertThat(kafkaListenerContainerFactory).isNotNull();
@@ -73,7 +76,14 @@ class KafkaConsumerConfigSmokeTest {
 
     @Test
     void kafkaTopicProperties_hasDefaultDlqSuffix() {
-        assertThat(kafkaTopicProperties.getDlqSuffix()).isEqualTo(".DLT");
+        assertThat(kafkaTopicProperties.getDlqSuffix()).isEqualTo(".dlq");
+    }
+
+    @Test
+    void kafkaTopicResolver_usesUnprefixedTopicsByDefault() {
+        assertThat(kafkaTopicResolver.userRegistered()).isEqualTo("platform.auth.user-registered-v1");
+        assertThat(kafkaTopicResolver.notificationSend())
+                .isEqualTo("platform.notification.notification-send-v1");
     }
 
     @Test
@@ -165,6 +175,16 @@ class KafkaConsumerConfigSmokeTest {
                 .isEqualTo("platform-svc-group");
     }
 
+    @Test
+    void kafkaListeners_useTopicResolverExpressions() {
+        assertThat(listenerTopics(NotificationKafkaConsumer.class, "consume"))
+                .containsExactly("#{@kafkaTopicResolver.notificationSend()}");
+        assertThat(listenerTopics(AuditKafkaConsumer.class, "consume"))
+                .containsExactly("#{@kafkaTopicResolver.userRegistered()}");
+        assertThat(listenerTopics(AuditKafkaConsumer.class, "consumeNotificationSend"))
+                .containsExactly("#{@kafkaTopicResolver.notificationSend()}");
+    }
+
     private void assertErrorHandlingDeserializerConfiguration(ConsumerFactory<?, ?> factory) {
         assertThat(configuration(factory))
                 .containsEntry(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class)
@@ -187,5 +207,15 @@ class KafkaConsumerConfigSmokeTest {
                 .orElseThrow()
                 .getAnnotation(KafkaListener.class);
         return listener.groupId();
+    }
+
+    private String[] listenerTopics(Class<?> consumerClass, String methodName) {
+        KafkaListener listener = java.util.Arrays.stream(consumerClass.getMethods())
+                .filter(method -> method.getName().equals(methodName))
+                .filter(method -> method.getParameterCount() == 1)
+                .findFirst()
+                .orElseThrow()
+                .getAnnotation(KafkaListener.class);
+        return listener.topics();
     }
 }

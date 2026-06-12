@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synapse.platform.UserRegistered;
+import com.synapse.platform.global.kafka.KafkaTopicProperties;
+import com.synapse.platform.global.kafka.KafkaTopicResolver;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -19,9 +21,7 @@ class UserEventPublisherTest {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final OutboxEventRepository repository = Mockito.mock(OutboxEventRepository.class);
-    private final UserEventPublisher publisher = new UserEventPublisher(
-            repository,
-            "platform.auth.user-registered-v1");
+    private final UserEventPublisher publisher = new UserEventPublisher(repository, topicResolver(""));
 
     @Test
     void publishUserRegistered_shouldStorePendingOutboxEvent() throws Exception {
@@ -53,5 +53,25 @@ class UserEventPublisherTest {
         publisher.publishUserRegistered(UUID.randomUUID(), "new@example.com", "New User", null);
 
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    void publishUserRegistered_shouldUsePrefixedTopic() {
+        UserEventPublisher prefixedPublisher = new UserEventPublisher(repository, topicResolver("dev."));
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+        when(repository.save(any(OutboxEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        prefixedPublisher.publishUserRegistered(userId, "new@example.com", "New User", tenantId);
+
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getTopic()).isEqualTo("dev.platform.auth.user-registered-v1");
+    }
+
+    private KafkaTopicResolver topicResolver(String prefix) {
+        KafkaTopicProperties properties = new KafkaTopicProperties();
+        properties.setPrefix(prefix);
+        return new KafkaTopicResolver(properties);
     }
 }

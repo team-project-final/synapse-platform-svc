@@ -7,6 +7,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.synapse.platform.NotificationSend;
+import com.synapse.platform.global.kafka.KafkaTopicProperties;
+import com.synapse.platform.global.kafka.KafkaTopicResolver;
 import com.synapse.platform.user.api.UserInfo;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -20,9 +22,8 @@ import org.springframework.kafka.support.SendResult;
 class KafkaPasswordResetCodeSenderTest {
 
     private final KafkaTemplate<String, Object> kafkaTemplate = Mockito.mock(KafkaTemplate.class);
-    private final KafkaPasswordResetCodeSender sender = new KafkaPasswordResetCodeSender(
-            kafkaTemplate,
-            "platform.notification.notification-send-v1");
+    private final KafkaPasswordResetCodeSender sender =
+            new KafkaPasswordResetCodeSender(kafkaTemplate, topicResolver(""));
 
     @Test
     void send_shouldPublishEmailNotificationSendEvent() {
@@ -48,5 +49,32 @@ class KafkaPasswordResetCodeSenderTest {
         assertThat(event.getNotificationType().toString()).isEqualTo("PASSWORD_RESET_CODE");
         assertThat(event.getChannels()).containsExactly("EMAIL");
         assertThat(event.getEmailHtmlBody().toString()).contains("123456");
+    }
+
+    @Test
+    void send_shouldUsePrefixedNotificationTopic() {
+        KafkaPasswordResetCodeSender prefixedSender =
+                new KafkaPasswordResetCodeSender(kafkaTemplate, topicResolver("dev."));
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+        UserInfo user = new UserInfo(userId, "user@example.com", "User", tenantId);
+        given(kafkaTemplate.send(
+                eq("dev.platform.notification.notification-send-v1"),
+                eq(userId.toString()),
+                any(NotificationSend.class)))
+                .willReturn(CompletableFuture.completedFuture(Mockito.mock(SendResult.class)));
+
+        prefixedSender.send(user, "123456", OffsetDateTime.parse("2026-06-10T12:15:00+09:00"));
+
+        verify(kafkaTemplate).send(
+                eq("dev.platform.notification.notification-send-v1"),
+                eq(userId.toString()),
+                any(NotificationSend.class));
+    }
+
+    private KafkaTopicResolver topicResolver(String prefix) {
+        KafkaTopicProperties properties = new KafkaTopicProperties();
+        properties.setPrefix(prefix);
+        return new KafkaTopicResolver(properties);
     }
 }

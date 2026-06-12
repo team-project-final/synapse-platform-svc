@@ -54,6 +54,22 @@ spring:
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
     listener:
       missing-topics-fatal: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 app:
   kafka:
     outbox:

@@ -1,10 +1,10 @@
-# PLAT-097 GitHub Actions Node 20 deprecation 업그레이드
+# PLAT-101 Actuator Prometheus 메트릭 노출
 
 ## Task ID
-PLAT-097
+PLAT-101
 
 ## Title
-GitHub Actions 액션 메이저 버전 업그레이드
+`/actuator/prometheus` 엔드포인트 노출 보강
 
 ## Owner
 platform
@@ -13,116 +13,97 @@ platform
 IMPLEMENTED_LOCAL
 
 ## Priority
-P2
+P1
 
 ## Branch
-`chore/PLAT-097-actions-node24-upgrade`
+`fix/PLAT-101-prometheus-actuator`
 
 ## Base
 `origin/dev`
 
 ## Issue
-platform 이슈 #97: `ci: GitHub Actions Node 20 deprecation 업그레이드`
+platform 이슈 #101: `observability: /actuator/prometheus 미노출 -> Prometheus 스크랩 실패(메트릭 누락)`
 
 ## Step Goal
-GitHub Actions에서 Node.js 20 런타임 기반 구버전 액션 deprecation 경고가 발생하지 않도록 platform-svc 워크플로의 공식 액션 메이저 버전을 업그레이드한다.
+EKS staging에서 ServiceMonitor가 platform-svc의 `/actuator/prometheus`를 스크랩할 수 있도록 Prometheus registry 의존성과 actuator 노출 설정을 보강한다.
 
-이번 작업은 CI 설정 정리 작업이다. 애플리케이션 코드, Spring profile, env, Docker Compose, 다른 서비스 레포는 수정하지 않는다.
+현재 `/actuator/prometheus` 요청은 actuator endpoint가 노출되지 않아 Spring MVC 정적 리소스 조회로 흘러가고 404가 발생한다. 이번 작업은 observability 설정 보강이며, 애플리케이션 비즈니스 로직은 변경하지 않는다.
 
 ## Done When
-- [x] `.github/workflows/ci-java.yml`의 `actions/checkout`이 권장 최신 메이저로 업그레이드된다.
-- [x] `.github/workflows/ci-java.yml`의 `actions/setup-java`가 권장 최신 메이저로 업그레이드된다.
-- [x] `.github/workflows/parse-workflow.yml`의 `actions/checkout`이 권장 최신 메이저로 업그레이드된다.
-- [x] `.github/workflows/parse-workflow.yml`의 `actions/setup-node`가 권장 최신 메이저로 업그레이드된다.
-- [x] 기존 `with:` 설정은 유지된다.
-- [ ] PR checks에서 기존 Java CI와 workflow parser job이 정상 동작한다.
-- [ ] Node 20 deprecation 경고가 사라진다.
+- [x] `micrometer-registry-prometheus` 런타임 의존성이 추가된다.
+- [x] actuator web exposure에 `prometheus`가 포함된다.
+- [x] Prometheus metrics export가 활성화된다.
+- [x] `/actuator/prometheus`가 보안 필터에서 차단되지 않는다.
+- [x] 테스트에서 `/actuator/prometheus` 200 및 Prometheus 텍스트 응답을 확인한다.
 - [x] `git diff --check`를 통과한다.
+- [x] `clean build` 또는 관련 테스트가 통과한다.
 
 ## Scope
 
 ### In Scope
-- `.github/workflows/ci-java.yml`
-- `.github/workflows/parse-workflow.yml`
-- GitHub Actions 공식 액션 메이저 버전 업그레이드
+- `build.gradle.kts`
+- `src/main/resources/application.yml`
+- actuator/prometheus 노출 테스트
 - 작업 이력 문서 갱신
 
 ### Out of Scope
-- Java/Kotlin 애플리케이션 코드 수정
-- Gradle 의존성 수정
-- Docker/Docker Compose 수정
+- Prometheus/Grafana/GitOps 설정 수정
+- ServiceMonitor 수정
+- 비즈니스 API 수정
+- Kafka topic prefix 이슈 #102
+- W5 E2E umbrella #62
 - `.env` 또는 Spring profile 수정
-- shared/gitops/learning/engagement/frontend 등 다른 레포 수정
-- GitHub repository settings 변경
-- README의 열린 이슈 목록 정리
+- 다른 서비스 레포 수정
+- `TASK_platform.md` 수정
 
 ## Current Evidence
+- `build.gradle.kts`에는 `spring-boot-starter-actuator`는 있으나 `io.micrometer:micrometer-registry-prometheus`가 없다.
+- `application.yml`의 actuator exposure는 `health,info`만 포함한다.
+- `SecurityConfig`는 `/actuator/**`를 permitAll로 열고 있어 인증 차단이 주 원인은 아니다.
 
-현재 워크플로 액션 사용 현황:
-
-```text
-.github/workflows/ci-java.yml
-- actions/checkout@v4
-- actions/setup-java@v4
-
-.github/workflows/parse-workflow.yml
-- actions/checkout@v4
-- actions/setup-node@v4
-```
-
-platform 이슈 #97 권장 타깃:
-
-| Action | Current | Target |
-|---|---:|---:|
-| `actions/checkout` | `v4` | `v6` |
-| `actions/setup-java` | `v4` | `v5` |
-| `actions/setup-node` | `v4` | `v6` |
-
-## Compatibility Notes
-- `actions/setup-java`의 기존 `distribution`, `java-version`, `cache` 설정은 유지한다.
-- `actions/setup-node`의 기존 `node-version: 22` 설정은 유지한다.
-- `actions/checkout`의 dashboard checkout에서 사용하는 `repository`, `token`, `path` 설정은 유지한다.
-- shared PR #56에서 같은 방향의 액션 업그레이드 선례가 있다.
+관련 위치:
+- `build.gradle.kts`
+- `src/main/resources/application.yml`
+- `src/main/java/com/synapse/platform/auth/config/SecurityConfig.java`
 
 ## Implementation Plan
-1. workflow 파일 2개에서 공식 액션 메이저 버전만 교체한다.
-2. 불필요한 formatting 변경은 넣지 않는다.
-3. `git diff --check`로 공백 오류를 확인한다.
-4. PR 생성 후 GitHub Actions checks에서 실제 동작을 확인한다.
+1. `runtimeOnly("io.micrometer:micrometer-registry-prometheus")`를 추가한다.
+2. `management.endpoints.web.exposure.include`에 `prometheus`를 추가한다.
+3. `management.endpoint.prometheus.enabled=true`와 `management.prometheus.metrics.export.enabled=true`를 명시한다.
+4. `/actuator/prometheus` 공개 테스트를 추가한다.
+5. history/current 문서를 갱신한다.
 
 ## Test Plan
-로컬:
+우선 관련 테스트:
 
 ```powershell
+.\gradlew.bat test --tests "*PrometheusActuatorIntegrationTest"
+```
+
+최종 검증:
+
+```powershell
+.\gradlew.bat clean build
 git diff --check
 ```
 
-원격 PR checks:
-
-```text
-CI - Java (Gradle) / build
-CI - Java (Gradle) / dev-smoke
-Parse Workflow -> Dashboard / parse
-```
-
-## Local Test Results
+## Test Results
+- `.\gradlew.bat test --tests "*PrometheusActuatorIntegrationTest"`: PASS
+- `.\gradlew.bat clean build`: PASS
 - `git diff --check`: PASS
-- `rg -n "actions/(checkout|setup-java|setup-node)@v4" .github/workflows`: PASS, 대상 v4 액션 없음
-- PyYAML workflow parse: PASS
-- 구조 검사: `actions/checkout@v6`, `actions/setup-java@v5`, `actions/setup-node@v6`만 확인
-- `actionlint`: 로컬 미설치로 미수행
+
+Notes:
+- Windows 환경에서 Kafka 테스트 종료 시 임시 파일 삭제 경고 로그가 출력됐지만 Gradle 결과는 `BUILD SUCCESSFUL`이다.
 
 ## PR Plan
 - Target branch: `dev`
-- PR title: `ci(infra): GitHub Actions Node 20 deprecation 업그레이드 (#97)`
-- Related issue: `Closes #97`
+- PR title: `fix(infra): actuator prometheus 메트릭 노출 보강 (#101)`
+- Related issue: `Closes #101`
 
 ## Do Not Touch
-- `src/**`
-- `build.gradle.kts`
-- `settings.gradle.kts`
-- `docker-compose*.yml`
-- `.env`
-- Spring profiles
+- `src/main/java` 비즈니스 로직
+- Kafka 설정/토픽 프리픽스
+- GitOps/ServiceMonitor
 - 다른 서비스 레포
+- `.env`
 - `TASK_platform.md`

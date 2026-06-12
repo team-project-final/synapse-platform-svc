@@ -1,80 +1,69 @@
-# PLAT-097 Handoff
+# PLAT-101 Handoff
 
 ## Status
-로컬 구현 완료. PR checks 검증 전.
+로컬 구현 및 검증 완료. PR 전.
 
 ## Branch
 - Base: `origin/dev`
-- Working branch: `chore/PLAT-097-actions-node24-upgrade`
+- Working branch: `fix/PLAT-101-prometheus-actuator`
 - Target PR branch: `dev`
 
 ## Archived
 이전 current 문서는 아래 경로에 보존했다.
 
-- `docs/ai/archive/20260611-plat-073-completed/TASK.md`
-- `docs/ai/archive/20260611-plat-073-completed/CONTEXT.md`
-- `docs/ai/archive/20260611-plat-073-completed/HANDOFF.md`
+- `docs/ai/archive/20260612-plat-097-completed/TASK.md`
+- `docs/ai/archive/20260612-plat-097-completed/CONTEXT.md`
+- `docs/ai/archive/20260612-plat-097-completed/HANDOFF.md`
 
 ## Current Task
-platform 이슈 #97을 처리한다. GitHub Actions의 Node 20 deprecation 경고를 제거하기 위해 공식 액션 메이저 버전을 업그레이드한다.
+platform 이슈 #101을 처리한다. `/actuator/prometheus`가 404로 떨어지는 문제를 해결하기 위해 Prometheus registry와 actuator exposure 설정을 보강한다.
 
 ## Implementation Checklist
-- [x] `.github/workflows/ci-java.yml`의 `actions/checkout@v4`를 `actions/checkout@v6`로 변경
-- [x] `.github/workflows/ci-java.yml`의 `actions/setup-java@v4`를 `actions/setup-java@v5`로 변경
-- [x] `.github/workflows/parse-workflow.yml`의 `actions/checkout@v4`를 `actions/checkout@v6`로 변경
-- [x] `.github/workflows/parse-workflow.yml`의 `actions/setup-node@v4`를 `actions/setup-node@v6`로 변경
-- [x] 기존 `with:` 설정 유지
-- [x] `docs/project-management/history/HISTORY_platform.md`에 작업 이력 기록
+- [x] `build.gradle.kts`에 `runtimeOnly("io.micrometer:micrometer-registry-prometheus")` 추가
+- [x] `application.yml` actuator exposure에 `prometheus` 추가
+- [x] Prometheus endpoint/export enabled 설정 명시
+- [x] `/actuator/prometheus` 200 테스트 추가
+- [x] `docs/project-management/history/HISTORY_platform.md` 작업 이력 기록
+- [x] 단일 테스트 실행
+- [x] `clean build` 실행
 - [x] `git diff --check` 실행
-- [ ] PR 생성 후 GitHub Actions checks 확인
 
 ## Exact Change Targets
 
 ```text
-.github/workflows/ci-java.yml
-- actions/checkout@v4 -> actions/checkout@v6
-- actions/setup-java@v4 -> actions/setup-java@v5
-
-.github/workflows/parse-workflow.yml
-- actions/checkout@v4 -> actions/checkout@v6
-- actions/setup-node@v4 -> actions/setup-node@v6
+build.gradle.kts
+src/main/resources/application.yml
+src/test/java/com/synapse/platform/...
+docs/project-management/history/HISTORY_platform.md
+docs/ai/current/*
 ```
 
 ## Do Not Change
-- Java application code
-- Gradle dependency/version
-- Docker Compose
+- Kafka topic prefix / #102
+- GitOps ServiceMonitor
+- business API
 - `.env`
-- Spring profiles
-- GitHub repository settings
+- Spring profile files
 - shared/gitops/learning/engagement/frontend repos
 - `TASK_platform.md`
 
 ## Test Commands
-로컬:
 
 ```powershell
+.\gradlew.bat test --tests "*PrometheusActuatorIntegrationTest"
+.\gradlew.bat clean build
 git diff --check
 ```
 
 실행 결과:
+- `.\gradlew.bat test --tests "*PrometheusActuatorIntegrationTest"`: PASS
+- `.\gradlew.bat clean build`: PASS
 - `git diff --check`: PASS
-- target action `@v4` 잔존 검색: PASS
-- workflow YAML parse: PASS
-- target `uses:` 버전 구조 검사: PASS
-- `actionlint`: 로컬 미설치로 미수행
 
-원격:
-
-```text
-PR checks에서 CI - Java (Gradle), Parse Workflow jobs 통과 확인
-```
+참고:
+- Windows Kafka 테스트 종료 훅에서 임시 파일 삭제 경고가 출력됐지만 빌드는 성공했다.
 
 ## PR
-- Title: `ci(infra): GitHub Actions Node 20 deprecation 업그레이드 (#97)`
-- Body related issue: `Closes #97`
+- Title: `fix(infra): actuator prometheus 메트릭 노출 보강 (#101)`
+- Body related issue: `Closes #101`
 - Target: `dev`
-
-## Notes
-- 이 작업은 CI 설정 변경이므로 로컬 Gradle build보다 PR checks 결과가 핵심 검증이다.
-- README의 열린 이슈 목록은 실제 GitHub open issue 상태와 다르지만, 이번 PLAT-097 범위에서는 제외한다.

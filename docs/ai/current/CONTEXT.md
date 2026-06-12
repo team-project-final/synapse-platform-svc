@@ -1,105 +1,78 @@
-# PLAT-097 Context
+# PLAT-101 Context
 
 ## Current State
-- Target task: PLAT-097
-- Working branch: `chore/PLAT-097-actions-node24-upgrade`
+- Target task: PLAT-101
+- Working branch: `fix/PLAT-101-prometheus-actuator`
 - Base: `origin/dev`
 - Target PR branch: `dev`
 - 작업 대상 repo: `synapse-platform-svc`
-- 현재 상태: 로컬 구현 완료, PR checks 검증 전
+- 현재 상태: 로컬 구현 및 검증 완료, PR 전
 
 ## Background
-platform 이슈 #97은 GitHub Actions에서 Node.js 20 런타임 기반 액션이 deprecation 예정이라는 CI 정비 이슈다.
+platform 이슈 #101은 EKS staging에서 Prometheus ServiceMonitor가 `/actuator/prometheus`를 스크랩하지만 404로 실패하는 문제다.
 
-이슈 본문 기준 제거 예정일은 2026-09-16이며, 현재 platform-svc 워크플로에는 구 메이저 액션이 남아 있다. 같은 유형의 정비는 synapse-shared PR #56에서 선례가 있다고 기록되어 있다.
+이슈 본문에 기록된 예외:
 
-## Issue Summary
-이슈: platform 이슈 #97 `ci: GitHub Actions Node 20 deprecation 업그레이드`
+```text
+No static resource actuator/prometheus for request '/actuator/prometheus'
+```
 
-요구사항:
-- 공식 액션 메이저 버전 업그레이드
-- 기존 workflow 동작 유지
-- Node 20 deprecation 경고 제거
+이 패턴은 Spring Security 401/403이 아니라 actuator endpoint가 등록/노출되지 않았을 때 나타나는 404다.
 
-권장 타깃:
-- `actions/checkout@v4` -> `actions/checkout@v6`
-- `actions/setup-java@v4` -> `actions/setup-java@v5`
-- `actions/setup-node@v4` -> `actions/setup-node@v6`
+## Current Code Evidence
 
-## Files In Scope
+### Dependency
+현재 `build.gradle.kts`:
 
-### `.github/workflows/ci-java.yml`
-현재 구조:
-- `build` job
-  - checkout
-  - Java 21 setup
-  - `./gradlew clean build --no-daemon`
-  - Modulith verify
-- `dev-smoke` job
-  - checkout
-  - Java 21 setup
-  - Docker Hub login
-  - docker compose dev services
-  - `bootRun --spring.profiles.active=dev`
-  - actuator health check
+```kotlin
+implementation("org.springframework.boot:spring-boot-starter-actuator")
+```
 
-현재 액션:
-- `actions/checkout@v4`
-- `actions/setup-java@v4`
+Prometheus endpoint에 필요한 registry 의존성은 아직 없다.
 
-### `.github/workflows/parse-workflow.yml`
-현재 구조:
-- platform repo checkout
-- `team-project-final/workflow-dashboard` checkout
-- Node 22 setup
-- workflow/prd parser 실행
-- dashboard data push
+```kotlin
+runtimeOnly("io.micrometer:micrometer-registry-prometheus")
+```
 
-현재 액션:
-- `actions/checkout@v4`
-- `actions/setup-node@v4`
+### Actuator Exposure
+현재 `src/main/resources/application.yml`:
 
-## Files Out of Scope
-- `.github/workflows/deploy.yml`
-- `.github/workflows/flyway-guard.yml`
-- `.github/workflows/mirror.yml`
-- Java source/test files
-- Gradle files
-- Docker files
-- README issue list
-- 다른 레포
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+```
 
-## Constraints
-- `main`/`dev` 직접 commit 금지.
-- PR target은 `dev`.
-- branch prefix는 git 규칙상 CI/설정 작업에 맞춰 `chore/PLAT-097-...`를 사용한다.
-- PR title은 규칙대로 `<type>(<scope>): <설명> (#이슈번호)` 형식을 사용한다.
-- PR body는 한글이 깨지지 않도록 UTF-8 body file로 작성한다.
+`prometheus`가 노출 대상에 포함되어 있지 않다.
+
+### Security
+현재 `SecurityConfig`는 `/actuator/**`를 permitAll로 허용한다. 따라서 이번 이슈의 핵심은 security rule 추가가 아니라 actuator endpoint 등록/노출이다.
+
+## Proposed Change
+- Prometheus registry runtime dependency 추가
+- actuator exposure에 `prometheus` 추가
+- prometheus endpoint/export enabled 명시
+- MockMvc/SpringBootTest 계열 테스트에서 `/actuator/prometheus` 200 확인
 
 ## Risk Review
 
 ### Low Risk
-- 액션 버전만 변경하며 애플리케이션 코드에는 영향이 없다.
-- 기존 `with:` 파라미터를 유지하면 workflow 의미가 바뀌지 않는다.
+- actuator/observability 설정 변경이며 비즈니스 로직에 직접 영향이 없다.
+- `/actuator/**`는 이미 permitAll이므로 보안 정책의 실질 변경은 없다.
 
 ### Watch Points
-- `actions/checkout@v6`에서 dashboard repo checkout의 `repository`, `token`, `path` 설정이 그대로 동작하는지 PR check로 확인해야 한다.
-- `actions/setup-java@v5`에서 `cache: gradle` 동작이 유지되는지 확인해야 한다.
-- `actions/setup-node@v6`에서 `node-version: 22` 설정이 유지되는지 확인해야 한다.
+- Spring Boot 4 환경에서 Prometheus registry 의존성 이름이 맞는지 Gradle resolve로 검증해야 한다.
+- 테스트 환경에서도 actuator endpoint가 동일하게 노출되는지 확인해야 한다.
+- response content type은 Prometheus text format 계열이므로 정확한 charset까지 과도하게 고정하지 않는다.
 
 ## Verification Strategy
-로컬에서는 workflow 런타임 자체를 완전히 재현하기 어렵다. 따라서 로컬 검증은 diff 품질 확인 중심으로 두고, 최종 검증은 PR checks에서 한다.
+1. 단일 테스트로 `/actuator/prometheus` endpoint 200 확인
+2. `clean build`로 전체 회귀 확인
+3. PR checks에서 staging과 동일한 boot/dev-smoke 경로 확인
 
-로컬:
-
-```powershell
-git diff --check
-```
-
-PR checks:
-- Java CI build
-- Java CI dev-smoke
-- workflow-dashboard parser
-
-## Related Note
-README에는 예전 열린 이슈 목록이 남아 있으나, 이번 PLAT-097의 직접 범위는 GitHub Actions deprecation 처리다. README 정리는 별도 문서/작업으로 분리하는 것이 안전하다.
+## Related Issues
+- #101: 이번 작업
+- #102: Kafka topic prefix. 범위가 크므로 별도 작업으로 분리
+- #62: W5 E2E umbrella. #101/#102 이후 검증성으로 정리

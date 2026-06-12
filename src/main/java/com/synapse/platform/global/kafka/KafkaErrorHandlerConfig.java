@@ -26,7 +26,7 @@ import org.springframework.util.backoff.FixedBackOff;
 @ConditionalOnProperty(prefix = "synapse.kafka", name = "enabled", havingValue = "true")
 public class KafkaErrorHandlerConfig {
 
-    private final KafkaTopicProperties topicProperties;
+    private final KafkaTopicResolver topicResolver;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -34,8 +34,8 @@ public class KafkaErrorHandlerConfig {
     @Value("${spring.kafka.properties.schema.registry.url:http://localhost:8086}")
     private String schemaRegistryUrl;
 
-    public KafkaErrorHandlerConfig(KafkaTopicProperties topicProperties) {
-        this.topicProperties = topicProperties;
+    public KafkaErrorHandlerConfig(KafkaTopicResolver topicResolver) {
+        this.topicResolver = topicResolver;
     }
 
     @Bean
@@ -68,7 +68,7 @@ public class KafkaErrorHandlerConfig {
         templates.put(SpecificRecord.class, dltKafkaTemplate);
         templates.put(Object.class, dltKafkaTemplate);
         var recoverer = new DeadLetterPublishingRecoverer(templates,
-            (record, ex) -> new TopicPartition(record.topic() + topicProperties.getDlqSuffix(), record.partition()));
+            (record, ex) -> new TopicPartition(topicResolver.dlqTopic(record.topic()), record.partition()));
         return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3L));
     }
 
@@ -82,7 +82,7 @@ public class KafkaErrorHandlerConfig {
         templates.put(SpecificRecord.class, dltKafkaTemplate);
         templates.put(Object.class, dltKafkaTemplate);
         var recoverer = new DeadLetterPublishingRecoverer(templates,
-            (record, ex) -> new TopicPartition(record.topic() + topicProperties.getDlqSuffix(), record.partition()));
+            (record, ex) -> new TopicPartition(topicResolver.dlqTopic(record.topic()), record.partition()));
         var backOff = new ExponentialBackOff(1_000L, 2.0);
         backOff.setMaxElapsedTime(7_000L);
         return new DefaultErrorHandler(recoverer, backOff);

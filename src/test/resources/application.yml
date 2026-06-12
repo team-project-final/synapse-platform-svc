@@ -75,6 +75,10 @@ app:
     outbox:
       enabled: false
     topics:
+      prefix: ""
+      dlq-suffix: .dlq
+      user-registered: platform.auth.user-registered-v1
+      notification-send: platform.notification.notification-send-v1
       note-created: knowledge.note.note-created-v1
       note-updated: knowledge.note.note-updated-v1
       review-completed: learning.card.review-completed-v1

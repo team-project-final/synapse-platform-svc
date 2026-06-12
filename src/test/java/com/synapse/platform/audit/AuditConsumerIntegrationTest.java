@@ -9,8 +9,12 @@ import com.synapse.knowledge.NoteCreated;
 import com.synapse.knowledge.NoteUpdated;
 import com.synapse.learning.Rating;
 import com.synapse.learning.ReviewCompleted;
+import com.synapse.platform.NotificationSend;
 import com.synapse.platform.audit.repository.AuditLogRepository;
+import java.time.Instant;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
@@ -46,7 +50,8 @@ import org.springframework.test.context.ActiveProfiles;
             "knowledge.note.note-updated-v1",
             "learning.card.review-completed-v1",
             "engagement.gamification.badge-earned-v1",
-            "engagement.gamification.level-up-v1"
+            "engagement.gamification.level-up-v1",
+            "platform.notification.notification-send-v1"
         },
         bootstrapServersProperty = "spring.kafka.bootstrap-servers")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -57,6 +62,7 @@ class AuditConsumerIntegrationTest {
     private static final String TOPIC_REVIEW = "learning.card.review-completed-v1";
     private static final String TOPIC_BADGE = "engagement.gamification.badge-earned-v1";
     private static final String TOPIC_LEVEL_UP = "engagement.gamification.level-up-v1";
+    private static final String TOPIC_NOTIFICATION_SEND = "platform.notification.notification-send-v1";
 
     @Autowired
     private AuditLogRepository auditLogRepository;
@@ -239,10 +245,46 @@ class AuditConsumerIntegrationTest {
                         }));
     }
 
+    @Test
+    @Order(6)
+    void notificationSendEvent_shouldBeStoredAsNotificationSendAuditLog() {
+        String eventId = UUID.randomUUID().toString();
+        String userId = UUID.randomUUID().toString();
+
+        NotificationSend event = NotificationSend.newBuilder()
+                .setEventId(eventId)
+                .setTenantId(UUID.randomUUID().toString())
+                .setOccurredAt(Instant.now().toEpochMilli())
+                .setTraceparent(null)
+                .setUserId(userId)
+                .setNotificationType("AI_CARDS_READY")
+                .setChannels(List.of())
+                .setTitle("Review due")
+                .setBody("A card is ready.")
+                .setEmailSubject(null)
+                .setEmailHtmlBody(null)
+                .setData(Map.of())
+                .build();
+
+        kafkaTemplate.send(TOPIC_NOTIFICATION_SEND, userId, event);
+
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
+                assertThat(auditLogRepository.findByAction("NOTIFICATION_SEND", Pageable.unpaged())
+                        .getContent())
+                        .singleElement()
+                        .satisfies(log -> {
+                            assertThat(log.getEventId()).isEqualTo(UUID.fromString(eventId));
+                            assertThat(log.getAction()).isEqualTo("NOTIFICATION_SEND");
+                            assertThat(log.getResourceType()).isEqualTo("USER");
+                            assertThat(log.getResourceId()).isEqualTo(userId);
+                            assertThat(log.getUserId()).isEqualTo(UUID.fromString(userId));
+                        }));
+    }
+
     // ── Idempotency: duplicate event_id → only one audit log row ─────────────
 
     @Test
-    @Order(6)
+    @Order(7)
     void duplicateNoteCreatedEvent_shouldStoreOnlyOneAuditLog() {
         String eventId = UUID.randomUUID().toString();
         String noteId = UUID.randomUUID().toString();

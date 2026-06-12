@@ -107,7 +107,9 @@ management:
 app:
   kafka:
     topics:
-      user-registered: platform.auth.user-registered-v1
+      prefix: ${KAFKA_TOPIC_PREFIX:}
+      dlq-suffix: ${KAFKA_TOPIC_DLQ_SUFFIX:.dlq}
+      user-registered: ${KAFKA_TOPIC_USER_REGISTERED:platform.auth.user-registered-v1}
       notification-send: ${KAFKA_TOPIC_NOTIFICATION_SEND:platform.notification.notification-send-v1}
       note-created: ${KAFKA_TOPIC_NOTE_CREATED:knowledge.note.note-created-v1}
       note-updated: ${KAFKA_TOPIC_NOTE_UPDATED:knowledge.note.note-updated-v1}

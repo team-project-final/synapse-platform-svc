@@ -5,6 +5,7 @@ import com.synapse.engagement.LevelUp;
 import com.synapse.knowledge.NoteCreated;
 import com.synapse.knowledge.NoteUpdated;
 import com.synapse.learning.ReviewCompleted;
+import com.synapse.platform.NotificationSend;
 import com.synapse.platform.UserRegistered;
 import com.synapse.platform.audit.service.AuditLogService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -22,7 +23,7 @@ public class AuditKafkaConsumer {
     }
 
     @KafkaListener(
-            topics = {"${app.kafka.topics.user-registered:platform.auth.user-registered-v1}"},
+            topics = "#{@kafkaTopicResolver.userRegistered()}",
             groupId = "platform-svc-group",
             containerFactory = "auditKafkaListenerContainerFactory")
     public void consume(UserRegistered event) {
@@ -30,7 +31,7 @@ public class AuditKafkaConsumer {
     }
 
     @KafkaListener(
-            topics = "${app.kafka.topics.note-created}",
+            topics = "#{@kafkaTopicResolver.noteCreated()}",
             groupId = "platform-audit-group",
             containerFactory = "auditKafkaListenerContainerFactory")
     public void consumeNoteCreated(NoteCreated event) {
@@ -38,7 +39,7 @@ public class AuditKafkaConsumer {
     }
 
     @KafkaListener(
-            topics = "${app.kafka.topics.note-updated}",
+            topics = "#{@kafkaTopicResolver.noteUpdated()}",
             groupId = "platform-audit-group",
             containerFactory = "auditKafkaListenerContainerFactory")
     public void consumeNoteUpdated(NoteUpdated event) {
@@ -46,7 +47,7 @@ public class AuditKafkaConsumer {
     }
 
     @KafkaListener(
-            topics = "${app.kafka.topics.review-completed}",
+            topics = "#{@kafkaTopicResolver.reviewCompleted()}",
             groupId = "platform-audit-group",
             containerFactory = "auditKafkaListenerContainerFactory")
     public void consumeReviewCompleted(ReviewCompleted event) {
@@ -54,7 +55,7 @@ public class AuditKafkaConsumer {
     }
 
     @KafkaListener(
-            topics = "${app.kafka.topics.badge-earned}",
+            topics = "#{@kafkaTopicResolver.badgeEarned()}",
             groupId = "platform-audit-group",
             containerFactory = "auditKafkaListenerContainerFactory")
     public void consumeBadgeEarned(BadgeEarned event) {
@@ -62,10 +63,18 @@ public class AuditKafkaConsumer {
     }
 
     @KafkaListener(
-            topics = "${app.kafka.topics.level-up}",
+            topics = "#{@kafkaTopicResolver.levelUp()}",
             groupId = "platform-audit-group",
             containerFactory = "auditKafkaListenerContainerFactory")
     public void consumeLevelUp(LevelUp event) {
+        auditLogService.processEvent(event);
+    }
+
+    @KafkaListener(
+            topics = "#{@kafkaTopicResolver.notificationSend()}",
+            groupId = "platform-audit-group",
+            containerFactory = "auditKafkaListenerContainerFactory")
+    public void consumeNotificationSend(NotificationSend event) {
         auditLogService.processEvent(event);
     }
 }

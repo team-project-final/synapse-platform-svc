@@ -557,6 +557,7 @@
 
 | 날짜 | 변경 사항 |
 |------|-----------|
+| 2026-06-12 | **PLAT-102 Kafka 토픽 환경 프리픽스 적용** — `KAFKA_TOPIC_PREFIX` 기본 빈 문자열 계약으로 producer/consumer/audit 토픽을 `KafkaTopicResolver`에서 일원화, DLT/DLQ suffix를 shared 표준 `.dlq`로 정렬, `NotificationSend` audit listener 추가 및 본문/HTML/data 감사 로그 저장 제외. topic resolver/producer/config/EmbeddedKafka 테스트 통과 |
 | 2026-06-12 | **PLAT-101 Actuator Prometheus 메트릭 노출 보강** — `micrometer-registry-prometheus` 런타임 의존성 추가, `/actuator/prometheus` exposure/export 활성화, 인증 없이 Prometheus text 응답을 확인하는 통합 테스트 추가 |
 | 2026-06-11 | **PLAT-097 GitHub Actions Node 20 deprecation 업그레이드** — `actions/checkout` v6, `actions/setup-java` v5, `actions/setup-node` v6로 워크플로 액션 메이저 버전 갱신. 애플리케이션 코드/Gradle/env/profile 변경 없음 |
 | 2026-06-11 | **PLAT-073 Admin GDPR/data request API 구현** — `gdpr_data_requests` 저장소와 admin list/detail/create/action API 추가, `DATA_ERASURE` 실행 오인 방지 conflict 처리와 `daysRemaining` 계산 보정, `data-requests` analytics pending item을 실제 open count 기반으로 전환. 관련 테스트와 `clean build` 통과 |

@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/synapse}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/synapse_platform}
     username: ${DB_USERNAME:synapse}
     password: ${DB_PASSWORD:synapse_local_pw}
     driver-class-name: org.postgresql.Driver
